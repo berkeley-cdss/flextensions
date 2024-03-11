@@ -10,12 +10,39 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2024_03_11_030711) do
+ActiveRecord::Schema[7.1].define(version: 2024_03_11_034706) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
   create_table "course_staffs", force: :cascade do |t|
     t.string "email"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "course_staffs_tables", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "courses_tables", force: :cascade do |t|
+    t.string "name"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "lms_credentials_tables", force: :cascade do |t|
+    t.string "lms_name"
+    t.string "username"
+    t.string "password"
+    t.string "token"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "lmss_tables", force: :cascade do |t|
+    t.string "name"
+    t.boolean "use_auth_token"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
