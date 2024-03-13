@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2024_03_13_222606) do
+ActiveRecord::Schema[7.1].define(version: 2024_03_13_230106) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -26,8 +26,17 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_13_222606) do
     t.datetime "updated_at", null: false
   end
 
-  create_table "lmss", force: :cascade do |t|
-    t.string "lms_name"
+  create_table "coursetoplatforms", force: :cascade do |t|
+    t.bigint "platform_id"
+    t.bigint "course_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["course_id"], name: "index_coursetoplatforms_on_course_id"
+    t.index ["platform_id"], name: "index_coursetoplatforms_on_platform_id"
+  end
+
+  create_table "platforms", force: :cascade do |t|
+    t.string "platform_name"
     t.boolean "use_auth_token"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
@@ -49,6 +58,8 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_13_222606) do
     t.index ["user_id"], name: "index_usertocourses_on_user_id"
   end
 
+  add_foreign_key "coursetoplatforms", "courses"
+  add_foreign_key "coursetoplatforms", "platforms"
   add_foreign_key "usertocourses", "courses"
   add_foreign_key "usertocourses", "users"
 end
