@@ -35,6 +35,24 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_13_230106) do
     t.index ["platform_id"], name: "index_coursetoplatforms_on_platform_id"
   end
 
+  create_table "extensions", force: :cascade do |t|
+    t.string "student_email"
+    t.datetime "initial_due_date"
+    t.datetime "new_due_date"
+    t.bigint "last_processed_by_user_id"
+    t.bigint "assignment_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["assignment_id"], name: "index_extensions_on_assignment_id"
+  end
+
+  create_table "lmss", force: :cascade do |t|
+    t.string "lms_name"
+    t.boolean "use_auth_token"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
   create_table "platforms", force: :cascade do |t|
     t.string "platform_name"
     t.boolean "use_auth_token"
@@ -60,6 +78,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_03_13_230106) do
 
   add_foreign_key "coursetoplatforms", "courses"
   add_foreign_key "coursetoplatforms", "platforms"
+  add_foreign_key "extensions", "assignments"
   add_foreign_key "usertocourses", "courses"
   add_foreign_key "usertocourses", "users"
 end
