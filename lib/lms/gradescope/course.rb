@@ -1,4 +1,4 @@
-module Lmss
+module LMS
   module Gradescope
     class Course
       def initialize(course_id, client)
@@ -13,7 +13,7 @@ module Lmss
         return [] unless props
 
         assignments = props['table_data'] || []
-        assignments.map { |data| Lmss::Gradescope::Assignment.new(@course_id, data, @client) }
+        assignments.map { |data| LMS::Gradescope::Assignment.new(@course_id, data, @client) }
       end
 
       # def memberships

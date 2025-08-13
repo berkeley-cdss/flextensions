@@ -299,7 +299,7 @@
         }
       }
     },
-    "/courses/{course_id}/lmss/{lms_id}": {
+    "/courses/{course_id}/lms/{lms_id}": {
       "parameters": [
         {
           "in": "path",
@@ -357,7 +357,7 @@
         }
       }
     },
-    "/courses/{course_id}/lmss/{lms_id}/assignments/{assignment_id}/extensions": {
+    "/courses/{course_id}/lms/{lms_id}/assignments/{assignment_id}/extensions": {
       "parameters": [
         {
           "in": "path",
@@ -445,7 +445,7 @@
         }
       }
     },
-    "/courses/{course_id}/lmss/{lms_id}/assignments": {
+    "/courses/{course_id}/lms/{lms_id}/assignments": {
       "get": {
         "summary": "Get all assignments from one (course, lms)",
         "tags": [
@@ -533,7 +533,7 @@
         }
       }
     },
-    "/courses/{course_id}/lmss/{lms_id}/assignments/{assignment_id}": {
+    "/courses/{course_id}/lms/{lms_id}/assignments/{assignment_id}": {
       "delete": {
         "summary": "Delete an assignment from one (course, lms)",
         "tags": [

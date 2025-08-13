@@ -1,4 +1,4 @@
-module Lmss
+module LMS
   module Gradescope
     class Error < StandardError; end
     class AuthenticationError < Error; end

@@ -30,14 +30,14 @@ module Api
         User.destroy_all
       end
 
-      describe 'GET /api/v1/courses/:course_id/lmss/:lms_id/assignments' do
+      describe 'GET /api/v1/courses/:course_id/lms/:lms_id/assignments' do
         it 'throws a 501 error' do
           get :index, params: { course_id: mock_course.id, lms_id: mock_lms.id }
           expect(response).to have_http_status(501)
         end
       end
 
-      describe 'POST /api/v1/courses/:course_id/lmss/:lms_id/assignments' do
+      describe 'POST /api/v1/courses/:course_id/lms/:lms_id/assignments' do
         context 'when one or more parameters are missing' do
           it 'returns status :bad_request when name is missing' do
             post :create, params: valid_params.except(:name)
@@ -98,7 +98,7 @@ module Api
         end
       end
 
-      describe 'DELETE /api/v1/courses/:course_id/lmss/:lms_id/assignments/:id' do
+      describe 'DELETE /api/v1/courses/:course_id/lms/:lms_id/assignments/:id' do
         let(:mock_assignment_id) { 1 }
 
         it 'throws a 501 error' do

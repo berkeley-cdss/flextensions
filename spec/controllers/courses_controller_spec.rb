@@ -33,7 +33,7 @@ RSpec.describe CoursesController, type: :controller do
     context 'when course exists' do
       before do
         CourseToLms.create!(course: course, lms_id: 1)
-        Assignment.create!(name: 'Assignment 1', course_to_lms_id: course.course_to_lmss.first.id, external_assignment_id: 'xyz', enabled: true)
+        Assignment.create!(name: 'Assignment 1', course_to_lms_id: course.course_to_lms.first.id, external_assignment_id: 'xyz', enabled: true)
       end
 
       it 'renders the shared role-based view with student template' do

@@ -4,8 +4,8 @@ class Course < ApplicationRecord
   after_create :regenerate_readonly_api_token_if_blank
 
   # Associations
-  has_many :course_to_lmss
-  has_many :lmss, through: :course_to_lmss
+  has_many :course_to_lms
+  has_many :lms, through: :course_to_lms
   has_many :user_to_courses
   has_many :users, through: :user_to_courses
   has_one :form_setting, dependent: :destroy

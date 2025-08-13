@@ -15,7 +15,7 @@ class CourseToLms < ApplicationRecord
     if response.success?
       JSON.parse(response.body).map do |data|
         data['base_date'] = data['all_dates']&.find { |d| d['base'] }
-        Lmss::Canvas::Assignment.new(data)
+        LMS::Canvas::Assignment.new(data)
       end
     else
       Rails.logger.error "Failed to fetch assignments: #{response.status} - #{response.body}"
@@ -26,12 +26,12 @@ class CourseToLms < ApplicationRecord
   def fetch_gradescope_assignments
     return [] unless course.course_settings.enable_gradescope?
 
-    client = Lmss::Gradescope.login(
+    client = LMS::Gradescope.login(
       ENV.fetch('GRADESCOPE_EMAIL'),
       ENV.fetch('GRADESCOPE_PASSWORD')
     )
 
-    course = Lmss::Gradescope::Course.new(external_course_id, client)
+    course = LMS::Gradescope::Course.new(external_course_id, client)
     assignments = course.assignments
 
     if assignments.any?

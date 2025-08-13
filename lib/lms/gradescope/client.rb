@@ -3,7 +3,7 @@ require 'faraday-cookie_jar'
 
 require 'nokogiri'
 
-module Lmss
+module LMS
   module Gradescope
     class Client
       BASE_URL = 'https://www.gradescope.com'.freeze

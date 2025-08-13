@@ -1,7 +1,7 @@
 require 'rails_helper'
 module Api
   module V1
-    describe LmssController do
+    describe LMSController do
       def json_response
         response.parsed_body
       end

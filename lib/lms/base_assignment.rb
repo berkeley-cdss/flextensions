@@ -1,4 +1,4 @@
-module Lmss
+module LMS
   class BaseAssignment
     def id = raise(NotImplementedError)
     def name = raise(NotImplementedError)
@@ -10,7 +10,7 @@ module Lmss
     end
 
     def to_lms_assignment
-      Lmss::BaseAssignment.new(
+      LMS::BaseAssignment.new(
         id: id,
         name: name,
         due_date: due_date,

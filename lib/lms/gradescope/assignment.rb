@@ -1,8 +1,8 @@
-require 'lmss/base_assignment'
+require 'lms/base_assignment'
 
-module Lmss
+module LMS
   module Gradescope
-    class Assignment < Lmss::BaseAssignment
+    class Assignment < LMS::BaseAssignment
       attr_reader :id, :name, :due_date, :late_due_date
 
       def initialize(course_id, data, client)
