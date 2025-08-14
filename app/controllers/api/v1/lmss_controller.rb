@@ -1,6 +1,6 @@
 module Api
   module V1
-    class LmssController < BaseController
+    class LMSController < BaseController
       include CanvasValidationHelper
       before_action :validate_ids!, only: [:create]
 
@@ -8,7 +8,7 @@ module Api
         render json: { message: 'not yet implemented' }, status: :not_implemented
       end
 
-      # POST /courses/:course_id/lmss
+      # POST /courses/:course_id/lms
       def create
         course_id = params[:course_id]
         lms_id = params[:lms_id]

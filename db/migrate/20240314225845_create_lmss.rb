@@ -1,6 +1,6 @@
-class CreateLmss < ActiveRecord::Migration[7.1]
+class CreateLMS < ActiveRecord::Migration[7.1]
   def change
-    create_table :lmss do |t|
+    create_table :lms do |t|
       t.string :lms_name
       t.boolean :use_auth_token
 

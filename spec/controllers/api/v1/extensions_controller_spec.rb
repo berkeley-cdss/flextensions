@@ -3,7 +3,7 @@ require 'rails_helper'
 module Api
   module V1
     describe ExtensionsController do
-      describe 'POST /api/v1/courses/:course_id/lmss/:lms_id/assignments/:assignment_id/extensions' do
+      describe 'POST /api/v1/courses/:course_id/lms/:lms_id/assignments/:assignment_id/extensions' do
         before(:all) do
           load Rails.root.join('db/seeds.rb').to_s
           @course = Course.take
