@@ -43,21 +43,21 @@ ActiveRecord::Schema[7.1].define(version: 2025_06_12_005134) do
     t.text "email_template", default: "Dear {{student_name}},\n\nYour extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.\n\nExtension Details:\n- Original Due Date: {{original_due_date}}\n- New Due Date: {{new_due_date}}\n- Extension Days: {{extension_days}}\n\nIf you have any questions, please contact the course staff.\n\nBest regards,\n{{course_name}} Staff"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.boolean "enable_gradescope", default: false
-    t.string "gradescope_course_url"
     t.string "slack_webhook_url"
     t.boolean "enable_slack_webhook_url"
+    t.boolean "enable_gradescope", default: false
+    t.string "gradescope_course_url"
     t.index ["course_id"], name: "index_course_settings_on_course_id"
   end
 
-  create_table "course_to_lms", force: :cascade do |t|
+  create_table "course_to_lmss", force: :cascade do |t|
     t.bigint "lms_id"
     t.bigint "course_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "external_course_id"
-    t.index ["course_id"], name: "index_course_to_lms_on_course_id"
-    t.index ["lms_id"], name: "index_course_to_lms_on_lms_id"
+    t.index ["course_id"], name: "index_course_to_lmss_on_course_id"
+    t.index ["lms_id"], name: "index_course_to_lmss_on_lms_id"
   end
 
   create_table "courses", force: :cascade do |t|
@@ -124,7 +124,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_06_12_005134) do
     t.index ["user_id"], name: "index_lms_credentials_on_user_id"
   end
 
-  create_table "lms", force: :cascade do |t|
+  create_table "lmss", force: :cascade do |t|
     t.string "lms_name"
     t.boolean "use_auth_token"
     t.datetime "created_at", null: false
@@ -174,10 +174,10 @@ ActiveRecord::Schema[7.1].define(version: 2025_06_12_005134) do
     t.index ["email"], name: "index_users_on_email", unique: true
   end
 
-  add_foreign_key "assignments", "course_to_lms"
+  add_foreign_key "assignments", "course_to_lmss", column: "course_to_lms_id"
   add_foreign_key "course_settings", "courses"
-  add_foreign_key "course_to_lms", "courses"
-  add_foreign_key "course_to_lms", "lms"
+  add_foreign_key "course_to_lmss", "courses"
+  add_foreign_key "course_to_lmss", "lmss", column: "lms_id"
   add_foreign_key "extensions", "assignments"
   add_foreign_key "extensions", "users", column: "last_processed_by_id"
   add_foreign_key "form_settings", "courses"
