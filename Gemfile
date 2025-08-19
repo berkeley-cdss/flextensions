@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 
-ruby '3.3.8'
+ruby '~> 3.3.9'
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem 'rails', '~> 7.1.5.1'
@@ -51,7 +51,7 @@ gem 'newrelic_rpm'
 # Use Active Storage for file uploads [https://guides.rubyonrails.org/active_storage_overview.html]
 # gem "activestorage", "~> 7.0.0"
 
-# Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin AJAX possible [
+# Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin AJAX possible
 
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
 # gem "image_processing", "~> 1.2"
@@ -76,9 +76,6 @@ gem 'omniauth-oauth2'
 # Font Awesome for icons
 gem 'font-awesome-sass'
 
-gem 'letter_opener'
-gem 'letter_opener_web', '~> 3.0'
-
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem 'debug', platforms: %i[mri windows]
@@ -94,11 +91,12 @@ group :test do
 
   gem 'codeclimate-test-reporter'
   gem 'cucumber-rails', require: false
-  gem 'cucumber-rails-training-wheels'
   gem 'database_cleaner'
   gem 'simplecov', '~> 0.20.0', require: false
   gem 'timecop'
   gem 'webmock'
+
+  gem 'rails-controller-testing', '~> 1.0'
 
   gem 'axe-core-api'
   gem 'axe-core-cucumber'
@@ -119,6 +117,9 @@ group :development do
   # Use console on exceptions pages [https://github.com/rails/web-console]
   gem 'web-console'
 
+  # Nice references to routes/db schema in files
+  gem 'annotaterb'
+
   # Add speed badges [https://github.com/MiniProfiler/rack-mini-profiler]
   # gem "rack-mini-profiler"
 
@@ -133,4 +134,13 @@ group :development do
   gem 'rubocop-rspec', require: false
 end
 
-gem 'rails-controller-testing', '~> 1.0'
+# Everywhere except :production
+group :development, :test, :staging do
+  # Include letter opening in staging so we can view emails without actually nagging humans.
+  gem 'letter_opener'
+  gem 'letter_opener_web', '~> 3.0'
+end
+
+# Staging only gems.
+# group :staging do
+# end
