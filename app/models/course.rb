@@ -39,12 +39,31 @@ class Course < ApplicationRecord
     CourseToLms.find_by(course_id: id, lms_id: lms_id)
   end
 
+  def all_linked_lmss
+    CourseToLms.where(course_id: id)
+  end
+
   def user_role(user)
     roles = UserToCourse.where(user_id: user.id, course_id: id).pluck(:role)
     return 'instructor' if roles.include?('teacher') || roles.include?('ta')
     return 'student' if roles.include?('student')
 
     nil
+  end
+
+  # TODO: This doesn't make sense actually.
+  # A course can be linked to many LMSs.
+  # def lms_facade
+  #   course_to_lms = CourseToLms.find_by(id: course_to_lms_id)
+  #   Lms.facade_class(course_to_lms.lms_id)
+  # end
+
+  def canvas_id
+    CourseToLms.find_by(course_id: id, lms_id: CANVAS_LMS_ID)&.external_course_id
+  end
+
+  def gradescope_id
+    CourseToLms.find_by(course_id: id, lms_id: GRADESCOPE_LMS_ID)&.external_course_id
   end
 
   def assignments
@@ -96,6 +115,8 @@ class Course < ApplicationRecord
         auto_approve_days: 0,
         auto_approve_dsp_days: 0,
         max_auto_approve: 0,
+        enable_gradescope: false,
+        gradescope_course_url: nil,
         enable_emails: false,
         reply_email: nil,
         email_subject: 'Extension Request Status: {{status}} - {{course_code}}',
@@ -118,7 +139,18 @@ class Course < ApplicationRecord
       course_settings.save!
     end
 
+    # Sync assignments from Canvas
     sync_assignments(course_to_lms, token)
+    # TODO-MB: This doesn't need to be in the overall create flow?
+    # Move some logic to CourseSettings models (after update?)
+    # Sync assignments from Gradescope if enabled
+    # To-do: if disabled should unsync Gradescope assignments
+    if course.course_settings.enable_gradescope
+      gradescope_course_id = extract_gradescope_course_id(course.course_settings.gradescope_course_url)
+      course_to_gradescope = find_or_create_course_to_lms(course, { 'id' => gradescope_course_id }, 2)
+      sync_assignments(course_to_gradescope)
+    end
+
     course.sync_all_enrollments_from_canvas(user.id)
     course
   end
@@ -143,20 +175,25 @@ class Course < ApplicationRecord
   end
 
   # Find or create the CourseToLms record
-  def self.find_or_create_course_to_lms(course, course_data)
-    CourseToLms.find_or_initialize_by(course_id: course.id, lms_id: 1).tap do |course_to_lms|
+  def self.find_or_create_course_to_lms(course, course_data, lms_id = 1)
+    CourseToLms.find_or_initialize_by(course_id: course.id, lms_id: lms_id).tap do |course_to_lms|
       course_to_lms.external_course_id = course_data['id']
       course_to_lms.save!
     end
   end
 
   # Sync assignments for the course
-  def self.sync_assignments(course_to_lms, token)
-    # Fetch assignments from Canvas
-    assignments = course_to_lms.fetch_assignments(token)
-
-    # Keep track of external assignment IDs from Canvas
-    external_assignment_ids = assignments.pluck('id')
+  def self.sync_assignments(course_to_lms, token = nil)
+    case course_to_lms.lms_id
+    when 1
+      # Fetch assignments from Canvas
+      assignments = course_to_lms.fetch_canvas_assignments(token)
+    when 2
+      # Fetch assignments from Gradescope
+      assignments = course_to_lms.fetch_gradescope_assignments
+    end
+    # Keep track of external assignments IDs
+    external_assignment_ids = assignments.map(&:id)
 
     # Sync or update assignments
     assignments.each do |assignment_data|
@@ -171,23 +208,20 @@ class Course < ApplicationRecord
 
   # Sync a single assignment
   def self.sync_assignment(course_to_lms, assignment_data)
-    assignment = Assignment.find_or_initialize_by(course_to_lms_id: course_to_lms.id, external_assignment_id: assignment_data['id'])
-    assignment.name = assignment_data['name']
-
-    # Extract due_at and lock_at dates
-    assignment.due_date = extract_date_field(assignment_data, 'due_at')
-    assignment.late_due_date = extract_date_field(assignment_data, 'lock_at')
+    assignment = Assignment.find_or_initialize_by(course_to_lms_id: course_to_lms.id, external_assignment_id: assignment_data.id)
+    assignment.name = assignment_data.name
+    assignment.due_date = assignment_data.due_date
+    assignment.late_due_date = assignment_data.late_due_date
 
     assignment.save!
   end
 
-  # Helper method to extract dates from assignment data
-  def self.extract_date_field(assignment_data, field_name)
-    if assignment_data['base_date'] && assignment_data['base_date'][field_name].present?
-      DateTime.parse(assignment_data['base_date'][field_name])
-    elsif assignment_data[field_name].present?
-      DateTime.parse(assignment_data[field_name])
-    end
+  # Helper method to extract external course id from Gradescope course URL
+  def self.extract_gradescope_course_id(gradescope_course_url)
+    match = gradescope_course_url.match(%r{gradescope\.com/courses/(\d+)})
+    raise ArgumentError, "Invalid Gradescope course URL: #{gradescope_course_url}" unless match
+
+    match[1]
   end
 
   # Fetch users for a course and create/find their User and UserToCourse records

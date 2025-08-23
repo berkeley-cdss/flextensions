@@ -90,12 +90,18 @@ class CanvasFacade < LmsFacade
   #     faraday.adapter Faraday.default_adapter
   # end
   def initialize(token, conn = nil)
-    @current_response = nil
     @api_token = token
     @canvas_conn = conn || Faraday.new(
       url: "#{CanvasFacade::CANVAS_URL}/api/v1",
       headers: auth_header
     )
+  end
+
+  def self.from_user(user)
+    token = user.lms_credentials.first&.token
+    raise CanvasAPIError, 'Cannot find Canvas token for user' if token.nil?
+
+    new(token)
   end
 
   # rubocop:disable Layout/LineLength
@@ -229,6 +235,7 @@ class CanvasFacade < LmsFacade
   # @param   [String]     unlockDate   the date the override should unlock the assignment.
   # @param   [String]     lockDate     the date the override should lock the assignment.
   # @return  [Faraday::Response] information about the new override.
+  # TODO: Rename this to create_assignment_extenstion. Title should be optional.
   def create_assignment_override(courseId, assignmentId, studentIds, title, dueDate, unlockDate, lockDate)
     @canvas_conn.post("courses/#{courseId}/assignments/#{assignmentId}/overrides", {
                       assignment_override: {

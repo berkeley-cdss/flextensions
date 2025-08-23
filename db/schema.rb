@@ -44,6 +44,8 @@ ActiveRecord::Schema[7.2].define(version: 2025_08_21_022646) do
     t.datetime "updated_at", null: false
     t.string "slack_webhook_url"
     t.boolean "enable_slack_webhook_url"
+    t.boolean "enable_gradescope", default: false
+    t.string "gradescope_course_url"
     t.index ["course_id"], name: "index_course_settings_on_course_id"
   end
 
