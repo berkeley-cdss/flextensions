@@ -33,4 +33,23 @@ class CourseToLms < ApplicationRecord
     Rails.logger.error "Failed to fetch assignments: #{e.message}"
     []
   end
+
+  def fetch_gradescope_assignments
+    return [] unless course.course_settings.enable_gradescope?
+
+    client = Lmss::Gradescope.login(
+      ENV.fetch('GRADESCOPE_EMAIL'),
+      ENV.fetch('GRADESCOPE_PASSWORD')
+    )
+
+  course = Lmss::Gradescope::Course.new(external_course_id, client)
+    assignments = course.assignments
+
+    if assignments.any?
+      assignments
+    else
+      Rails.logger.error 'Failed to fetch Gradescope assignments'
+      []
+    end
+  end
 end

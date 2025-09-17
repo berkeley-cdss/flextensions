@@ -2,10 +2,12 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
   queue_as :default
 
   def perform(course_to_lms_id, sync_user_id)
+    # TODO: Replace this with just the course idea, then find all linked LMS.
     course_to_lms = CourseToLms.find(course_to_lms_id)
     sync_user = User.find(sync_user_id)
     course = Course.find(course_to_lms.course_id)
 
+    # TODO: This isn't great if we fire off two distinct jobs...
     results = {
       added_assignments: 0,
       updated_assignments: 0,
@@ -13,8 +15,14 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
       deleted_assignments: 0
     }
 
-    # Fetch assignments from Canvas
-    assignments = course_to_lms.get_all_canvas_assignments(sync_user)
+    case course_to_lms.lms_id
+    when 1
+      # Fetch assignments from Canvas
+      assignments = course_to_lms.get_all_canvas_assignments(sync_user)
+    when 2
+      # Fetch assignments from Gradescope
+      assignments = course_to_lms.fetch_gradescope_assignments
+    end
 
     # Keep track of external assignment IDs from Canvas
     external_assignment_ids = assignments.pluck('id')
