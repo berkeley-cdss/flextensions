@@ -53,15 +53,15 @@ Rails.application.configure do
   #config.force_ssl = true
 
   # Setup logging with Lograge [https://github.com/roidrage/lograge]
+  # See lograge.rb initializer for log format configuration.
   config.lograge.enabled = true
+
+  # Prepend all log lines with the following tags.
+  config.log_tags = [ :request_id ]
 
   # config.logger = ActiveSupport::Logger.new(log_dest)
   #   .tap  { |logger| logger.formatter = ::Logger::Formatter.new }
   #   .then { |logger| ActiveSupport::TaggedLogging.new(logger) }
-
-
-  # # Prepend all log lines with the following tags.
-  # config.log_tags = [ :request_id ]
 
   # "info" includes generic and useful information about system operation, but avoids logging too much
   # information to avoid inadvertent exposure of personally identifiable information (PII). If you
