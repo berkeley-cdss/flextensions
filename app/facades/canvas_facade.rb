@@ -90,7 +90,6 @@ class CanvasFacade < LmsFacade
   #     faraday.adapter Faraday.default_adapter
   # end
   def initialize(token, conn = nil)
-    @current_response = nil
     @api_token = token
     @canvas_conn = conn || Faraday.new(
       url: "#{CanvasFacade::CANVAS_URL}/api/v1",
@@ -98,9 +97,11 @@ class CanvasFacade < LmsFacade
     )
   end
 
-  def self.for_user(user)
+  def self.from_user(user)
     token = user.canvas_credentials&.token
-    new(token) if token.present?
+    raise CanvasAPIError, 'Cannot find Canvas token for user' if token.nil?
+
+    new(token)
   end
 
   # rubocop:disable Layout/LineLength
@@ -207,22 +208,23 @@ class CanvasFacade < LmsFacade
   end
 
   ##
-  # Gets all assignments for a course (paginated).
+  # Gets all Canvas assignments for a course (paginated).
   #
   # @param  [String] course_id the Canvas course id to fetch assignments for.
-  # @return [Array<Hash>] all assignments in the course with base_date processed.
+  # @return [Array<Lmss::Canvas::Assignment>] list of assignments in the course.
   def get_all_assignments(course_id)
     assignments = depaginate_response(get_assignments(course_id))
 
     # Process assignments to extract base dates
-    assignments.each do |assignment|
-      if assignment['all_dates']
-        base_date = assignment['all_dates'].find { |date| date['base'] == true }
-        assignment['base_date'] = base_date
+    assignments.map do |assignment_data|
+      # Unpack base date from all_dates array
+      if assignment_data['all_dates']
+        base_date = assignment_data['all_dates'].find { |date| date['base'] == true }
+        assignment_data['base_date'] = base_date
       end
+      # Return as Lmss::Canvas::Assignment object
+      Lmss::Canvas::Assignment.new(assignment_data)
     end
-
-    assignments
   end
 
   ##
@@ -256,6 +258,7 @@ class CanvasFacade < LmsFacade
   # @param   [String]     unlockDate   the date the override should unlock the assignment.
   # @param   [String]     lockDate     the date the override should lock the assignment.
   # @return  [Faraday::Response] information about the new override.
+  # TODO: Rename this to create_assignment_extenstion. Title should be optional.
   def create_assignment_override(courseId, assignmentId, studentIds, title, dueDate, unlockDate, lockDate)
     @canvas_conn.post("courses/#{courseId}/assignments/#{assignmentId}/overrides", {
                       assignment_override: {
