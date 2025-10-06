@@ -8,13 +8,14 @@ module Lmss
     class Client
       BASE_URL = 'https://www.gradescope.com'.freeze
 
-      def initialize
+      def initialize(email, password)
         @cookie_jar = HTTP::CookieJar.new
         @conn = Faraday.new(url: BASE_URL) do |f|
           f.request :url_encoded
           f.use :cookie_jar, jar: @cookie_jar
           f.adapter Faraday.default_adapter
         end
+        login(email, password)
       end
 
       def login(email, password)
@@ -36,6 +37,8 @@ module Lmss
 
         # Confirm Gradescope log in
         res = @conn.get('/account')
+        # extract new csrf token after login
+        @csrf_token = extract_csrf_token(res.body)
         raise AuthenticationError, 'Login failed' if res.status != 200
       end
 
@@ -50,25 +53,33 @@ module Lmss
       end
 
       def post(path, data)
-        response = @conn.post(
-          path, {
-            body: data.to_json
-          }
-        )
+        response = @conn.post(path) do |req|
+          req.headers['Content-Type'] = 'application/json'
+          req.headers['X-CSRF-Token'] = @csrf_token if @csrf_token
+          req.body = data.to_json
+        end
         handle_response(response)
       end
 
-      def extract_react_props(html, data_react_class)
+      def extract_all_react_props(html, data_react_class)
         doc = Nokogiri::HTML(html)
-        element = doc.css("[data-react-class='#{data_react_class}']").first
-        return nil unless element
+        elements = doc.css("[data-react-class='#{data_react_class}']")
+        return [] if elements.empty?
 
-        props_attr = element.attr('data-react-props')
-        return nil unless props_attr
+        elements.map do |element|
+          props_attr = element.attr('data-react-props')
+          next nil unless props_attr
 
-        JSON.parse(props_attr)
-      rescue JSON::ParserError
-        nil
+          begin
+            JSON.parse(props_attr)
+          rescue JSON::ParserError
+            nil
+          end
+        end.compact # Remove nil values from failed JSON parsing
+      end
+
+      def extract_react_props(html, data_react_class)
+        extract_all_react_props(html, data_react_class).first
       end
 
       private
