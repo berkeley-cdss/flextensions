@@ -36,8 +36,9 @@ gem 'bootsnap', require: false
 # Verify instances of `LMS::Canvas`
 gem 'lms-api'
 
-gem 'sentry-rails'
+# TODO: Not used with UCB env, but used on Heroku.
 gem 'sentry-ruby'
+gem 'sentry-rails'
 
 gem 'json'
 
@@ -56,12 +57,19 @@ gem 'omniauth-oauth2'
 # Audit for potentially unsafe database migrations
 gem 'strong_migrations'
 
+# Logging Customization
+gem 'lograge'
 
 # Use Active Storage for file uploads [https://guides.rubyonrails.org/active_storage_overview.html]
 # gem "activestorage", "~> 7.0.0"
 
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
 # gem "image_processing", "~> 1.2"
+
+## BI and Admin Dashboard Tools
+#
+gem 'blazer'
+gem 'hypershield'
 
 #### Frontend related tools
 # The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
@@ -103,7 +111,7 @@ group :test do
   gem 'rack_session_access'
   gem 'rspec-retry'
   gem 'selenium-webdriver'
-  gem 'shoulda-matchers', '~> 6.5'
+  gem 'shoulda-matchers', '~> 7.0'
   gem 'simplecov', '~> 0.22.0', require: false
   gem 'simplecov_json_formatter'
   gem 'timecop'
@@ -120,12 +128,8 @@ group :development do
   # Add speed badges [https://github.com/MiniProfiler/rack-mini-profiler]
   # gem "rack-mini-profiler"
 
-  # Speed up commands on slow machines / big apps [https://github.com/rails/spring]
-  # gem "spring"
-
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem 'debug', platforms: %i[mri windows]
-  gem 'dotenv-rails'
 end
 
 # Tools, incase you need to install just the linters
