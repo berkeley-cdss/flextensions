@@ -4,7 +4,6 @@
 #
 #  id             :bigint           not null, primary key
 #  lms_name       :string
-#  lms_base_url   :string
 #  use_auth_token :boolean
 #  created_at     :datetime         not null
 #  updated_at     :datetime         not null
