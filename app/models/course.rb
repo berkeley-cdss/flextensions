@@ -77,16 +77,11 @@ class Course < ApplicationRecord
   # end
 
   def canvas_id
-    CourseToLms.find_by(course_id: id, lms_id: CANVAS_LMS_ID)&.external_course_id
+    CourseToLms.find_by(course_id: id, lms_id: Lms.CANVAS.id)&.external_course_id
   end
 
   def gradescope_id
-    CourseToLms.find_by(course_id: id, lms_id: GRADESCOPE_LMS_ID)&.external_course_id
-  end
-
-  # TODO: Add specs for these 4 simple methods
-  def assignments
-    Assignment.joins(:course_to_lms).where(course_to_lms: { course_id: id })
+    CourseToLms.find_by(course_id: id, lms_id: Lms.GRADESCOPE.id)&.external_course_id
   end
 
   def students

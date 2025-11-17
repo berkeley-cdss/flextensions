@@ -67,7 +67,7 @@ class CourseSettings < ApplicationRecord
   def create_or_update_gradescope_link
     if course.course_settings.enable_gradescope
       gradescope_course_id = extract_gradescope_course_id(course.course_settings.gradescope_course_url)
-      CourseToLms.find_or_initialize_by(course_id: course.id, lms_id: GRADESCOPE_LMS_ID).tap do |course_to_lms|
+      CourseToLms.find_or_initialize_by(course_id: course.id, lms: Lms.GRADESCOPE).tap do |course_to_lms|
         course_to_lms.external_course_id = gradescope_course_id
         course_to_lms.save!
       end

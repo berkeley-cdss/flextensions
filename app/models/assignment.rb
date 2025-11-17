@@ -27,9 +27,7 @@ class Assignment < ApplicationRecord
   validate :enabled_requires_date_present
 
   delegate :lms_id, to: :course_to_lms
-
-  # Returns enabled assignments for a specific course
-  scope :enabled_for_course, ->(course_to_lms_id) { where(course_to_lms_id: course_to_lms_id, enabled: true) }
+  delegate :lms, to: :course_to_lms
 
   # Check if there's a pending request for this assignment by a specific user
   def has_pending_request_for_user?(user, course)
@@ -44,13 +42,12 @@ class Assignment < ApplicationRecord
     Lms.facade_class(lms_id)
   end
 
-  # TODO: Arguably we should get the base URL from the course
   def external_url
     base_lms_url = course_to_lms.lms.lms_base_url if course_to_lms
     case lms_id
-    when CANVAS_LMS_ID
+    when Lms.CANVAS.id
       "#{base_lms_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
-    when GRADESCOPE_LMS_ID
+    when Lms.GRADESCOPE.id
       "#{base_lms_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
     end
   end

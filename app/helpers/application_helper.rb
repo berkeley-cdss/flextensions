@@ -1,11 +1,10 @@
 module ApplicationHelper
   def assignment_link_for(assignment, course)
+    url = assignment.external_url
     case assignment.course_to_lms.lms_id
-    when 1
-      url = "#{ENV.fetch('CANVAS_URL')}/courses/#{course.canvas_id}/assignments/#{assignment.external_assignment_id}"
+    when Lms.CANVAS.id
       name = 'bCourses'
-    when 2
-      url = "#{course.course_settings.gradescope_course_url}/assignments/#{assignment.external_assignment_id}"
+    when Lms.GRADESCOPE.id
       name = 'Gradescope'
     else
       nil

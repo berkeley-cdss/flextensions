@@ -61,7 +61,7 @@ class RequestsController < ApplicationController
     course_to_lmss = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
 
-    @assignments = Assignment.enabled_for_course(course_to_lmss).order(:name)
+    @assignments = @course.enabled_assignments
     @students = User.joins(:user_to_courses).where(user_to_courses: { course_id: @course.id, role: 'student' }).order(:name)
     @request = @course.requests.new
   end
@@ -232,11 +232,11 @@ class RequestsController < ApplicationController
   def prepare_instructor_new_request(course_to_lms_ids)
     @students = User.joins(:user_to_courses).where(user_to_courses: { course_id: @course.id, role: 'student' }).order(:name)
     @request = @course.requests.new
-    @assignments = Assignment.enabled_for_course(course_to_lms_ids).order(:name)
+    @assignments = @course.enabled_assignments
   end
 
   def prepare_student_new_request(course_to_lms_ids)
-    all_assignments = Assignment.enabled_for_course(course_to_lms_ids).order(:name)
+    all_assignments = @course.enabled_assignments
     @assignments = all_assignments.reject { |assignment| assignment.has_pending_request_for_user?(@user, @course) }
     @has_pending = all_assignments.size != @assignments.size
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]

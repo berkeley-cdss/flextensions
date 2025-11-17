@@ -481,7 +481,7 @@ RSpec.describe Request, type: :model do
 
       before do
         # Link the course to Gradescope so course.gradescope_id is present
-        CourseToLms.create!(course: course, lms_id: GRADESCOPE_LMS_ID, external_course_id: 'gs-course-123')
+        CourseToLms.create!(course: course, lms_id: Lms.GRADESCOPE.id, external_course_id: 'gs-course-123')
         allow(gradescope_facade).to receive(:provision_extension).and_return(gs_override)
       end
 
