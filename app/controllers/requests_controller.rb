@@ -136,7 +136,8 @@ class RequestsController < ApplicationController
   def approve
     @assignment = Assignment.find_by(id: @request.assignment_id)
     lms_facade = @assignment.lms_facade
-    if @request.approve(lms_facade.from_user(@user), @user)
+    feedback_message = params[:feedback_message]
+    if @request.approve(lms_facade.from_user(@user), @user, feedback_message: feedback_message)
       redirect_to course_requests_path(@course), notice: 'Request approved and extension created successfully in Canvas.'
     else
       flash[:alert] = "Failed to approve the request. #{@request.errors.full_messages.join(', ')}"

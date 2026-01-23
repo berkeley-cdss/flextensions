@@ -120,7 +120,9 @@
 			<!-- Display Buttons -->
 			<div class="d-flex justify-content-center mt-4">
 			  <% if @request.status == 'pending' %>
-			    <%= button_to 'Approve', approve_course_request_path(@course, @request), method: :post, class: 'btn btn-success me-3' %>
+			    <button type="button" class="btn btn-success me-3" data-bs-toggle="modal" data-bs-target="#approveModal">
+			      Approve
+			    </button>
 			    <button type="button" class="btn btn-danger me-3" data-bs-toggle="modal" data-bs-target="#rejectModal">
 			      Reject
 			    </button>
@@ -131,6 +133,36 @@
 			  <% end %>
 			</div>
 		</div>
+	</div>
+
+	<!-- Approve Modal -->
+	<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+	  <div class="modal-dialog">
+	    <div class="modal-content">
+	      <%= form_with url: approve_course_request_path(@course, @request), method: :post, local: true do |form| %>
+	        <div class="modal-header">
+	          <h5 class="modal-title" id="approveModalLabel">Approve Extension Request</h5>
+	          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+	        </div>
+	        <div class="modal-body">
+	          <p>Are you sure you want to approve this extension request?</p>
+	          <div class="mb-3">
+	            <%= form.label :feedback_message, "Optional feedback message:", class: "form-label" %>
+	            <%= form.text_area :feedback_message, class: "form-control", rows: 3, 
+	                placeholder: "Optionally provide additional feedback for the student...",
+	                aria_describedby: "approveFeedbackHelpText" %>
+	            <div id="approveFeedbackHelpText" class="form-text">
+	              This message will be included in the approval email if provided.
+	            </div>
+	          </div>
+	        </div>
+	        <div class="modal-footer">
+	          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+	          <%= form.submit "Approve Request", class: "btn btn-success" %>
+	        </div>
+	      <% end %>
+	    </div>
+	  </div>
 	</div>
 
 	<!-- Reject Modal -->

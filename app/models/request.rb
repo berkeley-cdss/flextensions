@@ -145,7 +145,7 @@ class Request < ApplicationRecord
   end
 
   # TODO: All of these code should really be moved to each LMS' facade class
-  def approve(lms_facade, processed_user_id)
+  def approve(lms_facade, processed_user_id, feedback_message: nil)
     begin
       case lms_facade
       when CanvasFacade
@@ -173,7 +173,8 @@ class Request < ApplicationRecord
     update(
       status: 'approved',
       last_processed_by_user_id: processed_user_id.id,
-      external_extension_id: override&.id)
+      external_extension_id: override&.id,
+      feedback_message: feedback_message)
     send_email_response if course.course_settings&.enable_emails
     true
   end
