@@ -145,7 +145,8 @@ class RequestsController < ApplicationController
   end
 
   def reject
-    if @request.reject(@user)
+    feedback_message = params[:feedback_message]
+    if @request.reject(@user, feedback_message: feedback_message)
       redirect_to course_requests_path(@course), notice: 'Request denied successfully.'
     else
       redirect_to course_requests_path(@course), alert: 'Failed to deny the request.'

@@ -178,8 +178,8 @@ class Request < ApplicationRecord
     true
   end
 
-  def reject(processed_user_id)
-    update(status: 'denied', last_processed_by_user_id: processed_user_id.id)
+  def reject(processed_user_id, feedback_message: nil)
+    update(status: 'denied', last_processed_by_user_id: processed_user_id.id, feedback_message: feedback_message)
     # Only send email if the person processing is the same as the request's user
     send_email_response if course.course_settings&.enable_emails && processed_user_id.id != user_id
     true
@@ -220,15 +220,25 @@ def send_email_response
       'status' => status.capitalize,
       'original_due_date' => assignment.due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
       'new_due_date' => requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
-      'extension_days' => calculate_days_difference.to_s
+      'extension_days' => calculate_days_difference.to_s,
+      'feedback_message' => feedback_message.presence || 'No additional feedback provided.'
     }
+
+    # Use rejection templates for denied status
+    if status == 'denied'
+      subject_template = cs.rejection_email_subject.presence || cs.email_subject
+      body_template = cs.rejection_email_template.presence || cs.email_template
+    else
+      subject_template = cs.email_subject
+      body_template = cs.email_template
+    end
 
     EmailService.send_email(
       to: to,
       from: ENV.fetch('DEFAULT_FROM_EMAIL'),
       reply_to: reply_to,
-      subject_template: cs.email_subject,
-      body_template: cs.email_template,
+      subject_template: subject_template,
+      body_template: body_template,
       mapping: mapping,
       deliver_later: false # or true if you prefer .deliver_later
     )
