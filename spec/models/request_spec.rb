@@ -512,6 +512,17 @@ RSpec.describe Request, type: :model do
         expect(request.status).to eq('approved')
       end
     end
+
+    it 'saves feedback_message when provided' do
+      feedback = 'Approved with a note to complete on time next time.'
+      request.approve(lms_facade, instructor, feedback_message: feedback)
+      expect(request.reload.feedback_message).to eq(feedback)
+    end
+
+    it 'allows nil feedback_message' do
+      request.approve(lms_facade, instructor, feedback_message: nil)
+      expect(request.reload.feedback_message).to be_nil
+    end
   end
 
   describe '#reject' do
@@ -523,6 +534,17 @@ RSpec.describe Request, type: :model do
     it 'sets the last_processed_by_user_id' do
       request.reject(instructor)
       expect(request.last_processed_by_user_id).to eq(instructor.id)
+    end
+
+    it 'saves feedback_message when provided' do
+      feedback = 'We cannot approve this request because the deadline is too close.'
+      request.reject(instructor, feedback_message: feedback)
+      expect(request.reload.feedback_message).to eq(feedback)
+    end
+
+    it 'allows nil feedback_message' do
+      request.reject(instructor, feedback_message: nil)
+      expect(request.reload.feedback_message).to be_nil
     end
   end
 
@@ -579,6 +601,49 @@ RSpec.describe Request, type: :model do
     it 'does not call EmailService.send_email when emails are disabled' do
       course_settings.update(enable_emails: false)
       expect(EmailService).not_to receive(:send_email)
+      request.send_email_response
+    end
+
+    context 'when request is denied' do
+      let(:rejection_template) do
+        <<~TEMPLATE
+          Dear {{student_name}},
+          Your extension request has been {{status}}.
+          Reason: {{feedback_message}}
+        TEMPLATE
+      end
+
+      before do
+        course_settings.update(
+          rejection_email_subject: 'Rejection: {{course_code}}',
+          rejection_email_template: rejection_template
+        )
+        request.update(status: 'denied', feedback_message: 'Unable to grant extension at this time.')
+      end
+
+      it 'uses rejection email template for denied requests' do
+        expect(EmailService).to receive(:send_email).with(
+          hash_including(
+            subject_template: 'Rejection: {{course_code}}',
+            body_template: rejection_template,
+            mapping: hash_including(
+              'feedback_message' => 'Unable to grant extension at this time.'
+            )
+          )
+        )
+        request.send_email_response
+      end
+    end
+
+    it 'includes feedback_message in mapping with default message when nil' do
+      request.update(feedback_message: nil)
+      expect(EmailService).to receive(:send_email).with(
+        hash_including(
+          mapping: hash_including(
+            'feedback_message' => 'No additional feedback provided.'
+          )
+        )
+      )
       request.send_email_response
     end
   end
