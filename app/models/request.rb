@@ -205,7 +205,7 @@ class Request < ApplicationRecord
     }
   end
 
-def send_email_response
+  def send_email_response
     return unless course.course_settings&.enable_emails
 
     cs = course.course_settings
