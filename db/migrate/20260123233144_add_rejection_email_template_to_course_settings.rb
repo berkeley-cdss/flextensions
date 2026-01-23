@@ -1,7 +1,9 @@
 class AddRejectionEmailTemplateToCourseSettings < ActiveRecord::Migration[7.2]
   def change
-    add_column :course_settings, :rejection_email_subject, :string, 
+    add_column :course_settings, :rejection_email_subject, :string,
                default: "Extension Request Status: {{status}} - {{course_code}}"
+    # Note: This default template should match CourseSettings::DEFAULT_REJECTION_EMAIL_TEMPLATE
+    # but we cannot reference the constant in migrations due to class loading order
     add_column :course_settings, :rejection_email_template, :text,
                default: <<~TEMPLATE.squish
                  Hello {{student_name}},

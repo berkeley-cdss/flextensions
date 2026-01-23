@@ -34,6 +34,8 @@
 #  fk_rails_...  (user_id => users.id)
 #
 class Request < ApplicationRecord
+  DEFAULT_FEEDBACK_MESSAGE = 'No additional feedback provided.'
+
   belongs_to :course
   belongs_to :assignment
   belongs_to :user
@@ -222,7 +224,7 @@ class Request < ApplicationRecord
       'original_due_date' => assignment.due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
       'new_due_date' => requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
       'extension_days' => calculate_days_difference.to_s,
-      'feedback_message' => feedback_message.presence || 'No additional feedback provided.'
+      'feedback_message' => feedback_message.presence || DEFAULT_FEEDBACK_MESSAGE
     }
 
     # Use rejection templates for denied status
