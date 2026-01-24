@@ -329,6 +329,16 @@ RSpec.describe RequestsController, type: :controller do
       expect(flash[:notice]).to match(/approved/i)
     end
 
+    it 'passes feedback_message to approve method when provided' do
+      expect_any_instance_of(Request).to receive(:approve).with(
+        anything, anything, hash_including(feedback_message: 'Great work!')
+      ).and_return(true)
+
+      post :approve, params: { course_id: course.id, id: request.id, feedback_message: 'Great work!' }
+
+      expect(response).to redirect_to(course_requests_path(course))
+    end
+
     # it 'shows error if approval fails' do
     #   # stub the *same* request to return false here
     #   allow(request).to receive(:approve).and_return(false)
@@ -351,6 +361,16 @@ RSpec.describe RequestsController, type: :controller do
       post :reject, params: { course_id: course.id, id: request.id }
       expect(response).to redirect_to(course_requests_path(course))
       expect(flash[:notice]).to match(/denied/i)
+    end
+
+    it 'passes feedback_message to reject method when provided' do
+      expect_any_instance_of(Request).to receive(:reject).with(
+        anything, hash_including(feedback_message: 'Cannot grant extension.')
+      ).and_return(true)
+
+      post :reject, params: { course_id: course.id, id: request.id, feedback_message: 'Cannot grant extension.' }
+
+      expect(response).to redirect_to(course_requests_path(course))
     end
 
     it 'shows error if rejection fails' do
