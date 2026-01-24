@@ -229,8 +229,8 @@ class Request < ApplicationRecord
 
     # Use rejection templates for denied status
     if status == 'denied'
-      subject_template = cs.rejection_email_subject.presence || cs.email_subject
-      body_template = cs.rejection_email_template.presence || cs.email_template
+      subject_template = cs.rejection_email_subject.presence || CourseSettings::DEFAULT_REJECTION_EMAIL_SUBJECT
+      body_template = cs.rejection_email_template.presence || CourseSettings::DEFAULT_REJECTION_EMAIL_TEMPLATE
     else
       subject_template = cs.email_subject
       body_template = cs.email_template

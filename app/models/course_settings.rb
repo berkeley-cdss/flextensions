@@ -48,6 +48,8 @@ class CourseSettings < ApplicationRecord
     {{course_name}} Staff
   LIQUID
 
+  DEFAULT_REJECTION_EMAIL_SUBJECT = 'Extension Request Status: {{status}} - {{course_code}}'
+
   DEFAULT_REJECTION_EMAIL_TEMPLATE = <<~LIQUID.freeze
     Hello {{student_name}},
 
