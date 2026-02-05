@@ -48,6 +48,21 @@ class CourseSettings < ApplicationRecord
     {{course_name}} Staff
   LIQUID
 
+  DEFAULT_REJECTION_EMAIL_SUBJECT = 'Extension Request Status: {{status}} - {{course_code}}'
+
+  DEFAULT_REJECTION_EMAIL_TEMPLATE = <<~LIQUID.freeze
+    Hello {{student_name}},
+
+    Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
+
+    Reason for rejection: {{feedback_message}}
+
+    If you have any questions, please reach out to your course staff.
+
+    Thank you,
+    {{course_name}} Staff
+  LIQUID
+
   belongs_to :course
 
   before_save :ensure_system_user_for_auto_approval
