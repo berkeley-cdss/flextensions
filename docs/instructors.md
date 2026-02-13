@@ -68,6 +68,21 @@ You can respond to requests in two ways:
 3. Click **Approve** or **Reject** at the bottom.
 4. The request status will update in real time.
 
+### Providing Feedback to Students
+
+When approving or rejecting requests, you can provide feedback that will be included in the email notification sent to the student:
+
+**Approving Requests:**
+- An optional feedback field allows you to provide additional context or instructions
+- Example: "Approved. Please ensure you submit by the extended deadline."
+- If no feedback is provided, a standard approval email will be sent
+
+**Rejecting Requests:**
+- A feedback field is **required** when rejecting a request
+- Provide a clear reason for the rejection to help students understand the decision
+- Example: "The requested due date is past the final exam. Please contact me during office hours to discuss alternatives."
+- This feedback will be included in the rejection email sent to the student
+
 ## Viewing Request History
 To view all requests made in the course, click the **View all Requests** button at the top left.
 
@@ -139,7 +154,29 @@ Use provided dynamic variables to personalize each email.
   `{{course_name}}, {{course_code}}, {{assignment_name}}`
 
 - **Extension Information**
-  `{{original_due_date}}, {{new_due_date}}, {{extension_days}}, {{status}}`
+  `{{original_due_date}}, {{new_due_date}}, {{extension_days}}, {{status}}, {{feedback_message}}`
+
+#### Rejection Email Template
+
+You can create a separate email template specifically for rejected requests. This allows you to customize the messaging when denying extension requests.
+
+To set up a custom rejection template:
+1. In the **Email Settings** section, configure the rejection email subject and body
+2. Include the `{{feedback_message}}` variable to insert the rejection reason you provided
+
+**Example Rejection Template:**
+```
+Hello {{student_name}},
+
+Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been denied.
+
+Reason for rejection: {{feedback_message}}
+
+If you have any questions or would like to discuss this decision, please reach out to your course staff.
+
+Thank you,
+{{course_name}} Staff
+```
 
 Click **Reset to Default** to restore the system default template.
 
