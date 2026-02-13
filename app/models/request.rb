@@ -190,37 +190,11 @@ class Request < ApplicationRecord
     )
   end
 
-  # Calculates the new late due date for an extension based on course settings.
-  # Returns nil if the assignment has no late due date.
-  # Delegates to AssignmentDateCalculator for the actual calculation.
-  def calculate_new_late_due_date
-    date_calculator.late_due_date
-  end
-
   def reject(processed_user_id)
     update(status: 'denied', last_processed_by_user_id: processed_user_id.id)
     # Only send email if the person processing is the same as the request's user
     send_email_response if course.course_settings&.enable_emails && processed_user_id.id != user_id
     true
-  end
-
-  # Based on this request, set the right 3 assignment dates
-  # Always keep the assignment release date the same
-  # Calculate the delta from the original due date to the requested due date
-  # Set the due date to the requested due date
-  # If the current (approval) time is beyond the requested due date,
-  #   then extend the requested due date by the delta with a max of 3 days
-  # If the flag EXTEND_LATE_DUE_DATE is set, then set the late due date to
-  #   the delta beyond the requested due date, otherwise keep it the same
-  # If the flag EXTEND_LATE_DUE_DATE is not set, ensure that the late due date
-  #   is at least as late as the requested due date
-  def calculate_new_assignment_dates
-    {
-      release_date: assignment_release_date,
-      due_date: requested_due_date,
-      late_due_date: late_due_date,
-      message: approval_message
-    }
   end
 
 def send_email_response

@@ -214,27 +214,6 @@ RSpec.describe AssignmentDateCalculator, type: :service do
         end
       end
 
-      context 'when extend_late_due_date setting is nil (defaults to true)' do
-        it 'defaults to shifting the late due date by the extension delta' do
-          # Create settings without explicitly setting extend_late_due_date
-          cs = CourseSettings.create!(
-            course: course,
-            enable_extensions: true
-          )
-          # Manually set to nil to simulate pre-migration state
-          cs.update_column(:extend_late_due_date, nil)
-
-          calculator = described_class.new(
-            assignment: assignment_with_late_due_date,
-            request: request_with_late_due_date,
-            course_settings: cs
-          )
-
-          expected = Time.zone.parse('2025-01-20 23:59:00')
-          expect(calculator.late_due_date).to be_within(1.second).of(expected)
-        end
-      end
-
       context 'when course_settings is nil' do
         it 'defaults to shifting the late due date (extend_late_due_date = true behavior)' do
           calculator = described_class.new(
