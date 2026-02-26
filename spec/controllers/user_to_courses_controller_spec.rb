@@ -120,5 +120,28 @@ RSpec.describe UserToCoursesController, type: :controller do
         expect(flash[:alert]).to eq('Course not found.')
       end
     end
+
+    context 'when enrollment does not exist' do
+      before do
+        UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+        session[:user_id] = instructor.canvas_uid
+        instructor.lms_credentials.create!(
+          lms_name: 'canvas',
+          token: 'fake_token',
+          refresh_token: 'fake_refresh_token',
+          expire_time: 1.hour.from_now
+        )
+      end
+
+      it 'raises ActiveRecord::RecordNotFound' do
+        expect {
+          patch :toggle_allow_extended_requests, params: {
+            course_id: course.id,
+            id: 9999,
+            allow_extended_requests: true
+          }
+        }.to raise_error(ActiveRecord::RecordNotFound)
+      end
+    end
   end
 end
