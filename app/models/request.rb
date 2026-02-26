@@ -131,7 +131,6 @@ class Request < ApplicationRecord
     days_difference = calculate_days_difference
     return false if days_difference <= 0 || (days_difference > max_days)
 
-
     max_approvals = course.course_settings.max_auto_approve
     return true if max_approvals.zero? # If max is 0, there's no limit
 
