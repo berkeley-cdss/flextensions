@@ -46,7 +46,7 @@ RSpec.describe UserToCoursesController, type: :controller do
         expect(student_enrollment.reload.allow_extended_requests).to be false
       end
 
-      it 'returns unprocessable_entity when update fails' do
+      it 'returns unprocessable_content when update fails' do
         errors = ActiveModel::Errors.new(student_enrollment)
         errors.add(:base, 'Validation failed')
         allow_any_instance_of(UserToCourse).to receive(:update).and_return(false)
@@ -58,7 +58,7 @@ RSpec.describe UserToCoursesController, type: :controller do
           allow_extended_requests: true
         }
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(response.parsed_body['redirect_to']).to be_present
       end
     end
