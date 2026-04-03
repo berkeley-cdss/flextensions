@@ -14,6 +14,9 @@ require "action_view/railtie"
 require "action_cable/engine"
 # require "rails/test_unit/railtie"
 
+# Enable writing 1.day.ago, 1.week.from_now, etc. in config files.
+require "active_support/core_ext/integer/time"
+
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
