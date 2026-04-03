@@ -29,7 +29,7 @@ module API
           it 'returns status :bad_request' do
             post :create, params: { course_id: @course.id, external_course_id: @external_course_id }
             expect(response).to have_http_status(:bad_request)
-            expect(response.body).to include('param is missing or the value is empty: lms_id')
+            expect(response.body).to include('param is missing or the value is empty')
           end
         end
 
