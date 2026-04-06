@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_10_01_192900) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_06_175234) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -102,6 +102,8 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_01_192900) do
     t.boolean "enable_slack_webhook_url"
     t.boolean "enable_gradescope", default: false
     t.string "gradescope_course_url"
+    t.string "pending_notification_frequency"
+    t.string "pending_notification_email"
     t.index ["course_id"], name: "index_course_settings_on_course_id"
   end
 
