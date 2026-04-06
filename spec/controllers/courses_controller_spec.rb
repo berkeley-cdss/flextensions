@@ -135,16 +135,18 @@ RSpec.describe CoursesController, type: :controller do
       end
     end
 
-    context 'when user is a TA (not course admin)' do
+    context 'when user is a TA (staff but not course admin)' do
       before do
         UserToCourse.create!(user: user, course: course, role: 'ta')
       end
 
-      it 'returns forbidden' do
+      it 'syncs enrollments and returns OK' do
+        allow_any_instance_of(Course).to receive(:sync_all_enrollments_from_canvas)
+
         post :sync_enrollments, params: { id: course.id }
 
-        expect(response).to have_http_status(:forbidden)
-        expect(response.parsed_body).to eq({ 'error' => 'You do not have permission.' })
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to eq({ 'message' => 'Users synced successfully.' })
       end
     end
 

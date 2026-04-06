@@ -6,8 +6,8 @@ class RequestService
     { redirect_to: redirect_path, alert: 'Course not found.' }
   end
 
-  # Check instructor permission
-  def self.check_instructor_permission(role, course_path)
+  # Check staff permission (instructors, lead TAs, TAs, and site admins can approve/deny)
+  def self.check_staff_permission(role, course_path)
     return true if role == 'instructor'
 
     { redirect_to: course_path, alert: 'You do not have permission to perform this action.' }

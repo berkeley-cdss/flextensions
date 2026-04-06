@@ -34,17 +34,19 @@
 				text: 'Enrollments',
 				active: @side_nav == 'enrollments' %>
 
-			<%= render 'layouts/components/sidebar_menu_item',
-				path: course_settings_path(@course.id),
-				icon: 'fas fa-cog',
-				text: 'Settings',
-				active: @side_nav == 'edit' %>
+			<% if @is_course_admin %>
+				<%= render 'layouts/components/sidebar_menu_item',
+					path: course_settings_path(@course.id),
+					icon: 'fas fa-cog',
+					text: 'Settings',
+					active: @side_nav == 'edit' %>
 
-			<%= render 'layouts/components/sidebar_menu_item',
-				path: edit_course_form_setting_path(@course.id),
-				icon: 'fas fa-file-alt',
-				text: 'Form',
-				active: @side_nav == 'form_settings' %>
+				<%= render 'layouts/components/sidebar_menu_item',
+					path: edit_course_form_setting_path(@course.id),
+					icon: 'fas fa-file-alt',
+					text: 'Form',
+					active: @side_nav == 'form_settings' %>
+			<% end %>
 
 			<%= render 'layouts/components/sidebar_menu_item',
 				path: new_course_request_path(@course.id),

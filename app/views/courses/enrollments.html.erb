@@ -77,7 +77,7 @@
         </tbody>
       </table>
 
-      <% if @is_course_admin %>
+      <% if @role == 'instructor' %>
         <div class="text-center mt-4">
           <button class="btn btn-info"
                   data-controller="enrollments"

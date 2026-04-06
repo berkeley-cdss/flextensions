@@ -17,8 +17,7 @@ RSpec.describe CourseSettingsController, type: :controller do
   describe 'instructor access' do
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
-      allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
     end
 
     describe 'POST #update' do
@@ -134,8 +133,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
-      allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
 
       # Create settings to enable extensions
       CourseSettings.create!(

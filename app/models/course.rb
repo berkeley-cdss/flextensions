@@ -62,18 +62,30 @@ class Course < ApplicationRecord
     assignments.where(enabled: true)
   end
 
-  # TODO: Replace this with staff_role?(user) or student_role?(user)
-  # Or is user.staff_role?(course) or user.student_role?(course) better?
+  # Returns the view-level role for rendering instructor vs student templates.
+  # Site admins always see the instructor view.
   def user_role(user)
+    return 'instructor' if user.admin?
+
     roles = UserToCourse.where(user_id: user.id, course_id: id).pluck(:role)
-    return 'instructor' if roles.include?('teacher') || roles.include?('ta')
+    return 'instructor' if roles.any? { |r| UserToCourse.staff_roles.include?(r) }
     return 'student' if roles.include?('student')
 
     nil
   end
 
+  # Course admins: instructors (teachers) and lead TAs.
+  # Can manage everything in a course (settings, form, extended circumstances, delete, etc.).
+  # Site admins are always course admins.
   def course_admin?(user)
-    user_to_courses.where(user_id: user.id).any?(&:course_admin?)
+    user.admin? || user_to_courses.where(user_id: user.id).any?(&:course_admin?)
+  end
+
+  # All staff: instructors, lead TAs, and TAs.
+  # Can view everything, approve/deny requests, sync assignments/enrollments.
+  # Site admins are always staff.
+  def staff?(user)
+    user.admin? || user_to_courses.where(user_id: user.id).any?(&:staff?)
   end
 
   # TODO: This doesn't make sense actually.

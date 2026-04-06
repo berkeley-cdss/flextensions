@@ -17,8 +17,7 @@ class UserToCoursesController < ApplicationController
   private
 
   def ensure_course_admin
-    enrollment = @course.user_to_courses.find_by(user: @user)
-    return if enrollment&.course_admin?
+    return if @course.course_admin?(@user)
 
     render json: { error: 'You must be an instructor or Lead TA.', redirect_to: course_path(@course) }, status: :forbidden
   end

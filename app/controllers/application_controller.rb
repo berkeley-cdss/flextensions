@@ -79,8 +79,8 @@ class ApplicationController < ActionController::Base
 
   def set_pending_request_count
     return unless defined?(@course) && @course.present? && defined?(@user) && @user.present?
-    # only calculating pending requests count if the role is instructor so we don't show it to students
-    return unless @course.user_role(@user) == 'instructor'
+    # Only show pending request count to staff (instructors, lead TAs, TAs, and site admins)
+    return unless @course.staff?(@user)
 
     @pending_requests_count = @course.requests.where(status: 'pending').count
   end
@@ -118,11 +118,26 @@ class ApplicationController < ActionController::Base
       redirect_to courses_path
       return
     end
-    @role = @course.user_role(@user) if @user
+    if @user
+      @role = @course.user_role(@user)
+      @is_course_admin = @course.course_admin?(@user)
+      @is_staff = @course.staff?(@user)
+    end
   end
 
-  def ensure_instructor_role
-    return if @role == 'instructor'
+  # Only course admins (instructors/lead TAs) and site admins.
+  # Use for settings, form settings, delete, etc.
+  def ensure_course_admin
+    return if @is_course_admin
+
+    flash[:alert] = 'You do not have access to this page.'
+    redirect_to courses_path
+  end
+
+  # All staff (instructors, lead TAs, TAs) and site admins.
+  # Use for viewing enrollments, approving/denying requests, syncing, etc.
+  def ensure_staff_role
+    return if @is_staff || @role == 'instructor'
 
     flash[:alert] = 'You do not have access to this page.'
     redirect_to courses_path

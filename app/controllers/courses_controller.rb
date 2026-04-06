@@ -5,7 +5,7 @@ class CoursesController < ApplicationController
   before_action :determine_user_role
 
   def index
-    @teacher_courses = UserToCourse.includes(:course).where(user: @user, role: %w[teacher ta])
+    @teacher_courses = UserToCourse.includes(:course).where(user: @user, role: UserToCourse.staff_roles)
 
     # Only show courses to students if extensions are enabled at the course level
     student_courses = UserToCourse.includes(course: :course_settings).where(user: @user, role: 'student')
@@ -57,7 +57,7 @@ class CoursesController < ApplicationController
 
   def edit
     @side_nav = 'edit'
-    redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
+    redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @is_course_admin
   end
 
   def create
@@ -77,7 +77,7 @@ class CoursesController < ApplicationController
 
   def sync_enrollments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
-    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @is_course_admin
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @is_staff
 
     @course.sync_all_enrollments_from_canvas(@user.id)
     render json: { message: 'Users synced successfully.' }, status: :ok
@@ -85,14 +85,13 @@ class CoursesController < ApplicationController
 
   def enrollments
     @side_nav = 'enrollments'
-    return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
+    return redirect_to courses_path, alert: 'You do not have access to this page.' unless @is_staff
 
     @enrollments = @course.user_to_courses.includes(:user)
-    @is_course_admin = @course.course_admin?(@user)
   end
 
   def delete
-    return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
+    return redirect_to courses_path, alert: 'You do not have access to this page.' unless @is_course_admin
     return redirect_to courses_path, alert: 'Extensions are enabled for this course.' if @course.course_settings&.enable_extensions
 
     assignments = Assignment.where(course_to_lms_id: CourseToLms.where(course_id: @course.id).select(:id))
@@ -117,6 +116,7 @@ class CoursesController < ApplicationController
   def determine_user_role
     @role = @course&.user_role(@user)
     @is_course_admin = @course&.course_admin?(@user) || false
+    @is_staff = @course&.staff?(@user) || false
   end
 
   # Filters Canvas API course hashes by their term name

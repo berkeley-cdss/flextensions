@@ -11,7 +11,7 @@ class RequestsController < ApplicationController
   before_action :check_extensions_enabled_for_students, except: [ :export ]
   before_action :ensure_request_is_pending, only: %i[update approve reject]
   before_action :set_request, only: %i[show edit cancel]
-  before_action :check_instructor_permission, only: %i[approve reject mass_approve mass_reject]
+  before_action :check_staff_permission, only: %i[approve reject mass_approve mass_reject]
 
   def index
     @side_nav = 'requests'
@@ -56,7 +56,7 @@ class RequestsController < ApplicationController
 
   def new_for_student
     @side_nav = 'form'
-    return redirect_to course_requests_path(@course), alert: 'You do not have permission to access this page.' unless @role == 'instructor'
+    return redirect_to course_requests_path(@course), alert: 'You do not have permission to access this page.' unless @course.staff?(@user)
 
     course_to_lmss = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
@@ -91,7 +91,7 @@ class RequestsController < ApplicationController
   end
 
   def create_for_student
-    return redirect_to course_requests_path(@course), alert: 'You do not have permission to perform this action.' unless @role == 'instructor'
+    return redirect_to course_requests_path(@course), alert: 'You do not have permission to perform this action.' unless @course.staff?(@user)
 
     student = User.find_by(id: params[:request][:user_id])
     return redirect_to new_course_request_path(@course), alert: 'Student not found.' unless student
@@ -196,8 +196,8 @@ class RequestsController < ApplicationController
     redirect_to course_path(@course), alert: 'Request not found.' unless @request
   end
 
-  def check_instructor_permission
-    result = RequestService.check_instructor_permission(@role, course_path(@course))
+  def check_staff_permission
+    result = RequestService.check_staff_permission(@role, course_path(@course))
     redirect_to result[:redirect_to], alert: result[:alert] if result != true
   end
 

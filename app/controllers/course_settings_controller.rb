@@ -2,7 +2,7 @@ class CourseSettingsController < ApplicationController
   before_action :authenticated!
   before_action :authenticate_user
   before_action :set_course
-  before_action :ensure_instructor_role
+  before_action :ensure_course_admin
   before_action :set_pending_request_count
 
   # Default template settings

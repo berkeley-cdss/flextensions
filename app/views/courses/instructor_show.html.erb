@@ -34,6 +34,7 @@
                            role="switch"
                            id="assignment-<%= assignment.id %>-enabled"
                            <%= 'checked' if assignment.enabled %>
+                           <%= 'disabled' unless @is_course_admin %>
                            data-assignment-target="checkbox"
                            data-assignment-id="<%= assignment.id %>"
                            data-url="<%= toggle_enabled_assignment_path(assignment) %>"
