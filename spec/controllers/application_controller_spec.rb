@@ -108,7 +108,8 @@ RSpec.describe ApplicationController, type: :controller do
       let(:action_name_override)     { 'show' }
 
       before do
-        controller.instance_variable_set(:@role, 'student')
+        policy = instance_double(CoursePolicy, view_role: 'student')
+        allow(controller).to receive(:current_policy).and_return(policy)
       end
 
       it 'renders courses/student_show' do
@@ -122,7 +123,8 @@ RSpec.describe ApplicationController, type: :controller do
       let(:action_name_override)     { 'index' }
 
       before do
-        controller.instance_variable_set(:@role, 'instructor')
+        policy = instance_double(CoursePolicy, view_role: 'instructor')
+        allow(controller).to receive(:current_policy).and_return(policy)
       end
 
       it 'renders requests/instructor_index' do
@@ -136,7 +138,8 @@ RSpec.describe ApplicationController, type: :controller do
       let(:action_name_override)     { 'show' }
 
       before do
-        controller.instance_variable_set(:@role, 'student')
+        policy = instance_double(CoursePolicy, view_role: 'student')
+        allow(controller).to receive(:current_policy).and_return(policy)
       end
 
       it 'renders the overridden student view under requests' do
@@ -145,12 +148,13 @@ RSpec.describe ApplicationController, type: :controller do
       end
     end
 
-    context 'when @role is nil or unrecognized' do
+    context 'when view_role is nil (unenrolled user)' do
       let(:controller_name_override) { 'courses' }
       let(:action_name_override)     { 'show' }
 
       before do
-        controller.instance_variable_set(:@role, nil)
+        policy = instance_double(CoursePolicy, view_role: nil)
+        allow(controller).to receive(:current_policy).and_return(policy)
       end
 
       it 'redirects to courses_path with an alert' do

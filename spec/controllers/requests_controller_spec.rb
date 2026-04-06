@@ -278,34 +278,52 @@ RSpec.describe RequestsController, type: :controller do
   end
 
   describe 'POST #cancel' do
-    before do
-      session[:user_id] = user.canvas_uid
-      UserToCourse.create!(user: user, course: course, role: 'student')
+    context 'when user is a student' do
+      before do
+        session[:user_id] = user.canvas_uid
+        UserToCourse.create!(user: user, course: course, role: 'student')
+      end
+
+      it 'denies access to cancel a request' do
+        post :cancel, params: { course_id: course.id, id: request.id }
+
+        expect(response).to redirect_to(course_path(course))
+        expect(flash[:alert]).to eq('You do not have permission to perform this action.')
+        expect(request.reload.status).to eq('pending')
+      end
     end
 
-    it 'cancels the request and updates its status to denied' do
-      post :cancel, params: { course_id: course.id, id: request.id }
+    context 'when user is staff' do
+      before do
+        session[:user_id] = instructor.canvas_uid
+        UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+        FormSetting.create!(course: course, documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden')
+      end
 
-      expect(response).to redirect_to(course_requests_path(course))
-      expect(flash[:notice]).to match(/Request canceled successfully./i)
-      expect(request.reload.status).to eq('denied')
-    end
+      it 'cancels the request and updates its status to denied' do
+        post :cancel, params: { course_id: course.id, id: request.id }
 
-    it 'redirects if the request is not found' do
-      post :cancel, params: { course_id: course.id, id: '9999' }
+        expect(response).to redirect_to(course_requests_path(course))
+        expect(flash[:notice]).to match(/Request canceled successfully./i)
+        expect(request.reload.status).to eq('denied')
+      end
 
-      expect(response).to redirect_to(course_path(course))
-      expect(flash[:alert]).to eq('Request not found.')
-    end
+      it 'redirects if the request is not found' do
+        post :cancel, params: { course_id: course.id, id: '9999' }
 
-    it 'does not cancel a request if it fails to update' do
-      allow_any_instance_of(Request).to receive(:reject).and_return(false)
+        expect(response).to redirect_to(course_path(course))
+        expect(flash[:alert]).to eq('Request not found.')
+      end
 
-      post :cancel, params: { course_id: course.id, id: request.id }
+      it 'does not cancel a request if it fails to update' do
+        allow_any_instance_of(Request).to receive(:reject).and_return(false)
 
-      expect(response).to redirect_to(course_requests_path(course))
-      expect(flash[:alert]).to match('Failed to cancel the request.')
-      expect(request.reload.status).not_to eq('denied')
+        post :cancel, params: { course_id: course.id, id: request.id }
+
+        expect(response).to redirect_to(course_requests_path(course))
+        expect(flash[:alert]).to match('Failed to cancel the request.')
+        expect(request.reload.status).not_to eq('denied')
+      end
     end
   end
 

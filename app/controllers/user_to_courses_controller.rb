@@ -1,9 +1,11 @@
 class UserToCoursesController < ApplicationController
   before_action :authenticate_user
   before_action :set_course
-  before_action :ensure_course_admin
 
   def toggle_allow_extended_requests
+    authorize! :can_manage_extended_circumstances?, format: :json
+    return if performed?
+
     @enrollment = @course.user_to_courses.find(params[:id])
 
     if @enrollment.update(allow_extended_requests: params[:allow_extended_requests])
@@ -12,14 +14,5 @@ class UserToCoursesController < ApplicationController
       flash[:alert] = "Failed to update enrollment: #{@enrollment.errors.full_messages.to_sentence}"
       render json: { redirect_to: course_path(@course) }, status: :unprocessable_content
     end
-  end
-
-  private
-
-  def ensure_course_admin
-    enrollment = @course.user_to_courses.find_by(user: @user)
-    return if enrollment&.course_admin?
-
-    render json: { error: 'You must be an instructor or Lead TA.', redirect_to: course_path(@course) }, status: :forbidden
   end
 end

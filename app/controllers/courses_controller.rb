@@ -5,7 +5,7 @@ class CoursesController < ApplicationController
   before_action :determine_user_role
 
   def index
-    @teacher_courses = UserToCourse.includes(:course).where(user: @user, role: %w[teacher ta])
+    @teacher_courses = UserToCourse.includes(:course).where(user: @user, role: UserToCourse.staff_roles)
 
     # Only show courses to students if extensions are enabled at the course level
     student_courses = UserToCourse.includes(course: :course_settings).where(user: @user, role: 'student')
@@ -22,7 +22,7 @@ class CoursesController < ApplicationController
     @side_nav = 'show'
     @course.regenerate_readonly_api_token_if_blank
 
-    if @role == 'student'
+    if current_policy.student? && !current_policy.staff?
       course_settings = @course.course_settings
       return redirect_to courses_path, alert: 'Extensions are not enabled for this course.' unless course_settings&.enable_extensions
 
@@ -43,8 +43,6 @@ class CoursesController < ApplicationController
     @selected_semester = params[:semester]
 
     teacher_enrollment_types = %w[teacher ta]
-    # TODO: Add spec for when a course is created, but the user is not enrolled in it.
-    # TODO: Why do some courses have empty enrollments?
     existing_canvas_ids = @user.courses.pluck(:canvas_id)
     @courses_teacher = filter_courses(@courses, teacher_enrollment_types, existing_canvas_ids)
     @courses_student = filter_courses(@courses, [ 'student' ], existing_canvas_ids)
@@ -57,7 +55,7 @@ class CoursesController < ApplicationController
 
   def edit
     @side_nav = 'edit'
-    redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
+    authorize! :can_edit_course?
   end
 
   def create
@@ -71,6 +69,9 @@ class CoursesController < ApplicationController
   def sync_assignments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
 
+    authorize! :can_sync_assignments?, format: :json
+    return if performed?
+
     @course.sync_assignments(@user)
     render json: { message: 'Assignments synced successfully.' }, status: :ok
   end
@@ -78,20 +79,25 @@ class CoursesController < ApplicationController
   def sync_enrollments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
 
+    authorize! :can_sync_enrollments?, format: :json
+    return if performed?
+
     @course.sync_all_enrollments_from_canvas(@user.id)
     render json: { message: 'Users synced successfully.' }, status: :ok
   end
 
   def enrollments
     @side_nav = 'enrollments'
-    return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
+    authorize! :can_view_enrollments?
+    return if performed?
 
     @enrollments = @course.user_to_courses.includes(:user)
-    @is_course_admin = @course.user_to_courses.find_by(user: @user)&.course_admin?
+    @is_course_admin = current_policy.course_admin?
   end
 
   def delete
-    return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
+    authorize! :can_delete_course?
+    return if performed?
     return redirect_to courses_path, alert: 'Extensions are enabled for this course.' if @course.course_settings&.enable_extensions
 
     assignments = Assignment.where(course_to_lms_id: CourseToLms.where(course_id: @course.id).select(:id))

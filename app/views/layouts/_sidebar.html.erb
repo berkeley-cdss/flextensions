@@ -27,7 +27,7 @@
 			text: "Requests  <span class=\"badge rounded-pill float-end text-bg-danger ms-2\">#{@pending_requests_count}</span>",
 			active: @side_nav == 'requests' %>
 
-		<% if @role == 'instructor' %>
+		<% if current_policy.staff? %>
 			<%= render 'layouts/components/sidebar_menu_item',
 				path: enrollments_course_path(@course.id),
 				icon: 'fas fa-users',
@@ -53,7 +53,7 @@
 				active: @side_nav == 'form' %>
 		<% end %>
 
-		<% if @role == 'student' %>
+		<% if current_policy.student? && !current_policy.staff? %>
 			<%= render 'layouts/components/sidebar_menu_item',
 				path: new_course_request_path(@course.id),
 				icon: 'fas fa-file-pen',

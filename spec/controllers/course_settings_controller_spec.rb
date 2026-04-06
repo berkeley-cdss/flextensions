@@ -17,8 +17,7 @@ RSpec.describe CourseSettingsController, type: :controller do
   describe 'instructor access' do
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
-      allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
     end
 
     describe 'POST #update' do
@@ -113,15 +112,13 @@ RSpec.describe CourseSettingsController, type: :controller do
 
         expect(response).to redirect_to(course_settings_path(course.id, tab: 'email'))
         expect(flash[:notice]).to eq('Email templates reset to defaults.')
-        # We won't test the exact content since that requires knowledge of the constants
       end
     end
   end
 
   describe 'pending requests count' do
     let(:assignment) do
-      # Create necessary related objects for Request
-      lms = Lms.first
+      lms = Lms.find_or_create_by!(id: 1, lms_name: 'Canvas', use_auth_token: true)
       course_to_lms = CourseToLms.create!(course: course, lms: lms, external_course_id: '123')
       Assignment.create!(
         name: 'Test Assignment',
@@ -134,8 +131,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
-      allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
 
       # Create settings to enable extensions
       CourseSettings.create!(
@@ -186,6 +182,43 @@ RSpec.describe CourseSettingsController, type: :controller do
     end
   end
 
+  describe 'regular TA access' do
+    before do
+      session[:user_id] = student.canvas_uid
+      student.lms_credentials.create!(
+        lms_name: 'canvas',
+        token: 'student_token',
+        refresh_token: 'student_refresh_token',
+        expire_time: 1.hour.from_now
+      )
+      UserToCourse.create!(user: student, course: course, role: 'ta')
+
+      CourseSettings.create!(
+        course: course,
+        enable_extensions: false,
+        auto_approve_days: 1
+      )
+    end
+
+    it 'denies TA access to update course settings' do
+      post :update, params: {
+        course_id: course.id,
+        course_settings: {
+          enable_extensions: 'true',
+          auto_approve_days: '99'
+        },
+        tab: 'general'
+      }
+
+      expect(response).to redirect_to(course_path(course))
+      expect(flash[:alert]).to eq('You do not have permission to perform this action.')
+
+      # Verify settings were not changed
+      expect(course.reload.course_settings.enable_extensions).to be false
+      expect(course.reload.course_settings.auto_approve_days).to eq(1)
+    end
+  end
+
   describe 'student access' do
     before do
       session[:user_id] = student.canvas_uid
@@ -196,9 +229,7 @@ RSpec.describe CourseSettingsController, type: :controller do
         expire_time: 1.hour.from_now
       )
       UserToCourse.create!(user: student, course: course, role: 'student')
-      allow_any_instance_of(Course).to receive(:user_role).with(student).and_return('student')
 
-      # Create some course settings to attempt to modify
       CourseSettings.create!(
         course: course,
         enable_extensions: false,
@@ -216,8 +247,8 @@ RSpec.describe CourseSettingsController, type: :controller do
         tab: 'general'
       }
 
-      expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(response).to redirect_to(course_path(course))
+      expect(flash[:alert]).to eq('You do not have permission to perform this action.')
 
       # Verify settings were not changed
       expect(course.reload.course_settings.enable_extensions).to be false
@@ -231,8 +262,8 @@ RSpec.describe CourseSettingsController, type: :controller do
         tab: 'email'
       }
 
-      expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(response).to redirect_to(course_path(course))
+      expect(flash[:alert]).to eq('You do not have permission to perform this action.')
     end
   end
 
@@ -252,7 +283,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
     it 'redirects to courses path when course is not found' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
 
       post :update, params: {
         course_id: 999,

@@ -41,7 +41,6 @@ RSpec.describe CoursesController, type: :controller do
       end
 
       it 'renders the shared role-based view with student template' do
-        # TODO: Refactor initial data setup to use factories
         course_settings
         get :show, params: { id: course.id }
         expect(response).to render_template('courses/student_show')
@@ -58,10 +57,16 @@ RSpec.describe CoursesController, type: :controller do
   end
 
   describe 'GET #edit' do
-    it 'redirects non-instructor users' do
+    it 'redirects non-course-admin users' do
       get :edit, params: { id: course.id }
       expect(response).to redirect_to(course_path(course))
-      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(flash[:alert]).to eq('You do not have permission to perform this action.')
+    end
+
+    it 'allows teachers to edit' do
+      UserToCourse.create!(user: user, course: course, role: 'teacher')
+      get :edit, params: { id: course.id }
+      expect(response).to have_http_status(:ok)
     end
   end
 
@@ -79,6 +84,10 @@ RSpec.describe CoursesController, type: :controller do
   end
 
   describe 'POST #sync_assignments' do
+    before do
+      UserToCourse.create!(user: user, course: course, role: 'teacher')
+    end
+
     it 'syncs assignments and returns OK' do
       allow(Course).to receive(:create_or_update_from_canvas)
 
@@ -87,11 +96,23 @@ RSpec.describe CoursesController, type: :controller do
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body).to eq({ 'message' => 'Assignments synced successfully.' })
     end
+
+    it 'returns forbidden for students' do
+      student = User.create!(email: 'other@example.com', canvas_uid: '999', name: 'Other Student')
+      student.lms_credentials.create!(lms_name: 'canvas', token: 'fake', refresh_token: 'fake', expire_time: 1.hour.from_now)
+      UserToCourse.create!(user: student, course: course, role: 'student')
+      session[:user_id] = student.canvas_uid
+
+      post :sync_assignments, params: { id: course.id }, format: :json
+
+      expect(response).to have_http_status(:forbidden)
+    end
   end
 
   describe 'POST #sync_enrollments' do
     before do
       course_to_lms
+      UserToCourse.create!(user: user, course: course, role: 'teacher')
       roles = %w[teacher ta student]
       roles.each do |role|
         stub_request(:get, "#{ENV.fetch('CANVAS_URL', nil)}/api/v1/courses/456/users")
@@ -150,9 +171,7 @@ RSpec.describe CoursesController, type: :controller do
     end
 
     before do
-      # Create a fake LMS credential with a token
       user.lms_credentials.create!(lms_name: 'canvas', token: 'fake_token', expire_time: 1.hour.from_now)
-
       allow(Course).to receive(:fetch_courses).and_return(canvas_courses)
     end
 
@@ -161,16 +180,12 @@ RSpec.describe CoursesController, type: :controller do
 
       expect(response).to have_http_status(:ok)
       expect(response).to render_template(:new)
-
-      # You can check that @courses_teacher and @courses_student are set
       expect(assigns(:courses_teacher)).not_to be_empty
       expect(assigns(:courses_student)).not_to be_empty
 
-      # Teacher course should be categorized correctly
       teacher_course = assigns(:courses_teacher).first
       expect(teacher_course['enrollments'].first['type']).to eq('teacher')
 
-      # Student course should be categorized correctly
       student_course = assigns(:courses_student).first
       expect(student_course['enrollments'].first['type']).to eq('student')
     end
@@ -224,7 +239,6 @@ RSpec.describe CoursesController, type: :controller do
 
   describe 'GET #enrollments' do
     before do
-      # Create LMS credentials so user has a token
       user.lms_credentials.create!(lms_name: 'canvas', token: 'fake_token', expire_time: 1.hour.from_now)
 
       # Add user as a teacher so they are allowed to view enrollments
@@ -233,7 +247,7 @@ RSpec.describe CoursesController, type: :controller do
       CourseToLms.create!(course: course, lms_id: 1)
     end
 
-    context 'when user is an instructor' do
+    context 'when user is staff' do
       it 'renders the enrollments view successfully' do
         get :enrollments, params: { id: course.id }
 
@@ -241,9 +255,22 @@ RSpec.describe CoursesController, type: :controller do
         expect(response).to render_template(:enrollments)
         expect(assigns(:enrollments)).not_to be_nil
 
-        # Check that the enrollments include the user
         enrollment_user_ids = assigns(:enrollments).map(&:user_id)
         expect(enrollment_user_ids).to include(user.id)
+      end
+    end
+
+    context 'when user is a student' do
+      it 'denies access' do
+        student = User.create!(email: 'other@example.com', canvas_uid: '999', name: 'Other Student')
+        student.lms_credentials.create!(lms_name: 'canvas', token: 'fake', refresh_token: 'fake', expire_time: 1.hour.from_now)
+        UserToCourse.create!(user: student, course: course, role: 'student')
+        session[:user_id] = student.canvas_uid
+
+        get :enrollments, params: { id: course.id }
+
+        expect(response).to redirect_to(course_path(course))
+        expect(flash[:alert]).to eq('You do not have permission to perform this action.')
       end
     end
   end

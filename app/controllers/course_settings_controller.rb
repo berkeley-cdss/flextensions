@@ -2,7 +2,7 @@ class CourseSettingsController < ApplicationController
   before_action :authenticated!
   before_action :authenticate_user
   before_action :set_course
-  before_action :ensure_instructor_role
+  before_action :authorize_manage_settings
   before_action :set_pending_request_count
 
   # Default template settings
@@ -74,6 +74,10 @@ class CourseSettingsController < ApplicationController
       :enable_slack_webhook_url,
       :slack_webhook_url
     )
+  end
+
+  def authorize_manage_settings
+    authorize! :can_manage_settings?
   end
 
   def set_pending_request_count

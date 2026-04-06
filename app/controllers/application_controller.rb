@@ -1,4 +1,6 @@
 class ApplicationController < ActionController::Base
+  include Authorization
+
   before_action :authenticated!, unless: -> { excluded_controller_action? }
 
   rescue_from LmsFacade::LmsAPIError, with: :handle_lms_api_error
@@ -18,7 +20,6 @@ class ApplicationController < ActionController::Base
     excluded_actions[controller]&.include?(action)
   end
 
-  # TODO: Refactor all auth methods
   helper_method :current_user
   def current_user
     if defined?(@current_user)
@@ -79,8 +80,8 @@ class ApplicationController < ActionController::Base
 
   def set_pending_request_count
     return unless defined?(@course) && @course.present? && defined?(@user) && @user.present?
-    # only calculating pending requests count if the role is instructor so we don't show it to students
-    return unless @course.user_role(@user) == 'instructor'
+
+    return unless current_policy.staff?
 
     @pending_requests_count = @course.requests.where(status: 'pending').count
   end
@@ -99,7 +100,7 @@ class ApplicationController < ActionController::Base
     instructor_view = "#{ctrl}/instructor_#{act}"
     student_view = "#{ctrl}/student_#{act}"
 
-    case @role
+    case current_policy.view_role
     when 'instructor'
       render instructor_view
     when 'student'
@@ -122,9 +123,6 @@ class ApplicationController < ActionController::Base
   end
 
   def ensure_instructor_role
-    return if @role == 'instructor'
-
-    flash[:alert] = 'You do not have access to this page.'
-    redirect_to courses_path
+    authorize! :staff?
   end
 end

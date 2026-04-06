@@ -6,16 +6,9 @@ class RequestService
     { redirect_to: redirect_path, alert: 'Course not found.' }
   end
 
-  # Check instructor permission
-  def self.check_instructor_permission(role, course_path)
-    return true if role == 'instructor'
-
-    { redirect_to: course_path, alert: 'You do not have permission to perform this action.' }
-  end
-
-  # Ensure extensions are enabled for students
-  def self.check_extensions_enabled_for_students(role, course, redirect_path)
-    return true unless role == 'student'
+  # Ensure extensions are enabled for students (non-staff users)
+  def self.check_extensions_enabled_for_students(policy, course, redirect_path)
+    return true if policy.staff?
 
     course_settings = course.course_settings
     return true unless course_settings && !course_settings.enable_extensions

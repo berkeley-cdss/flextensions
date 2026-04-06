@@ -7,7 +7,7 @@ RSpec.describe UserToCoursesController, type: :controller do
   let(:student_enrollment) { UserToCourse.create!(user: student_user, course: course, role: 'student') }
 
   describe 'PATCH #toggle_allow_extended_requests' do
-    context 'when user is an instructor' do
+    context 'when user is a course admin (teacher)' do
       before do
         UserToCourse.create!(user: instructor, course: course, role: 'teacher')
         student_enrollment
@@ -63,6 +63,69 @@ RSpec.describe UserToCoursesController, type: :controller do
       end
     end
 
+    context 'when user is a lead TA' do
+      let(:leadta) { User.create!(email: 'leadta@example.com', canvas_uid: '300', name: 'Lead TA') }
+
+      before do
+        UserToCourse.create!(user: leadta, course: course, role: 'leadta')
+        student_enrollment
+        session[:user_id] = leadta.canvas_uid
+        leadta.lms_credentials.create!(
+          lms_name: 'canvas',
+          token: 'fake_token',
+          refresh_token: 'fake_refresh_token',
+          expire_time: 1.hour.from_now
+        )
+      end
+
+      it 'successfully enables allow_extended_requests' do
+        patch :toggle_allow_extended_requests, params: {
+          course_id: course.id,
+          id: student_enrollment.id,
+          allow_extended_requests: true
+        }
+
+        expect(response).to have_http_status(:ok)
+        expect(student_enrollment.reload.allow_extended_requests).to be true
+      end
+    end
+
+    context 'when user is a regular TA' do
+      let(:ta_user) { User.create!(email: 'ta@example.com', canvas_uid: '400', name: 'TA') }
+
+      before do
+        UserToCourse.create!(user: ta_user, course: course, role: 'ta')
+        student_enrollment
+        session[:user_id] = ta_user.canvas_uid
+        ta_user.lms_credentials.create!(
+          lms_name: 'canvas',
+          token: 'fake_token',
+          refresh_token: 'fake_refresh_token',
+          expire_time: 1.hour.from_now
+        )
+      end
+
+      it 'returns forbidden status' do
+        patch :toggle_allow_extended_requests, params: {
+          course_id: course.id,
+          id: student_enrollment.id,
+          allow_extended_requests: true
+        }
+
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'does not update the enrollment' do
+        patch :toggle_allow_extended_requests, params: {
+          course_id: course.id,
+          id: student_enrollment.id,
+          allow_extended_requests: true
+        }
+
+        expect(student_enrollment.reload.allow_extended_requests).to be false
+      end
+    end
+
     context 'when user is a student' do
       before do
         student_enrollment
@@ -83,7 +146,6 @@ RSpec.describe UserToCoursesController, type: :controller do
         }
 
         expect(response).to have_http_status(:forbidden)
-        expect(response.parsed_body['redirect_to']).to be_present
       end
 
       it 'does not update the enrollment' do

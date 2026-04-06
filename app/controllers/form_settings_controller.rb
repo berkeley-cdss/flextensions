@@ -2,7 +2,7 @@ class FormSettingsController < ApplicationController
   before_action :authenticated!
   before_action :authenticate_user
   before_action :set_course
-  before_action :ensure_instructor_role
+  before_action :authorize_manage_form_settings
   before_action :set_pending_request_count
 
   def edit
@@ -42,6 +42,10 @@ class FormSettingsController < ApplicationController
       :custom_q1, :custom_q1_desc, :custom_q1_disp,
       :custom_q2, :custom_q2_desc, :custom_q2_disp
     )
+  end
+
+  def authorize_manage_form_settings
+    authorize! :can_manage_form_settings?
   end
 
   def set_pending_request_count
