@@ -11,5 +11,13 @@ FactoryBot.define do
     trait :as_student do
       role { 'student' }
     end
+
+    trait :as_ta do
+      role { 'ta' }
+    end
+
+    trait :as_leadta do
+      role { 'leadta' }
+    end
   end
 end

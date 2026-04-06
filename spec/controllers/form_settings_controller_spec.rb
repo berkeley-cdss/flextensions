@@ -3,7 +3,6 @@ require 'rails_helper'
 RSpec.describe FormSettingsController, type: :controller do
   let(:user) { User.create!(email: 'instructor@example.com', canvas_uid: '12345', name: 'Instructor') }
   let(:course) { Course.create!(course_name: 'Algorithms', canvas_id: '789', course_code: 'CS101') }
-  let(:user_to_course) { UserToCourse.create!(user: user, course: course, role: 'teacher') }
   let(:valid_params) do
     {
       course_id: course.id,
@@ -23,7 +22,13 @@ RSpec.describe FormSettingsController, type: :controller do
 
   before do
     session[:user_id] = user.canvas_uid
-    allow_any_instance_of(Course).to receive(:user_role).and_return('instructor')
+    UserToCourse.create!(user: user, course: course, role: 'teacher')
+    user.lms_credentials.create!(
+      lms_name: 'canvas',
+      token: 'fake_token',
+      refresh_token: 'fake_refresh_token',
+      expire_time: 1.hour.from_now
+    )
     course.create_form_setting!(
       documentation_disp: 'hidden',
       custom_q1_disp: 'optional',
@@ -114,14 +119,23 @@ RSpec.describe FormSettingsController, type: :controller do
     end
 
     context 'when user is a student' do
+      let(:student) { User.create!(email: 'student@example.com', canvas_uid: '99999', name: 'Student') }
+
       before do
-        allow_any_instance_of(Course).to receive(:user_role).and_return('student')
+        session[:user_id] = student.canvas_uid
+        UserToCourse.create!(user: student, course: course, role: 'student')
+        student.lms_credentials.create!(
+          lms_name: 'canvas',
+          token: 'student_token',
+          refresh_token: 'student_refresh_token',
+          expire_time: 1.hour.from_now
+        )
       end
 
       it 'denies access and redirects to courses path' do
         patch :update, params: valid_params
         expect(response).to redirect_to(courses_path)
-        expect(flash[:alert]).to eq('You do not have access to this page.')
+        expect(flash[:alert]).to be_present
       end
     end
   end

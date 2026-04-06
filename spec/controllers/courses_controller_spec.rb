@@ -60,12 +60,25 @@ RSpec.describe CoursesController, type: :controller do
   describe 'GET #edit' do
     it 'redirects non-instructor users' do
       get :edit, params: { id: course.id }
-      expect(response).to redirect_to(course_path(course))
-      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to be_present
     end
   end
 
   describe 'POST #create' do
+    let(:staff_user) { User.create!(email: 'teacher@example.com', canvas_uid: '999', name: 'Teacher') }
+
+    before do
+      session[:user_id] = staff_user.canvas_uid
+      UserToCourse.create!(user: staff_user, course: course, role: 'teacher')
+      staff_user.lms_credentials.create!(
+        lms_name: 'canvas',
+        token: 'fake_token',
+        refresh_token: 'fake_refresh_token',
+        expire_time: 1.hour.from_now
+      )
+    end
+
     it 'redirects to courses_path after importing courses' do
       allow(Course).to receive_messages(fetch_courses: [
                                           { 'id' => '456', 'name' => 'New Canvas Course', 'course_code' => 'C101', 'enrollments' => [ { 'type' => 'teacher' } ] }
@@ -79,6 +92,19 @@ RSpec.describe CoursesController, type: :controller do
   end
 
   describe 'POST #sync_assignments' do
+    let(:staff_user) { User.create!(email: 'teacher@example.com', canvas_uid: '999', name: 'Teacher') }
+
+    before do
+      session[:user_id] = staff_user.canvas_uid
+      UserToCourse.create!(user: staff_user, course: course, role: 'ta')
+      staff_user.lms_credentials.create!(
+        lms_name: 'canvas',
+        token: 'fake_token',
+        refresh_token: 'fake_refresh_token',
+        expire_time: 1.hour.from_now
+      )
+    end
+
     it 'syncs assignments and returns OK' do
       allow(Course).to receive(:create_or_update_from_canvas)
 
@@ -90,8 +116,19 @@ RSpec.describe CoursesController, type: :controller do
   end
 
   describe 'POST #sync_enrollments' do
+    let(:staff_user) { User.create!(email: 'teacher@example.com', canvas_uid: '999', name: 'Teacher') }
+
     before do
       course_to_lms
+      session[:user_id] = staff_user.canvas_uid
+      UserToCourse.create!(user: staff_user, course: course, role: 'ta')
+      staff_user.lms_credentials.create!(
+        lms_name: 'canvas',
+        token: 'fake_token',
+        refresh_token: 'fake_refresh_token',
+        expire_time: 1.hour.from_now
+      )
+
       roles = %w[teacher ta student]
       roles.each do |role|
         stub_request(:get, "#{ENV.fetch('CANVAS_URL', nil)}/api/v1/courses/456/users")

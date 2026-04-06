@@ -11,7 +11,6 @@ class RequestsController < ApplicationController
   before_action :check_extensions_enabled_for_students, except: [ :export ]
   before_action :ensure_request_is_pending, only: %i[update approve reject]
   before_action :set_request, only: %i[show edit cancel]
-  before_action :check_instructor_permission, only: %i[approve reject mass_approve mass_reject]
 
   def index
     @side_nav = 'requests'
@@ -42,9 +41,11 @@ class RequestsController < ApplicationController
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
 
     if @role == 'instructor'
+      authorize! :create_for_student, Request.new(course: @course)
       prepare_instructor_new_request(course_to_lmss)
       render :new_for_student and return
     elsif @role == 'student'
+      authorize! :create, Request.new(course: @course, user: @user)
       redirected = prepare_student_new_request(course_to_lmss)
       return if redirected
 
@@ -56,7 +57,7 @@ class RequestsController < ApplicationController
 
   def new_for_student
     @side_nav = 'form'
-    return redirect_to course_requests_path(@course), alert: 'You do not have permission to access this page.' unless @role == 'instructor'
+    authorize! :create_for_student, Request.new(course: @course)
 
     course_to_lmss = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
@@ -91,7 +92,7 @@ class RequestsController < ApplicationController
   end
 
   def create_for_student
-    return redirect_to course_requests_path(@course), alert: 'You do not have permission to perform this action.' unless @role == 'instructor'
+    authorize! :create_for_student, Request.new(course: @course)
 
     student = User.find_by(id: params[:request][:user_id])
     return redirect_to new_course_request_path(@course), alert: 'Student not found.' unless student
@@ -114,6 +115,8 @@ class RequestsController < ApplicationController
     @request = @course.requests.find_by(id: params[:id])
     return redirect_to course_path(@course), alert: 'Request not found.' unless @request
 
+    authorize! :update, @request
+
     Request.merge_date_and_time!(params[:request])
 
     if @request.update(request_params)
@@ -126,6 +129,7 @@ class RequestsController < ApplicationController
   end
 
   def cancel
+    authorize! :cancel, @request
     if @request.reject(@user)
       redirect_to course_requests_path(@course), notice: 'Request canceled successfully.'
     else
@@ -134,6 +138,7 @@ class RequestsController < ApplicationController
   end
 
   def approve
+    authorize! :approve, @request
     @assignment = Assignment.find_by(id: @request.assignment_id)
     lms_facade = @assignment.lms_facade
     if @request.approve(lms_facade.from_user(@user), @user)
@@ -152,6 +157,7 @@ class RequestsController < ApplicationController
   end
 
   def reject
+    authorize! :reject, @request
     if @request.reject(@user)
       notice = 'Request denied successfully.'
       respond_to do |format|
@@ -168,10 +174,12 @@ class RequestsController < ApplicationController
   end
 
   def mass_approve
+    authorize! :approve, Request.new(course: @course)
     process_mass_action(:approve)
   end
 
   def mass_reject
+    authorize! :reject, Request.new(course: @course)
     process_mass_action(:reject)
   end
 
@@ -194,11 +202,6 @@ class RequestsController < ApplicationController
     @side_nav = 'requests'
     @request = @course.requests.includes(:assignment).find_by(id: params[:id])
     redirect_to course_path(@course), alert: 'Request not found.' unless @request
-  end
-
-  def check_instructor_permission
-    result = RequestService.check_instructor_permission(@role, course_path(@course))
-    redirect_to result[:redirect_to], alert: result[:alert] if result != true
   end
 
   def handle_request_error

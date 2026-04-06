@@ -2,6 +2,7 @@ class ApplicationController < ActionController::Base
   before_action :authenticated!, unless: -> { excluded_controller_action? }
 
   rescue_from LmsFacade::LmsAPIError, with: :handle_lms_api_error
+  rescue_from CanCan::AccessDenied, with: :handle_access_denied
 
   def excluded_controller_action?
     # Actions and controllers that do NOT require authentication
@@ -77,6 +78,18 @@ class ApplicationController < ActionController::Base
     redirect_back_or_to(root_path)
   end
 
+  def handle_access_denied(exception)
+    respond_to do |format|
+      format.html do
+        flash[:alert] = exception.message || 'You are not authorized to perform this action.'
+        redirect_to courses_path
+      end
+      format.json do
+        render json: { error: exception.message || 'You are not authorized to perform this action.' }, status: :forbidden
+      end
+    end
+  end
+
   def set_pending_request_count
     return unless defined?(@course) && @course.present? && defined?(@user) && @user.present?
     # only calculating pending requests count if the role is instructor so we don't show it to students
@@ -122,9 +135,6 @@ class ApplicationController < ActionController::Base
   end
 
   def ensure_instructor_role
-    return if @role == 'instructor'
-
-    flash[:alert] = 'You do not have access to this page.'
-    redirect_to courses_path
+    authorize! :update, @course
   end
 end

@@ -75,15 +75,15 @@ RSpec.describe UserToCoursesController, type: :controller do
         )
       end
 
-      it 'returns forbidden status' do
+      it 'denies access' do
         patch :toggle_allow_extended_requests, params: {
           course_id: course.id,
           id: student_enrollment.id,
           allow_extended_requests: true
         }
 
-        expect(response).to have_http_status(:forbidden)
-        expect(response.parsed_body['redirect_to']).to be_present
+        expect(response).to redirect_to(courses_path)
+        expect(flash[:alert]).to be_present
       end
 
       it 'does not update the enrollment' do

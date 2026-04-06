@@ -54,6 +54,9 @@ gem 'omniauth'
 gem 'omniauth-canvas'
 gem 'omniauth-oauth2'
 
+# Authorization
+gem 'cancancan'
+
 # Audit for potentially unsafe database migrations
 gem 'strong_migrations'
 

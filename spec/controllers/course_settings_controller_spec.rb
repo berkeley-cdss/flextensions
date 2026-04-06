@@ -17,8 +17,7 @@ RSpec.describe CourseSettingsController, type: :controller do
   describe 'instructor access' do
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
-      allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
     end
 
     describe 'POST #update' do
@@ -134,8 +133,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
-      allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
 
       # Create settings to enable extensions
       CourseSettings.create!(
@@ -196,7 +194,6 @@ RSpec.describe CourseSettingsController, type: :controller do
         expire_time: 1.hour.from_now
       )
       UserToCourse.create!(user: student, course: course, role: 'student')
-      allow_any_instance_of(Course).to receive(:user_role).with(student).and_return('student')
 
       # Create some course settings to attempt to modify
       CourseSettings.create!(
@@ -217,7 +214,7 @@ RSpec.describe CourseSettingsController, type: :controller do
       }
 
       expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(flash[:alert]).to be_present
 
       # Verify settings were not changed
       expect(course.reload.course_settings.enable_extensions).to be false
@@ -232,7 +229,7 @@ RSpec.describe CourseSettingsController, type: :controller do
       }
 
       expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(flash[:alert]).to be_present
     end
   end
 
@@ -252,7 +249,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
     it 'redirects to courses path when course is not found' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
 
       post :update, params: {
         course_id: 999,
