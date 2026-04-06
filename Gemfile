@@ -54,6 +54,9 @@ gem 'omniauth'
 gem 'omniauth-canvas'
 gem 'omniauth-oauth2'
 
+# Authorization
+gem 'pundit'
+
 # Audit for potentially unsafe database migrations
 gem 'strong_migrations'
 
@@ -111,6 +114,7 @@ group :test do
   gem 'rack_session_access'
   gem 'rspec-retry'
   gem 'selenium-webdriver'
+  gem 'pundit-matchers', '~> 3.1'
   gem 'shoulda-matchers', '~> 7.0'
   gem 'simplecov', '~> 0.22.0', require: false
   gem 'simplecov_json_formatter'

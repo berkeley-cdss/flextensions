@@ -2,7 +2,6 @@ class CourseSettingsController < ApplicationController
   before_action :authenticated!
   before_action :authenticate_user
   before_action :set_course
-  before_action :ensure_instructor_role
   before_action :set_pending_request_count
 
   # Default template settings
@@ -21,6 +20,7 @@ class CourseSettingsController < ApplicationController
   def update
     @side_nav = 'course_settings'
     @course_settings = @course.course_settings || @course.build_course_settings
+    authorize @course_settings
 
     if params[:reset_email_template].present?
       reset_email_templates

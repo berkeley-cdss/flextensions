@@ -1,7 +1,10 @@
 class ApplicationController < ActionController::Base
+  include Pundit::Authorization
+
   before_action :authenticated!, unless: -> { excluded_controller_action? }
 
   rescue_from LmsFacade::LmsAPIError, with: :handle_lms_api_error
+  rescue_from Pundit::NotAuthorizedError, with: :user_not_authorized
 
   def excluded_controller_action?
     # Actions and controllers that do NOT require authentication
@@ -126,5 +129,14 @@ class ApplicationController < ActionController::Base
 
     flash[:alert] = 'You do not have access to this page.'
     redirect_to courses_path
+  end
+
+  def pundit_user
+    current_user
+  end
+
+  def user_not_authorized
+    flash[:alert] = 'You do not have access to this page.'
+    redirect_back_or_to(courses_path)
   end
 end

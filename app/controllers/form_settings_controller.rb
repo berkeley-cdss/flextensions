@@ -2,17 +2,18 @@ class FormSettingsController < ApplicationController
   before_action :authenticated!
   before_action :authenticate_user
   before_action :set_course
-  before_action :ensure_instructor_role
   before_action :set_pending_request_count
 
   def edit
-    @side_nav = 'form_settings'
     @form_setting = @course.form_setting
+    authorize @form_setting
+    @side_nav = 'form_settings'
   end
 
   def update
     @side_nav = 'form_settings'
     @form_setting = @course.form_setting || @course.build_form_setting
+    authorize @form_setting
 
     permitted = form_setting_params.to_h
     defaulted = {

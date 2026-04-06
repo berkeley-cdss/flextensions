@@ -66,7 +66,7 @@ class Course < ApplicationRecord
   # Or is user.staff_role?(course) or user.student_role?(course) better?
   def user_role(user)
     roles = UserToCourse.where(user_id: user.id, course_id: id).pluck(:role)
-    return 'instructor' if roles.include?('teacher') || roles.include?('ta')
+    return 'instructor' if roles.include?('teacher') || roles.include?('ta') || roles.include?('leadta')
     return 'student' if roles.include?('student')
 
     nil
