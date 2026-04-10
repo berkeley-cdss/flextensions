@@ -7,10 +7,19 @@ class UserToCoursesController < ApplicationController
     @enrollment = @course.user_to_courses.find(params[:id])
 
     if @enrollment.update(allow_extended_requests: params[:allow_extended_requests])
-      render json: { success: true }, status: :ok
+      if request.headers["HX-Request"]
+        head_with_flash(:ok, :notice, "Extended requests updated successfully.")
+      else
+        render json: { success: true }, status: :ok
+      end
     else
-      flash[:alert] = "Failed to update enrollment: #{@enrollment.errors.full_messages.to_sentence}"
-      render json: { redirect_to: course_path(@course) }, status: :unprocessable_content
+      error_message = "Failed to update enrollment: #{@enrollment.errors.full_messages.to_sentence}"
+      if request.headers["HX-Request"]
+        head_with_flash(:unprocessable_entity, :alert, error_message)
+      else
+        flash[:alert] = error_message
+        render json: { redirect_to: course_path(@course) }, status: :unprocessable_entity
+      end
     end
   end
 
@@ -21,5 +30,10 @@ class UserToCoursesController < ApplicationController
     return if enrollment&.course_admin?
 
     render json: { error: 'You must be an instructor or Lead TA.', redirect_to: course_path(@course) }, status: :forbidden
+  end
+
+  def head_with_flash(status, flash_type, message)
+    trigger = { flash: { type: flash_type.to_s, message: message } }.to_json
+    head status, "HX-Trigger" => trigger
   end
 end

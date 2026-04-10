@@ -72,7 +72,12 @@ class CoursesController < ApplicationController
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
 
     @course.sync_assignments(@user)
-    render json: { message: 'Assignments synced successfully.' }, status: :ok
+    if request.headers["HX-Request"]
+      flash[:notice] = "Assignments synced successfully."
+      head :ok, "HX-Refresh" => "true"
+    else
+      render json: { message: 'Assignments synced successfully.' }, status: :ok
+    end
   end
 
   def sync_enrollments
@@ -80,7 +85,12 @@ class CoursesController < ApplicationController
     return render json: { error: 'You do not have permission.' }, status: :forbidden unless @is_course_admin
 
     @course.sync_all_enrollments_from_canvas(@user.id)
-    render json: { message: 'Users synced successfully.' }, status: :ok
+    if request.headers["HX-Request"]
+      flash[:notice] = "Users synced successfully."
+      head :ok, "HX-Refresh" => "true"
+    else
+      render json: { message: 'Users synced successfully.' }, status: :ok
+    end
   end
 
   def enrollments

@@ -6,7 +6,7 @@
 
       <%= render "shared/extension_status_warning", course: @course %>
 
-      <div class="table-responsive">
+      <div class="table-responsive" data-controller="assignment">
         <table class="table table-bordered table-striped datatable" id="assignments-table">
           <thead>
             <tr class="table-info">
@@ -29,16 +29,17 @@
                 <td class="text-center"><%= assignment.due_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
                 <td class="text-center"><%= assignment.late_due_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
                 <td class="justify-content-center align-content-center">
-                  <div class="form-check form-switch mx-auto" style="width: 45px;" data-controller="assignment">
+                  <div class="form-check form-switch mx-auto" style="width: 45px;">
                     <input class="form-check-input assignment-enabled-switch" type="checkbox"
                            role="switch"
                            id="assignment-<%= assignment.id %>-enabled"
                            <%= 'checked' if assignment.enabled %>
-                           data-assignment-target="checkbox"
-                           data-assignment-id="<%= assignment.id %>"
-                           data-url="<%= toggle_enabled_assignment_path(assignment) %>"
-                           data-role="<%= @role %>"
-                           data-user-id="<%= @user.id %>">
+                           hx-patch="<%= toggle_enabled_assignment_path(assignment) %>"
+                           hx-trigger="change"
+                           hx-swap="none"
+                           hx-vals='js:{"enabled": this.checked, "role": "<%= @role %>", "user_id": "<%= @user.id %>"}'
+                           hx-on::htmx:response-error="this.checked = !this.checked"
+                           data-assignment-id="<%= assignment.id %>">
                     <label class="visually-hidden" for="assignment-<%= assignment.id %>-enabled">
                       Enable <%= assignment.name %> assignment
                     </label>
@@ -51,9 +52,9 @@
       </div>
       <div class="text-center">
         <button class="btn btn-info"
-                data-controller="assignment"
-                data-action="click->assignment#sync"
-                data-assignment-course-id-value="<%= @course.id %>">
+                hx-post="<%= sync_assignments_course_path(@course) %>"
+                hx-swap="none"
+                hx-disabled-elt="this">
           Sync Assignments
         </button>
       </div>

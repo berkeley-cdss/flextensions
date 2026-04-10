@@ -61,10 +61,12 @@
                             role="switch"
                             id="extended-<%= enrollment.id %>-enabled"
                             <%= 'checked' if enrollment.allow_extended_requests %>
-                            data-enrollments-target="checkbox"
-                            data-action="change->enrollments#toggleExtended"
-                            data-enrollment-id="<%= enrollment.id %>"
-                            data-url="<%= toggle_allow_extended_requests_course_user_to_course_path(@course, enrollment) %>">
+                            hx-patch="<%= toggle_allow_extended_requests_course_user_to_course_path(@course, enrollment) %>"
+                            hx-trigger="change"
+                            hx-swap="none"
+                            hx-vals='js:{"allow_extended_requests": this.checked}'
+                            hx-on::htmx:response-error="this.checked = !this.checked"
+                            data-enrollment-id="<%= enrollment.id %>">
                       <label class="visually-hidden" for="extended-<%= enrollment.id %>-enabled">
                         Approve extended requests for <%= enrollment.user.name %>
                       </label>
@@ -80,9 +82,9 @@
       <% if @is_course_admin %>
         <div class="text-center mt-4">
           <button class="btn btn-info"
-                  data-controller="enrollments"
-                  data-action="click->enrollments#sync"
-                  data-enrollments-course-id-value="<%= @course.id %>">
+                  hx-post="<%= sync_enrollments_course_path(@course) %>"
+                  hx-swap="none"
+                  hx-disabled-elt="this">
             Sync Enrollments
           </button>
         </div>

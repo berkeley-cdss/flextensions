@@ -11,10 +11,26 @@ class AssignmentsController < ApplicationController
     end
 
     if @assignment.update(enabled: params[:enabled])
-      render json: { success: true }, status: :ok
+      if request.headers["HX-Request"]
+        head_with_flash(:ok, :notice, "Assignment updated successfully.")
+      else
+        render json: { success: true }, status: :ok
+      end
     else
-      flash[:alert] = "Failed to update assignment: #{@assignment.errors.full_messages.to_sentence}"
-      render json: { redirect_to: course_path(course) }, status: :unprocessable_content
+      error_message = "Failed to update assignment: #{@assignment.errors.full_messages.to_sentence}"
+      if request.headers["HX-Request"]
+        head_with_flash(:unprocessable_entity, :alert, error_message)
+      else
+        flash[:alert] = error_message
+        render json: { redirect_to: course_path(course) }, status: :unprocessable_entity
+      end
     end
+  end
+
+  private
+
+  def head_with_flash(status, flash_type, message)
+    trigger = { flash: { type: flash_type.to_s, message: message } }.to_json
+    head status, "HX-Trigger" => trigger
   end
 end
