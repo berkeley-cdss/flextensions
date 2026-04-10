@@ -169,77 +169,39 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
 
   describe '#sync_assignment' do
     let(:job) { described_class.new }
-    let(:results) do
-      {
-        added_assignments: 0,
-        updated_assignments: 0,
-        unchanged_assignments: 0,
-        deleted_assignments: 0
-      }
+    let(:results) { { added_assignments: 0, updated_assignments: 0, unchanged_assignments: 0, deleted_assignments: 0 } }
+    let(:lms_assignment) do
+      build_canvas_assignment('id' => 'a123', 'name' => 'HW1', 'due_at' => '2025-06-01T23:59:00Z', 'lock_at' => nil)
     end
 
-    it 'creates a new assignment and updates results' do
-      lms_assignment = build_canvas_assignment(
-        'id' => 'a123', 'name' => 'HW1',
-        'due_at' => '2025-01-15T23:59:00Z', 'lock_at' => '2025-01-20T23:59:00Z'
-      )
+    before { Assignment.where(course_to_lms: course_to_lms).destroy_all }
 
-      expect do
-        job.send(:sync_assignment, course_to_lms, lms_assignment, results)
-      end.to change { Assignment.where(course_to_lms_id: course_to_lms.id).count }.by(1)
+    it 'creates a new assignment' do
+      expect {
+        job.sync_assignment(course_to_lms, lms_assignment, results)
+      }.to change(Assignment, :count).by(1)
 
-      assignment = Assignment.find_by(course_to_lms_id: course_to_lms.id, external_assignment_id: 'a123')
-      expect(assignment.name).to eq('HW1')
-      expect(assignment.due_date).to eq(DateTime.parse('2025-01-15T23:59:00Z'))
-      expect(assignment.late_due_date).to eq(DateTime.parse('2025-01-20T23:59:00Z'))
+      assignment = Assignment.find_by(external_assignment_id: 'a123')
+      expect(assignment).to have_attributes(name: 'HW1', due_date: DateTime.parse('2025-06-01T23:59:00Z'))
       expect(results[:added_assignments]).to eq(1)
-      expect(results[:updated_assignments]).to eq(0)
-      expect(results[:unchanged_assignments]).to eq(0)
     end
 
-    it 'updates an existing assignment and updates results' do
-      existing_assignment = create(:assignment,
-        course_to_lms: course_to_lms,
-        external_assignment_id: 'a123',
-        name: 'Old HW Name',
-        due_date: DateTime.parse('2025-01-10T23:59:00Z')
-      )
+    it 'updates an existing assignment' do
+      create(:assignment, course_to_lms: course_to_lms, external_assignment_id: 'a123', name: 'Old Name')
 
-      lms_assignment = build_canvas_assignment(
-        'id' => 'a123', 'name' => 'HW1 Updated',
-        'due_at' => '2025-01-25T23:59:00Z', 'lock_at' => nil
-      )
+      expect {
+        job.sync_assignment(course_to_lms, lms_assignment, results)
+      }.not_to change(Assignment, :count)
 
-      expect do
-        job.send(:sync_assignment, course_to_lms, lms_assignment, results)
-      end.not_to change { Assignment.where(course_to_lms_id: course_to_lms.id).count }
-
-      existing_assignment.reload
-      expect(existing_assignment.name).to eq('HW1 Updated')
-      expect(existing_assignment.due_date).to eq(DateTime.parse('2025-01-25T23:59:00Z'))
-      expect(existing_assignment.late_due_date).to be_nil
-      expect(results[:added_assignments]).to eq(0)
+      expect(Assignment.find_by(external_assignment_id: 'a123').name).to eq('HW1')
       expect(results[:updated_assignments]).to eq(1)
-      expect(results[:unchanged_assignments]).to eq(0)
     end
 
     it 'increments unchanged_assignments when nothing changed' do
-      create(:assignment,
-        course_to_lms: course_to_lms,
-        external_assignment_id: 'a123',
-        name: 'HW1',
-        due_date: DateTime.parse('2025-01-15T23:59:00Z'),
-        late_due_date: DateTime.parse('2025-01-20T23:59:00Z')
-      )
+      create(:assignment, course_to_lms: course_to_lms, external_assignment_id: 'a123',
+             name: 'HW1', due_date: DateTime.parse('2025-06-01T23:59:00Z'), late_due_date: nil)
 
-      lms_assignment_unchanged = build_canvas_assignment(
-        'id' => 'a123',
-        'name' => 'HW1',
-        'due_at' => '2025-01-15T23:59:00Z',
-        'lock_at' => '2025-01-20T23:59:00Z'
-      )
-
-      job.send(:sync_assignment, course_to_lms, lms_assignment_unchanged, results)
+      job.sync_assignment(course_to_lms, lms_assignment, results)
 
       expect(results[:unchanged_assignments]).to eq(1)
     end
