@@ -18,7 +18,7 @@ class UserToCoursesController < ApplicationController
         head_with_flash(:unprocessable_entity, :alert, error_message)
       else
         flash[:alert] = error_message
-        render json: { redirect_to: course_path(@course) }, status: :unprocessable_entity
+        render json: { redirect_to: course_path(@course) }, status: :unprocessable_content
       end
     end
   end

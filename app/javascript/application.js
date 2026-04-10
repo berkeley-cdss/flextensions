@@ -33,7 +33,9 @@ document.addEventListener("htmx:afterRequest", (event) => {
   }
 })
 
-// Roll back checkbox state and show alert on network send errors
+// Roll back checkbox state and show alert on network send errors.
+// Note: HTTP response errors (non-2xx) are handled per-element via hx-on::htmx:response-error.
+// This handler covers network-level failures (no HTTP response received) only.
 document.addEventListener("htmx:sendError", (event) => {
   const elt = event.detail.elt
   if (elt && elt.type === "checkbox") {
