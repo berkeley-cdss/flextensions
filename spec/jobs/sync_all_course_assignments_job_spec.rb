@@ -228,16 +228,18 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
         course_to_lms: course_to_lms,
         external_assignment_id: 'a123',
         name: 'HW1',
-        due_date: DateTime.parse('2025-06-01T23:59:00Z'),
-        late_due_date: nil
+        due_date: DateTime.parse('2025-01-15T23:59:00Z'),
+        late_due_date: DateTime.parse('2025-01-20T23:59:00Z')
       )
 
-      lms_assignment = build_canvas_assignment(
-        'id' => 'a123', 'name' => 'HW1',
-        'due_at' => '2025-06-01T23:59:00Z', 'lock_at' => nil
+      lms_assignment_unchanged = build_canvas_assignment(
+        'id' => 'a123',
+        'name' => 'HW1',
+        'due_at' => '2025-01-15T23:59:00Z',
+        'lock_at' => '2025-01-20T23:59:00Z'
       )
 
-      job.send(:sync_assignment, course_to_lms, lms_assignment, results)
+      job.send(:sync_assignment, course_to_lms, lms_assignment_unchanged, results)
 
       expect(results[:unchanged_assignments]).to eq(1)
     end
