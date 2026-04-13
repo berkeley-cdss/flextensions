@@ -366,7 +366,7 @@ RSpec.describe RequestsController, type: :controller do
       post :approve, params: { course_id: course.id, id: request.id }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/failed/i)
     end
@@ -409,7 +409,7 @@ RSpec.describe RequestsController, type: :controller do
       post :reject, params: { course_id: course.id, id: request.id }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/failed/i)
     end
@@ -475,7 +475,7 @@ RSpec.describe RequestsController, type: :controller do
       post :mass_approve, params: { course_id: course.id, request_ids: [] }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/select at least one/i)
     end
@@ -533,7 +533,7 @@ RSpec.describe RequestsController, type: :controller do
       }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/no pending requests/i)
     end

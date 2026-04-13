@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 # A class for sending templated emails, using basic `{{variable}}` substitution.
+# TODO: Migrate this 'Service' to the ApplicationMailer class.
+# As of Rails 8.1 we needed to introduct a subclass of ActionMailer::Base.
+# We should be able to deprecate this class and move the render_templates method to the FlextensionsMailer class.
+
 class EmailService
   class << self
     # Given a subject_template and body_template (both strings
@@ -27,13 +31,12 @@ class EmailService
     def send_email(to:, from:, reply_to:, subject_template:, body_template:, mapping:, deliver_later: false)
       rendered = render_templates(subject_template, body_template, mapping)
 
-      mail = ActionMailer::Base.mail(
+      mail = ApplicationMailer.generic_email(
         to: to,
         from: from,
         reply_to: reply_to,
         subject: rendered[:subject],
         body: rendered[:body].gsub("\n", "<br>\n"),
-        content_type: 'text/html'
       )
 
       deliver_later ? mail.deliver_later : mail.deliver_now
