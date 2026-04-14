@@ -21,3 +21,22 @@
  @import "datatables/dataTables.bootstrap5.css";
 
 //  @import "datatables/responsive.bootstrap5.css";
+
+// Custom styles for DataTables Column Visibility Dropdown Checkmarks
+.dropdown-menu .dropdown-item.buttons-columnVisibility {
+  position: relative;
+  padding-left: 2.25rem;
+}
+
+.dropdown-menu .dropdown-item.buttons-columnVisibility::before {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  width: 1rem;
+  text-align: center;
+}
+
+.dropdown-menu .dropdown-item.buttons-columnVisibility.active::before {
+  content: '✓';
+  font-weight: bold;
+}

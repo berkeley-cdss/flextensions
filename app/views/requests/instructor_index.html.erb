@@ -68,28 +68,23 @@
                   </td>
                   <td class="text-center align-content-center">
                     <div class="d-flex flex-column align-items-center gap-1">
-                      <%= link_to course_request_path(@course, request), class: "btn btn-sm btn-primary", title: "View", aria: { label: "View request" } do %>
-                        <i class="fas fa-arrow-right"></i>
-                      <% end %>
                       <% if request.status == 'pending' %>
-                        <div class="btn-group flex-column">
-                          <button type="button"
-                                  class="btn btn-sm btn-success"
-                                  data-action="click->requests#approve"
-                                  data-url="<%= approve_course_request_path(@course, request, format: :json) %>"
-                                  title="Approve"
-                                  aria-label="Approve request">
-                            <i class="fas fa-check"></i>
-                          </button>
-                          <button type="button"
-                                  class="btn btn-sm btn-danger mt-1"
-                                  data-action="click->requests#reject"
-                                  data-url="<%= reject_course_request_path(@course, request, format: :json) %>"
-                                  title="Reject"
-                                  aria-label="Reject request">
-                            <i class="fas fa-times"></i>
-                          </button>
-                        </div>
+                        <button type="button"
+                                class="btn btn-sm btn-success w-100 text-wrap"
+                                data-action="click->requests#approve"
+                                data-url="<%= approve_course_request_path(@course, request, format: :json) %>"
+                                title="Approve <%= request.user.try(:name) || 'N/A' %> <%= request.assignment ? request.assignment.name : 'N/A' %>"
+                                aria-label="Approve request">
+                          <i class="fas fa-check"></i> Approve <%= request.user.try(:name) || 'N/A' %> <%= request.assignment ? request.assignment.name : 'N/A' %>
+                        </button>
+                        <button type="button"
+                                class="btn btn-sm btn-danger mt-1 w-100 text-wrap"
+                                data-action="click->requests#reject"
+                                data-url="<%= reject_course_request_path(@course, request, format: :json) %>"
+                                title="Deny <%= request.user.try(:name) || 'N/A' %> <%= request.assignment ? request.assignment.name : 'N/A' %>"
+                                aria-label="Reject request">
+                          <i class="fas fa-times"></i> Deny <%= request.user.try(:name) || 'N/A' %> <%= request.assignment ? request.assignment.name : 'N/A' %>
+                        </button>
                       <% end %>
                     </div>
                   </td>

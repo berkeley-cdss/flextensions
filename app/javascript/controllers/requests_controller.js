@@ -28,11 +28,24 @@ export default class extends Controller {
                 responsive: true,
                 columnDefs: [
                     { orderable: false, targets: 'no-sort' },
-                    { type: "date", targets: [5, 6, 7] }
+                    { type: "date", targets: [5, 6, 7] },
+                    { visible: false, targets: 0 }
                 ],
                 order: [[5, "asc"]],
                 layout: {
                     topStart: {
+                        buttons: [
+                            {
+                                text: 'Batch Edit',
+                                action: function ( e, dt, node, config ) {
+                                    var col = dt.column(0);
+                                    col.visible(!col.visible());
+                                }
+                            },
+                            'colvis'
+                        ]
+                    },
+                    bottomStart: {
                         buttons: [
                             {
                                 extend: 'collection',
@@ -92,9 +105,8 @@ export default class extends Controller {
                                         }
                                     }
                                 }
-                            },
-                            'colvis'
-                        ],
+                            }
+                        ]
                     }
                 }
             });
@@ -137,8 +149,8 @@ export default class extends Controller {
 
     async _submitSingleAction(button) {
         const url = button.dataset.url;
-        const btnGroup = button.closest('.btn-group');
-        const allBtns = btnGroup ? btnGroup.querySelectorAll('button') : [button];
+        const dFlex = button.closest('.d-flex');
+        const allBtns = dFlex ? dFlex.querySelectorAll('button') : [button];
         allBtns.forEach((btn) => { btn.disabled = true; });
 
         try {
@@ -235,8 +247,8 @@ export default class extends Controller {
                 statusTd.innerHTML = `<span class="badge ${badgeClass}">${label}</span>`;
             }
 
-            const btnGroup = tr.querySelector('.btn-group');
-            if (btnGroup) btnGroup.remove();
+            const actionBtns = tr.querySelectorAll('button[data-action="click->requests#approve"], button[data-action="click->requests#reject"]');
+            actionBtns.forEach(btn => btn.remove());
 
             const checkbox = tr.querySelector('input[data-request-id]');
             if (checkbox) {
