@@ -27,7 +27,7 @@
 
       <% if @requests.any? %>
         <div class="table-responsive">
-          <table class="table table-bordered table-striped datatable"
+          <table class="table table-bordered table-striped datatable flextensions-table"
                  id="requests-table">
             <thead>
               <tr class="table-info">
@@ -38,15 +38,15 @@
                          data-action="change->requests#toggleSelectAll"
                          aria-label="Select all pending requests">
                 </th>
-                <th class="text-center align-content-center no-sort" style="min-width: 100px;" data-priority="1">Actions</th>
-                <th class="text-center align-content-center" id="name" data-priority="5">Name</th>
-                <th class="text-center align-content-center" id="assignment" style="min-width: 120px; max-width: 200px;" data-priority="2">Assignment</th>
-                <th class="text-center align-content-center" id="student-id" data-priority="9">Student ID</th>
-                <th class="text-center align-content-center" style="min-width: 198px;" data-priority="7">Requested At</th>
-                <th class="text-center align-content-center" style="min-width: 198px;" data-priority="8">Original Due Date</th>
-                <th class="text-center align-content-center" style="min-width: 198px;" data-priority="4">Requested Due Date</th>
-                <th class="text-center align-content-center" style="min-width: 90px;" data-priority="6"># of Days</th>
-                <th class="text-center align-content-center" style="min-width: 200px;" data-priority="3">Status</th>
+                <th class="no-sort" style="min-width: 100px;" data-priority="1">Actions</th>
+                <th id="name" data-priority="5">Name</th>
+                <th id="assignment" style="min-width: 120px; max-width: 200px;" data-priority="2">Assignment</th>
+                <th id="student-id" style="min-width: 12ch;" data-priority="9">Student ID</th>
+                <th style="width: 50ch;" data-priority="7">Requested At</th>
+                <th style="width: 50ch;" data-priority="8">Original Due Date</th>
+                <th style="width: 50ch;" data-priority="4">Requested Due Date</th>
+                <th style="min-width: 10ch;" data-priority="6"># of Days</th>
+                <th style="min-width: 200px;" data-priority="3">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -70,21 +70,25 @@
                     <div class="d-flex flex-column align-items-center gap-1">
                       <% if request.status == 'pending' %>
                         <button type="button"
-                                class="btn btn-sm btn-success w-100 text-wrap"
+                                class="btn btn-sm btn-success action-btn"
                                 data-action="click->requests#approve"
                                 data-url="<%= approve_course_request_path(@course, request, format: :json) %>"
                                 title="Approve <%= request.user.try(:name) || 'N/A' %> <%= request.assignment ? request.assignment.name : 'N/A' %>"
                                 aria-label="Approve request">
-                          <i class="fas fa-check"></i> Approve <%= request.user.try(:name) || 'N/A' %> <%= request.assignment ? request.assignment.name : 'N/A' %>
+                          <i class="fas fa-check"></i>
                         </button>
                         <button type="button"
-                                class="btn btn-sm btn-danger mt-1 w-100 text-wrap"
-                                data-action="click->requests#reject"
-                                data-url="<%= reject_course_request_path(@course, request, format: :json) %>"
-                                title="Deny <%= request.user.try(:name) || 'N/A' %> <%= request.assignment ? request.assignment.name : 'N/A' %>"
-                                aria-label="Reject request">
-                          <i class="fas fa-times"></i> Deny <%= request.user.try(:name) || 'N/A' %> <%= request.assignment ? request.assignment.name : 'N/A' %>
+                          class="btn btn-sm btn-danger action-btn"
+                          data-action="click->requests#reject"
+                          data-url="<%= reject_course_request_path(@course, request, format: :json) %>"
+                          title="Deny <%= request.user.try(:name) || 'N/A' %> <%= request.assignment ? request.assignment.name : 'N/A' %>"
+                          aria-label="Reject request">
+                          <i class="fas fa-times"></i>
                         </button>
+                      <% else %>
+                        <%= link_to course_request_path(@course, request), class: "btn btn-sm btn-primary action-btn", title: "View", aria: { label: "View request #{request.user.try(:name)}" } do %>
+                          <i class="fas fa-arrow-right"></i>
+                        <% end %>
                       <% end %>
                     </div>
                   </td>
