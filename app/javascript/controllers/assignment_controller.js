@@ -110,6 +110,12 @@ export default class extends Controller {
     this.bulkUpdate(false).finally(() => { button.disabled = false; });
   }
 
+  sync(event) {
+    const button = event.currentTarget;
+    button.disabled = true;
+    this.bulkUpdate(false).finally(() => { button.disabled = false; });
+  }
+
   async sync() {
     const button = this.syncBtnTarget;
     const label = this.syncLabelTarget;
