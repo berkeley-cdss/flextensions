@@ -99,6 +99,8 @@ class CoursesController < ApplicationController
   end
 
   def sync_status
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @is_course_admin
+
     course_to_lms = @course.course_to_lms(1)
     return render json: { error: 'LMS connection not found.' }, status: :not_found unless course_to_lms
 
