@@ -85,8 +85,6 @@ $secondary: $california-gold;
 @import "custom_bootstrap";
 @import "font-awesome";
 
-@import "datatables/dataTables.bootstrap5";
-@import "datatables/responsive.bootstrap5";
 
 @each $name, $value in $colors {
   .bg-#{$name} {
