@@ -30,6 +30,8 @@ Rails.application.routes.draw do
     member do
       post :sync_assignments
       post :sync_enrollments
+      patch :bulk_update_assignments
+      get :sync_status
       get :enrollments
       delete :delete
     end
@@ -50,6 +52,7 @@ Rails.application.routes.draw do
     resources :user_to_courses, only: [] do
       member do
         patch :toggle_allow_extended_requests
+        patch :update_notes
       end
     end
     resource :form_setting, only: [:edit, :update]
@@ -68,4 +71,5 @@ Rails.application.routes.draw do
 
   # This is protected by `require_admin` via blazer.yml
   mount Blazer::Engine, at: "admin/blazer"
+  mount GoodJob::Engine, at: "admin/good_job"
 end
