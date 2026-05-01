@@ -1,10 +1,11 @@
 import { Controller } from "@hotwired/stimulus";
 import DataTable from "datatables.net-bs5";
+import { pollUntilDone } from "./sync_poller";
 import "datatables.net-responsive";
 import "datatables.net-responsive-bs5";
 
 export default class extends Controller {
-	static targets = ["checkbox"]
+	static targets = ["checkbox", "syncBtn", "syncLabel", "syncSpinner"]
 	static values = { courseId: Number }
 
 	connect() {
@@ -76,30 +77,39 @@ export default class extends Controller {
 		window.dispatchEvent(new CustomEvent('flash', { detail: { type: type, message: message } }));
 	}
 
-	sync() {
-		const button = event.currentTarget;
-		button.disabled = true;
+	async sync() {
+		const button = this.syncBtnTarget;
+		const label = this.syncLabelTarget;
+		const spinner = this.syncSpinnerTarget;
 		const courseId = this.courseIdValue;
-		const token = document.querySelector('meta[name="csrf-token"]').content;		fetch(`/courses/${courseId}/sync_enrollments`, {
-		  method: "POST",
-		  headers: {
-			"Content-Type": "application/json",
-			"X-CSRF-Token": token,
-		  },
-		})
-		  .then((response) => {
-			if (!response.ok) {
-			  throw new Error(`Failed to sync enrollments. ${response.status} - ${response.statusText}`);
-			}
-			return response.json();
-		  })
-		  .then((data) => {
-			flash("notice", data.message || "Enrollments synced successfully.");
+		const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+		button.disabled = true;
+		label.textContent = "Syncing...";
+		spinner.classList.remove("d-none");
+
+		try {
+			// Capture timestamp before sync so we can detect when job finishes
+			const statusBefore = await fetch(`/courses/${courseId}/sync_status`).then(r => r.json());
+			const beforeTs = statusBefore.roster_synced_at;
+
+			const response = await fetch(`/courses/${courseId}/sync_enrollments`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
+			});
+
+			if (!response.ok) throw new Error(`Failed to sync enrollments. ${response.status}`);
+
+			await pollUntilDone(courseId, "roster_synced_at", beforeTs);
+
+			flash("notice", "Enrollments synced successfully.");
 			location.reload();
-		  })
-		  .catch((error) => {
+		} catch (error) {
 			flash("alert", error.message || "An error occurred while syncing enrollments.");
-			location.reload();
-		});
-	  }
+			button.disabled = false;
+			label.textContent = "Sync Enrollments";
+			spinner.classList.add("d-none");
+		}
+	}
+
 }

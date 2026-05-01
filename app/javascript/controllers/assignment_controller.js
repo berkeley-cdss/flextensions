@@ -1,11 +1,12 @@
 import { Controller } from "@hotwired/stimulus"
 import DataTable from "datatables.net-bs5";
+import { pollUntilDone } from "./sync_poller";
 import "datatables.net-responsive";
 import "datatables.net-responsive-bs5";
 
 // Connects to data-controller="assignment"
 export default class extends Controller {
-  static targets = ["checkbox"]
+  static targets = ["checkbox", "syncBtn", "syncLabel", "syncSpinner"]
   static values = { courseId: Number, bulkUrl: String }
 
   connect() {
@@ -110,31 +111,38 @@ export default class extends Controller {
     this.bulkUpdate(false).finally(() => { button.disabled = false; });
   }
 
-  sync(event) {
-    const button = event.currentTarget;
-    button.disabled = true;
+  async sync() {
+    const button = this.syncBtnTarget;
+    const label = this.syncLabelTarget;
+    const spinner = this.syncSpinnerTarget;
     const courseId = this.courseIdValue;
     const token = document.querySelector('meta[name="csrf-token"]').content;
-    fetch(`/courses/${courseId}/sync_assignments`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": token,
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to sync assignments.");
-        }
-        return response.json();
-      })
-      .then((data) => {
-        flash("notice", data.message || "Assignments synced successfully.");
-        location.reload();
-      })
-      .catch((error) => {
-        flash("alert", error.message || "An error occurred while syncing assignments.");
-        location.reload();
+
+    button.disabled = true;
+    label.textContent = "Syncing...";
+    spinner.classList.remove("d-none");
+
+    try {
+      const statusBefore = await fetch(`/courses/${courseId}/sync_status`).then(r => r.json());
+      const beforeTs = statusBefore.assignments_synced_at;
+
+      const response = await fetch(`/courses/${courseId}/sync_assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
       });
+
+      if (!response.ok) throw new Error(`Failed to sync assignments. ${response.status}`);
+
+      await pollUntilDone(courseId, "assignments_synced_at", beforeTs);
+
+      flash("notice", "Assignments synced successfully.");
+      location.reload();
+    } catch (error) {
+      flash("alert", error.message || "An error occurred while syncing assignments.");
+      button.disabled = false;
+      label.textContent = "Sync Assignments";
+      spinner.classList.add("d-none");
+    }
   }
+
 }
