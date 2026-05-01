@@ -1,11 +1,11 @@
 class CoursesController < ApplicationController
   before_action :authenticate_user
-  before_action :set_course, only: %i[show edit sync_assignments sync_enrollments enrollments delete]
+  before_action :set_course, only: %i[show edit sync_assignments sync_enrollments sync_status bulk_update_assignments enrollments delete]
   before_action :set_pending_request_count
   before_action :determine_user_role
 
   def index
-    teacher_courses = UserToCourse.includes(:course).where(user: @user, role: %w[teacher ta])
+    teacher_courses = UserToCourse.includes(:course).where(user: @user, role: UserToCourse.staff_roles)
     @teacher_courses_by_semester = group_by_semester(teacher_courses)
 
     # Only show courses to students if extensions are enabled at the course level
@@ -44,16 +44,14 @@ class CoursesController < ApplicationController
     @courses = Course.fetch_courses(token)
     flash[:alert] = 'No courses found.' if @courses.empty?
 
-    # Collect unique semester names from Canvas term data for the filter dropdown
     @semesters = @courses.filter_map { |c| c.dig('term', 'name') }.uniq.sort
     @selected_semester = params[:semester]
 
-    teacher_enrollment_types = %w[teacher ta]
     # TODO: Add spec for when a course is created, but the user is not enrolled in it.
     # TODO: Why do some courses have empty enrollments?
     existing_canvas_ids = @user.courses.pluck(:canvas_id)
-    @courses_teacher = filter_courses(@courses, teacher_enrollment_types, existing_canvas_ids)
-    @courses_student = filter_courses(@courses, [ 'student' ], existing_canvas_ids)
+    @courses_teacher = filter_courses(@courses, UserToCourse.staff_roles, existing_canvas_ids)
+    @courses_student = filter_courses(@courses, [ UserToCourse::STUDENT_ROLE ], existing_canvas_ids)
 
     if @selected_semester.present?
       @courses_teacher = filter_by_semester(@courses_teacher, @selected_semester)
@@ -68,7 +66,7 @@ class CoursesController < ApplicationController
 
   def create
     token = @user.lms_credentials.first.token
-    filter_courses(Course.fetch_courses(token), %w[teacher ta])
+    filter_courses(Course.fetch_courses(token), UserToCourse.staff_roles)
       .select { |c| params[:courses]&.include?(c['id'].to_s) }
       .each { |course_api| Course.create_or_update_from_canvas(course_api, token, @user) }
     redirect_to courses_path, notice: 'Selected courses and their assignments have been imported successfully.'
@@ -81,6 +79,17 @@ class CoursesController < ApplicationController
     render json: { message: 'Assignments synced successfully.' }, status: :ok
   end
 
+  def bulk_update_assignments
+    return render json: { error: 'Course not found.' }, status: :not_found unless @course
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @role == 'instructor'
+
+    enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
+    scope = Assignment.where(course_to_lms_id: CourseToLms.where(course_id: @course.id).select(:id))
+    scope = scope.where.not(due_date: nil) if enabled
+    scope.update_all(enabled: enabled) # rubocop:disable Rails/SkipsModelValidations
+    render json: { success: true }, status: :ok
+  end
+
   def sync_enrollments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
     return render json: { error: 'You do not have permission.' }, status: :forbidden unless @is_course_admin
@@ -89,12 +98,25 @@ class CoursesController < ApplicationController
     render json: { message: 'Users synced successfully.' }, status: :ok
   end
 
+  def sync_status
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @is_course_admin
+
+    course_to_lms = @course.course_to_lms(1)
+    return render json: { error: 'LMS connection not found.' }, status: :not_found unless course_to_lms
+
+    render json: {
+      roster_synced_at: course_to_lms.recent_roster_sync&.dig('synced_at'),
+      assignments_synced_at: course_to_lms.recent_assignment_sync&.dig('synced_at')
+    }, status: :ok
+  end
+
   def enrollments
     @side_nav = 'enrollments'
     return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
 
     @enrollments = @course.user_to_courses.includes(:user)
     @is_course_admin = @course.course_admin?(@user)
+    @approved_late_days = Request.total_approved_late_days_by_user(@course)
   end
 
   def delete
@@ -133,7 +155,6 @@ class CoursesController < ApplicationController
     sorted_semesters.map { |semester| [ semester, grouped[semester] ] }
   end
 
-  # Filters Canvas API course hashes by their term name
   def filter_by_semester(courses, semester)
     courses.select { |c| c.dig('term', 'name') == semester }
   end
@@ -146,7 +167,9 @@ class CoursesController < ApplicationController
     courses = courses - missing_enrollments - courses.select { |course| exclude_ids.include?(course['id'].to_s) }
     return [] if courses.empty?
 
-    courses.select { |course| course['enrollments'].any? { |e| roles.include?(e['type']) } }
+    courses.select do |course|
+      course['enrollments'].any? { |enrollment| roles.include?(UserToCourse.role_from_canvas_enrollment(enrollment)) }
+    end
   end
 
   def course_data_for_sync
