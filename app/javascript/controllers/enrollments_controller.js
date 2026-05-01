@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 import DataTable from "datatables.net-bs5";
-import { pollUntilDone } from "./sync_poller";
+import { pollUntilDone } from "controllers/sync_poller";
 import "datatables.net-responsive";
 import "datatables.net-responsive-bs5";
 
