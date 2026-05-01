@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import DataTable from "datatables.net-bs5";
+import { pollUntilDone } from "./sync_poller";
 import "datatables.net-responsive";
 import "datatables.net-responsive-bs5";
 
@@ -132,7 +133,7 @@ export default class extends Controller {
 
       if (!response.ok) throw new Error(`Failed to sync assignments. ${response.status}`);
 
-      await this._pollUntilDone(courseId, "assignments_synced_at", beforeTs);
+      await pollUntilDone(courseId, "assignments_synced_at", beforeTs);
 
       flash("notice", "Assignments synced successfully.");
       location.reload();
@@ -144,13 +145,4 @@ export default class extends Controller {
     }
   }
 
-  async _pollUntilDone(courseId, key, beforeTs, intervalMs = 1000, timeoutMs = 60000) {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      await new Promise(resolve => setTimeout(resolve, intervalMs));
-      const status = await fetch(`/courses/${courseId}/sync_status`).then(r => r.json());
-      if (status[key] && status[key] !== beforeTs) return;
-    }
-    throw new Error("Sync timed out. Please refresh the page.");
-  }
 }
