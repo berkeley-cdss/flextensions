@@ -46,6 +46,11 @@ class SessionController < ApplicationController
       return
     end
 
+    if auth.provider == 'google_oauth2'
+      handle_google_login(auth)
+      return
+    end
+
     user_data = {
       'id' => auth.uid,
       'name' => auth.info.name,
@@ -88,6 +93,25 @@ class SessionController < ApplicationController
   end
 
   private
+
+  # Google OAuth only authenticates users who already have an account.
+  # No new accounts are created via Google login.
+  def handle_google_login(auth)
+    email = auth.info.email
+    user = User.find_by(email: email) if email.present?
+
+    unless user
+      Rails.logger.warn("Google login rejected: no user with email #{email.inspect}")
+      redirect_to root_path,
+                  alert: 'No account found for that Google email. Please log in with Canvas first.'
+      return
+    end
+
+    session[:username] = user.name
+    session[:user_id]  = user.canvas_uid
+
+    redirect_to courses_path, notice: "Logged in! Welcome, #{user.name}!"
+  end
 
   def ensure_developer_test_enrollments(user)
     # Find the test course

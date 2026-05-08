@@ -28,6 +28,14 @@ Rails.application.config.middleware.use OmniAuth::Builder do
             authorize_url: "/login/oauth2/auth?scope=#{encoded_scopes}"
           },
           redirect_uri: "#{ENV['CANVAS_REDIRECT_URI']}/auth/canvas/callback"
+
+  if ENV['GOOGLE_CLIENT_ID'].present? && ENV['GOOGLE_CLIENT_SECRET'].present?
+    provider :google_oauth2,
+             ENV['GOOGLE_CLIENT_ID'],
+             ENV['GOOGLE_CLIENT_SECRET'],
+             scope: 'email,profile',
+             prompt: 'select_account'
+  end
 end
 
 # OmniAuth.config.before_request_phase do |env|

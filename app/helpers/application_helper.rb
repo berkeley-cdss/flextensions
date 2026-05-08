@@ -1,4 +1,8 @@
 module ApplicationHelper
+  def google_oauth_enabled?
+    ENV['GOOGLE_CLIENT_ID'].present? && ENV['GOOGLE_CLIENT_SECRET'].present?
+  end
+
   def assignment_link_for(assignment, course)
     case assignment.course_to_lms.lms_id
     when 1

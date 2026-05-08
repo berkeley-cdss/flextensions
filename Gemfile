@@ -52,6 +52,7 @@ gem 'ostruct'
 # used to authenticate with the LMS
 gem 'omniauth'
 gem 'omniauth-canvas'
+gem 'omniauth-google-oauth2'
 gem 'omniauth-oauth2'
 
 # Audit for potentially unsafe database migrations

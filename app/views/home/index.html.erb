@@ -23,6 +23,9 @@
 		</div>
 		<div class="col-12 text-center">
 			<%= link_to 'Login', '/auth/canvas', class: 'btn btn-primary', id: 'login-button-index' %>
+			<% if google_oauth_enabled? %>
+				<%= link_to 'Login with Google', '/auth/google_oauth2', class: 'btn btn-outline-primary ms-2', id: 'google-login-button' %>
+			<% end %>
 			<% if Rails.env.development? %>
 				<%= link_to 'Developer Login', '/auth/developer', class: 'btn btn-secondary ms-2', id: 'dev-login-button' %>
 			<% end %>

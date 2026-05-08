@@ -166,6 +166,77 @@ RSpec.describe SessionController, type: :controller do
     end
   end
 
+  describe 'GET #omniauth_callback (google_oauth2 provider)' do
+    let(:google_auth_hash) do
+      OmniAuth::AuthHash.new(
+        provider: 'google_oauth2',
+        uid: 'google-uid-1',
+        info: OpenStruct.new(name: 'Google User', email: 'existing@example.com'),
+        credentials: {
+          token: 'google-token',
+          refresh_token: 'google-refresh',
+          expires_at: 1.hour.from_now.to_i
+        }
+      )
+    end
+
+    before do
+      request.env['omniauth.auth'] = google_auth_hash
+    end
+
+    context 'when a user with the given email already exists' do
+      let!(:existing_user) do
+        User.create!(email: 'existing@example.com', canvas_uid: 'canvas-99', name: 'Existing User')
+      end
+
+      it 'logs the user in and redirects to courses' do
+        get :omniauth_callback, params: { provider: 'google_oauth2' }
+
+        expect(session[:user_id]).to eq('canvas-99')
+        expect(session[:username]).to eq('Existing User')
+        expect(response).to redirect_to(courses_path)
+        expect(flash[:notice]).to include('Logged in!')
+      end
+
+      it 'does not create a new user' do
+        expect do
+          get :omniauth_callback, params: { provider: 'google_oauth2' }
+        end.not_to change(User, :count)
+      end
+
+      it 'does not create LMS credentials for the user' do
+        expect do
+          get :omniauth_callback, params: { provider: 'google_oauth2' }
+        end.not_to change { existing_user.reload.lms_credentials.count }
+      end
+    end
+
+    context 'when no user with the given email exists' do
+      it 'does not create a user and redirects to root with an alert' do
+        expect do
+          get :omniauth_callback, params: { provider: 'google_oauth2' }
+        end.not_to change(User, :count)
+
+        expect(response).to redirect_to(root_path)
+        expect(flash[:alert]).to include('No account found')
+        expect(session[:user_id]).to be_nil
+      end
+    end
+
+    context 'when the auth hash has no email' do
+      before do
+        google_auth_hash.info.email = nil
+      end
+
+      it 'rejects the login with an alert' do
+        get :omniauth_callback, params: { provider: 'google_oauth2' }
+
+        expect(response).to redirect_to(root_path)
+        expect(flash[:alert]).to include('No account found')
+      end
+    end
+  end
+
   describe 'GET #logout' do
     before do
       session[:user_id] = 'test_user_id'
