@@ -36,9 +36,7 @@
                            <%= 'checked' if assignment.enabled %>
                            data-assignment-target="checkbox"
                            data-assignment-id="<%= assignment.id %>"
-                           data-url="<%= toggle_enabled_assignment_path(assignment) %>"
-                           data-role="<%= @role %>"
-                           data-user-id="<%= @user.id %>">
+                           data-url="<%= toggle_enabled_assignment_path(assignment) %>">
                     <label class="visually-hidden" for="assignment-<%= assignment.id %>-enabled">
                       Enable <%= assignment.name %> assignment
                     </label>
