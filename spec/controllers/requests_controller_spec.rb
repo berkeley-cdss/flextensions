@@ -1,8 +1,8 @@
 require 'rails_helper'
 
 RSpec.describe RequestsController, type: :controller do
-  let(:user) { User.create!(email: 'student@example.com', canvas_uid: '123', name: 'Student') }
-  let(:instructor) { User.create!(email: 'instructor@example.com', canvas_uid: '566', name: 'Instructor') }
+  let(:user) { User.create!(email: 'student@example.com', canvas_uid: 'fixed-student', name: 'Student') }
+  let(:instructor) { User.create!(email: 'instructor@example.com', canvas_uid: 'fixed-instructor', name: 'Instructor') }
   let(:course) { create(:course, :with_staff, course_name: 'Test Course', canvas_id: '456', course_code: 'TST101') }
   let(:teacher_course) { Course.create!(course_name: 'Instructor Course', canvas_id: '999', course_code: 'INST101') }
   let(:assignment) do
@@ -222,6 +222,57 @@ RSpec.describe RequestsController, type: :controller do
       expect(response).to render_template(:new)
       expect(flash[:alert]).to eq('There was a problem submitting your request.')
     end
+
+    # Regression coverage for security audit H2.
+    describe 'authorization hardening' do
+      let(:other_course) { create(:course, course_name: 'Other Course', canvas_id: '777', course_code: 'OTHER101') }
+      let(:other_course_to_lms) { CourseToLms.find_by(course: other_course, lms_id: 1) || CourseToLms.create!(course: other_course, lms_id: 1) }
+      let(:foreign_assignment) do
+        Assignment.create!(
+          name: 'Foreign A1',
+          course_to_lms_id: other_course_to_lms.id,
+          due_date: 2.days.from_now,
+          external_assignment_id: 'foreign-1',
+          enabled: true
+        )
+      end
+      let(:other_student) { User.create!(email: 'other_student@example.com', canvas_uid: 'fixed-other-student', name: 'Other Student') }
+
+      it 'rejects creating a request for an assignment in a different course' do
+        expect do
+          post :create, params: {
+            course_id: course.id,
+            request: {
+              assignment_id: foreign_assignment.id,
+              reason: 'Sick',
+              requested_due_date: Date.tomorrow.to_s,
+              due_time: '10:00'
+            }
+          }
+        end.not_to change(Request, :count)
+
+        expect(response).to redirect_to(course_requests_path(course))
+        expect(flash[:alert]).to eq('Invalid assignment for this course.')
+      end
+
+      it 'ignores a client-supplied user_id and files the request under the session user' do
+        UserToCourse.create!(user: other_student, course: course, role: 'student')
+
+        post :create, params: {
+          course_id: course.id,
+          request: {
+            assignment_id: assignment.id,
+            user_id: other_student.id,
+            reason: 'Sick',
+            requested_due_date: Date.tomorrow.to_s,
+            due_time: '10:00'
+          }
+        }
+
+        expect(response).to redirect_to(course_request_path(course, Request.last))
+        expect(Request.last.user_id).to eq(user.id)
+      end
+    end
   end
 
   describe 'GET #edit' do
@@ -274,6 +325,49 @@ RSpec.describe RequestsController, type: :controller do
       }
       expect(response).to redirect_to(course_request_path(course, request))
       expect(flash[:notice]).to match(/updated/)
+    end
+
+    # Regression coverage for security audit H2.
+    it 'ignores a client-supplied user_id and does not reassign the request' do
+      other_student = User.create!(email: 'other_student@example.com', canvas_uid: 'fixed-other-student', name: 'Other Student')
+
+      patch :update, params: {
+        course_id: course.id,
+        id: request.id,
+        request: {
+          user_id: other_student.id,
+          reason: 'Updated reason',
+          requested_due_date: Date.tomorrow.to_s,
+          due_time: '12:00'
+        }
+      }
+
+      expect(request.reload.user_id).to eq(user.id)
+    end
+
+    # Regression coverage for security audit H2.
+    it 'rejects updating to an assignment in a different course' do
+      other_course = create(:course, course_name: 'Other Course', canvas_id: '777', course_code: 'OTHER101')
+      other_ctl = CourseToLms.find_by(course: other_course, lms_id: 1) || CourseToLms.create!(course: other_course, lms_id: 1)
+      foreign_assignment = Assignment.create!(
+        name: 'Foreign A1', course_to_lms_id: other_ctl.id,
+        due_date: 2.days.from_now, external_assignment_id: 'foreign-1', enabled: true
+      )
+
+      patch :update, params: {
+        course_id: course.id,
+        id: request.id,
+        request: {
+          assignment_id: foreign_assignment.id,
+          reason: 'Updated reason',
+          requested_due_date: Date.tomorrow.to_s,
+          due_time: '12:00'
+        }
+      }
+
+      expect(response).to redirect_to(course_requests_path(course))
+      expect(flash[:alert]).to eq('Invalid assignment for this course.')
+      expect(request.reload.assignment_id).to eq(assignment.id)
     end
   end
 
@@ -428,7 +522,7 @@ RSpec.describe RequestsController, type: :controller do
     end
     let!(:pending_request_two) do
       Request.create!(
-        user: User.create!(email: 'student2@example.com', canvas_uid: '124', name: 'Student Two'),
+        user: User.create!(email: 'student2@example.com', canvas_uid: 'fixed-student-two', name: 'Student Two'),
         course: course,
         assignment: assignment,
         reason: 'Still need more time',
@@ -494,7 +588,7 @@ RSpec.describe RequestsController, type: :controller do
     end
     let!(:pending_request_two) do
       Request.create!(
-        user: User.create!(email: 'student3@example.com', canvas_uid: '125', name: 'Student Three'),
+        user: User.create!(email: 'student3@example.com', canvas_uid: 'fixed-student-three', name: 'Student Three'),
         course: course,
         assignment: assignment,
         reason: 'Still need more time',

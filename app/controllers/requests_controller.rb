@@ -73,11 +73,18 @@ class RequestsController < ApplicationController
 
   def create
     Request.merge_date_and_time!(params[:request])
-    @request = @course.requests.new(request_params.merge(user: @user))
+    permitted = request_params
+
+    if permitted[:assignment_id].present? && !assignment_in_course?(permitted[:assignment_id])
+      redirect_to course_requests_path(@course), alert: 'Invalid assignment for this course.'
+      return
+    end
+
+    @request = @course.requests.new(permitted.merge(user: @user))
 
     # Check if the assignment already has a pending request, but only if assignment_id exists
-    if request_params[:assignment_id].present? &&
-       Assignment.find_by(id: request_params[:assignment_id])&.has_pending_request_for_user?(@user, @course)
+    if permitted[:assignment_id].present? &&
+       Assignment.find_by(id: permitted[:assignment_id])&.has_pending_request_for_user?(@user, @course)
       redirect_to course_requests_path(@course), alert: 'You already have a pending request for this assignment.'
       return
     end
@@ -93,10 +100,15 @@ class RequestsController < ApplicationController
   def create_for_student
     return redirect_to course_requests_path(@course), alert: 'You do not have permission to perform this action.' unless @role == 'instructor'
 
-    student = User.find_by(id: params[:request][:user_id])
+    student = student_enrolled_in_course(params[:request][:user_id])
     return redirect_to new_course_request_path(@course), alert: 'Student not found.' unless student
 
     assignment_id = params[:request][:assignment_id]
+    if assignment_id.present? && !assignment_in_course?(assignment_id)
+      redirect_to new_course_request_path(@course), alert: 'Invalid assignment for this course.'
+      return
+    end
+
     reject_other_student_requests(student, assignment_id) if assignment_id.present?
 
     Request.merge_date_and_time!(params[:request])
@@ -116,7 +128,13 @@ class RequestsController < ApplicationController
 
     Request.merge_date_and_time!(params[:request])
 
-    if @request.update(request_params)
+    permitted = request_params
+    if permitted[:assignment_id].present? && !assignment_in_course?(permitted[:assignment_id])
+      redirect_to course_requests_path(@course), alert: 'Invalid assignment for this course.'
+      return
+    end
+
+    if @request.update(permitted)
       result = @request.process_update(@user)
       redirect_to result[:redirect_to], notice: result[:notice]
     else
@@ -221,8 +239,36 @@ class RequestsController < ApplicationController
     @form_settings = result[:form_settings]
   end
 
+  # Note: :user_id is intentionally NOT permitted here. The owning user is
+  # set explicitly by the caller (`user: @user` for the student flow,
+  # `user: student` for the instructor `create_for_student` flow). Allowing
+  # :user_id through mass-assignment would let a student submit or
+  # reassign a request as another user.
   def request_params
-    params.require(:request).permit(:assignment_id, :reason, :documentation, :custom_q1, :custom_q2, :requested_due_date, :user_id)
+    params.require(:request).permit(:assignment_id, :reason, :documentation, :custom_q1, :custom_q2, :requested_due_date)
+  end
+
+  # Returns true if the given assignment id resolves to an assignment that
+  # belongs to one of @course's CourseToLms records. Without this, a student
+  # could attach a request to an assignment from a course they don't belong
+  # to (the request would still be saved against @course, but the
+  # assignment_id would point elsewhere).
+  def assignment_in_course?(assignment_id)
+    Assignment.joins(:course_to_lms)
+              .where(course_to_lms: { course_id: @course.id })
+              .exists?(id: assignment_id)
+  end
+
+  # Looks up a student by id and confirms they are actually enrolled in
+  # @course as a student. Used by the instructor `create_for_student` flow
+  # so an instructor cannot file a request on behalf of someone outside
+  # their roster.
+  def student_enrolled_in_course(user_id)
+    return nil if user_id.blank?
+
+    User.joins(:user_to_courses)
+        .where(user_to_courses: { course_id: @course.id, role: 'student' })
+        .find_by(id: user_id)
   end
 
   def authenticate_user
