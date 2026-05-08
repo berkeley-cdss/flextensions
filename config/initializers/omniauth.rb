@@ -18,6 +18,11 @@ Rails.application.config.middleware.use OmniAuth::Builder do
   # URL-encode the scopes defined in CanvasFacade
   encoded_scopes = CGI.escape(CanvasFacade::CANVAS_API_SCOPES)
 
+  # The `developer` strategy lets a local developer sign in as any existing
+  # user by entering their email (no Canvas round-trip needed). It is
+  # deliberately registered ONLY in development and test, and the session
+  # callback (`SessionController#omniauth_callback`) double-checks the env
+  # before honoring a developer-provider response.
   provider :developer, fields: [:email] if Rails.env.development? || Rails.env.test?
 
   provider :canvas,

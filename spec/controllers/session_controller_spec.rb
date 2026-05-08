@@ -75,39 +75,80 @@ RSpec.describe SessionController, type: :controller do
                       expires_at: 2.hours.from_now.to_i)
     end
 
-    context 'when user exists by email' do
-      let!(:existing_user) { User.create!(email: 'test@example.com', canvas_uid: 'old_uid') }
+    context 'with the canvas provider' do
+      context 'when user exists by canvas_uid' do
+        let!(:existing_user) { User.create!(email: 'old@example.com', canvas_uid: '12345') }
 
-      it 'updates canvas_uid and LMS credentials' do
-        expect do
-          controller.send(:find_or_create_user, user_data, mock_token)
-        end.to change { existing_user.reload.canvas_uid }.from('old_uid').to('12345')
+        it 'updates email and LMS credentials' do
+          expect do
+            controller.send(:find_or_create_user, user_data, mock_token, provider: 'canvas')
+          end.to change { existing_user.reload.email }.from('old@example.com').to('test@example.com')
+        end
+      end
 
-        creds = existing_user.reload.lms_credentials.first
-        expect(creds.token).to eq('new-token')
+      context 'when an existing user has the email but a different canvas_uid' do
+        let!(:existing_user) { User.create!(email: 'test@example.com', canvas_uid: 'old_uid') }
+
+        it 'refuses to re-key the existing account and returns nil' do
+          result = controller.send(:find_or_create_user, user_data, mock_token, provider: 'canvas')
+
+          expect(result).to be_nil
+          expect(existing_user.reload.canvas_uid).to eq('old_uid')
+          expect(existing_user.lms_credentials).to be_empty
+        end
+      end
+
+      context 'when user is new' do
+        it 'creates the user and LMS credentials' do
+          expect do
+            controller.send(:find_or_create_user, user_data, mock_token, provider: 'canvas')
+          end.to change(User, :count).by(1)
+
+          user = User.find_by(canvas_uid: '12345')
+          expect(user.email).to eq('test@example.com')
+          expect(user.lms_credentials.first.token).to eq('new-token')
+        end
       end
     end
 
-    context 'when user exists by canvas_uid' do
-      let!(:existing_user) { User.create!(email: 'old@example.com', canvas_uid: '12345') }
+    context 'with the developer provider (dev/test only)' do
+      context 'when user exists by email' do
+        let!(:existing_user) { User.create!(email: 'test@example.com', canvas_uid: 'old_uid') }
 
-      it 'updates email and LMS credentials' do
-        expect do
-          controller.send(:find_or_create_user, user_data, mock_token)
-        end.to change { existing_user.reload.email }.from('old@example.com').to('test@example.com')
+        it 'updates canvas_uid and LMS credentials (intentional masquerade)' do
+          expect do
+            controller.send(:find_or_create_user, user_data, mock_token, provider: 'developer')
+          end.to change { existing_user.reload.canvas_uid }.from('old_uid').to('12345')
+
+          creds = existing_user.reload.lms_credentials.first
+          expect(creds.token).to eq('new-token')
+        end
       end
     end
+  end
 
-    context 'when user is new' do
-      it 'creates the user and LMS credentials' do
-        expect do
-          controller.send(:find_or_create_user, user_data, mock_token)
-        end.to change(User, :count).by(1)
+  describe 'GET #omniauth_callback (developer provider in production)' do
+    let(:dev_auth_hash) do
+      OmniAuth::AuthHash.new(
+        provider: 'developer',
+        uid: 'attacker@example.com',
+        info: OpenStruct.new(name: 'Attacker', email: 'attacker@example.com'),
+        credentials: { token: 'dev-token', refresh_token: nil, expires_at: nil }
+      )
+    end
 
-        user = User.find_by(canvas_uid: '12345')
-        expect(user.email).to eq('test@example.com')
-        expect(user.lms_credentials.first.token).to eq('new-token')
-      end
+    before { request.env['omniauth.auth'] = dev_auth_hash }
+
+    it 'is refused when Rails.env is production' do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+
+      expect do
+        get :omniauth_callback, params: { provider: 'developer' }
+      end.not_to change(User, :count)
+
+      expect(session[:user_id]).to be_nil
+      expect(response).to redirect_to(root_path)
+      expect(flash[:alert]).to eq('Authentication failed.')
     end
   end
 

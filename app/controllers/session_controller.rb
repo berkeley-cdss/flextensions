@@ -46,6 +46,15 @@ class SessionController < ApplicationController
       return
     end
 
+    # Defense in depth: the developer provider is also gated in
+    # config/initializers/omniauth.rb, but block it here too so a misconfigured
+    # production environment cannot accept a developer-strategy callback.
+    if auth.provider.to_s == 'developer' && !developer_login_allowed?
+      Rails.logger.error("Refusing developer-provider login in #{Rails.env}")
+      redirect_to root_path, alert: 'Authentication failed.'
+      return
+    end
+
     user_data = {
       'id' => auth.uid,
       'name' => auth.info.name,
@@ -66,7 +75,12 @@ class SessionController < ApplicationController
     )
 
     # Persist / update the user just like `create`
-    user = find_or_create_user(user_data, access_token)
+    user = find_or_create_user(user_data, access_token, provider: auth.provider.to_s)
+
+    if user.nil?
+      redirect_to root_path, alert: 'Authentication failed. This account is already linked to another login.'
+      return
+    end
 
     # Auto-enroll developer login users in test courses
     if auth.provider == 'developer'
@@ -89,6 +103,16 @@ class SessionController < ApplicationController
 
   private
 
+  # The developer omniauth strategy is intended ONLY for local development /
+  # tests, where you may want to log in "as" an existing user (matched by
+  # email) without going through Canvas. It must never be reachable in
+  # production. The strategy itself is only registered when
+  # Rails.env.development? || Rails.env.test? (see config/initializers/omniauth.rb);
+  # this method is the callback-side guard that backs that up.
+  def developer_login_allowed?
+    Rails.env.development? || Rails.env.test?
+  end
+
   def ensure_developer_test_enrollments(user)
     # Find the test course
     test_course = Course.find_by(course_code: 'DEV101')
@@ -101,23 +125,28 @@ class SessionController < ApplicationController
     end
   end
 
-  # TODO: Refactor.
-  def find_or_create_user(user_data, auth_token)
-    auth_token.token
-    user = nil
-    if User.exists?(email: user_data['primary_email'])
-      user = User.find_by(email: user_data['primary_email'])
-      user.canvas_uid = user_data['id']
-    elsif User.exists?(canvas_uid: user_data['id'])
-      user = User.find_by(canvas_uid: user_data['id'])
-      user.email = user_data['email']
+  # Find or create the user for the given omniauth identity.
+  #
+  # For real LMS providers (Canvas) the canvas_uid is the canonical identity.
+  # If we find an existing User with that canvas_uid we update their email;
+  # otherwise we create a new User. We refuse to silently re-key an existing
+  # account by email match: that pathway would let anyone who can present an
+  # auth response carrying a victim's email take over the account.
+  #
+  # The developer provider is the deliberate exception: its whole purpose is
+  # to let a local developer log in as an existing user by email without
+  # round-tripping through Canvas, so when the developer provider is in use
+  # we keep the legacy "match by email and overwrite canvas_uid" behavior.
+  # That branch is only reachable in dev/test (gated above and in the
+  # initializer).
+  def find_or_create_user(user_data, auth_token, provider: 'canvas')
+    if provider == 'developer'
+      user = developer_lookup_or_create(user_data)
     else
-      user = User.find_or_initialize_by(canvas_uid: user_data['id'])
-      user.assign_attributes(
-        email: user_data['email'],
-        name: user_data['name']
-      )
+      user = canvas_lookup_or_create(user_data)
+      return nil if user.nil?
     end
+
     user.save!
     update_user_credential(user, auth_token)
 
@@ -126,6 +155,51 @@ class SessionController < ApplicationController
     session[:user_id] = user.canvas_uid
 
     user
+  end
+
+  # Production / Canvas path: never re-key an existing user by email.
+  # Returns nil if the email is already taken by a different canvas_uid so the
+  # caller can surface a "linked to another login" error instead of merging
+  # two distinct identities.
+  def canvas_lookup_or_create(user_data)
+    by_uid = User.find_by(canvas_uid: user_data['id'])
+    if by_uid
+      by_uid.assign_attributes(email: user_data['email'], name: user_data['name'])
+      return by_uid
+    end
+
+    if User.exists?(email: user_data['primary_email'])
+      Rails.logger.warn(
+        "Refusing to link canvas_uid=#{user_data['id']} to existing email " \
+        "#{user_data['primary_email']}: a different account already owns it"
+      )
+      return nil
+    end
+
+    User.new(
+      canvas_uid: user_data['id'],
+      email: user_data['email'],
+      name: user_data['name']
+    )
+  end
+
+  # Developer-only path: matches by email first so a developer can log in
+  # "as" an existing user without Canvas. Intentionally rewrites canvas_uid
+  # on email match — see find_or_create_user docstring.
+  def developer_lookup_or_create(user_data)
+    if User.exists?(email: user_data['primary_email'])
+      user = User.find_by(email: user_data['primary_email'])
+      user.canvas_uid = user_data['id']
+      user
+    elsif User.exists?(canvas_uid: user_data['id'])
+      user = User.find_by(canvas_uid: user_data['id'])
+      user.email = user_data['email']
+      user
+    else
+      User.find_or_initialize_by(canvas_uid: user_data['id']).tap do |u|
+        u.assign_attributes(email: user_data['email'], name: user_data['name'])
+      end
+    end
   end
 
   # TODO: Move this to a Canvas API libarary or user service
