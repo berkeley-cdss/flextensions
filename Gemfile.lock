@@ -358,6 +358,11 @@ GEM
     omniauth-canvas (2.0.0)
       omniauth (~> 2.0)
       omniauth-oauth2 (~> 1.8)
+    omniauth-google-oauth2 (1.2.2)
+      jwt (>= 2.9.2)
+      oauth2 (~> 2.0)
+      omniauth (~> 2.0)
+      omniauth-oauth2 (~> 1.8)
     omniauth-oauth2 (1.9.0)
       oauth2 (>= 2.0.2, < 3)
       omniauth (~> 2.0)
@@ -644,6 +649,7 @@ DEPENDENCIES
   lograge
   omniauth
   omniauth-canvas
+  omniauth-google-oauth2
   omniauth-oauth2
   ostruct
   pg
