@@ -42,11 +42,16 @@ Navigate to the **Requests** tab in the left sidebar to review and manage all ex
 
 ### Viewing Extension Requests
 
-Click **View** next to any request to access its full details.
+In order to access the full details of a request, select any one of its **three viewing options:**
+- The student's name
+- The assignment name
+- The status of the request (Pending, Approved, or Denied)
+
+These will all take you to the same page of request details for any single request.
 
 #### Editing Extension Requests
 
-1. Click **View** on the Requests page.
+1. Click one of the **three viewing options** on the Requests page.
 2. In the Extension Request Details page, click **Edit Request**.
 3. Update the **Requested Due Date** or select a new date from the date picker.
 4. Optionally revise the **Reason for Extension** field.
@@ -63,13 +68,13 @@ You can respond to requests in two ways:
 3. Click the green **Approve** or red **Reject** button in the Actions column.
 
 **Method 2: Extension Request Details Page**
-1. Click **View** next to a request.
+1. Click one of the **three viewing options** of a request.
 2. Review assignment details and student’s explanation.
 3. Click **Approve** or **Reject** at the bottom.
 4. The request status will update in real time.
 
 ## Viewing Request History
-To view all requests made in the course, click the **View all Requests** button at the top left.
+To view all requests made in the course, click the **View all Requests** button at the top right.
 
 # Course Enrollments
 
@@ -99,7 +104,7 @@ Control when and how requests are automatically approved:
 - **Auto-approve within days**
   Automatically approves requests made within the specified number of days before the assignment due date. Leave blank to disable.
 
-- **Auto-approve within days (Ex)**
+- **Auto approve extended requests within days**
   Applies a similar rule specifically to students with a DSP accommodation flag.
 
 - **Maximum requests to auto-approve**
@@ -130,7 +135,7 @@ If you use Gradescope for grading, you can integrate it with Flextensions to aut
 
 ## Course Email Settings
 
-The **Email Settings** section (under Settings) controls how students receive notifications about their extension requests.
+The **Email Settings** tab (at the top of the Settings page) controls how students receive notifications about their extension requests.
 
 ### Course Email Setup
 
