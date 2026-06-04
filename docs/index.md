@@ -64,6 +64,7 @@ Student developers (in alphabetical order):
 * [Tianye Meng](https://www.linkedin.com/in/tianye-meng-611b22253/), Spring 2025
 * [Yaman Tarakji](https://www.linkedin.com/in/yaman-tarakji-602530196), Spring 2025
 * Zee Babar, Spring 2024
+* [Nia Robinson](https://www.linkedin.com/in/niarobinson423/), Spring 2026
 
 Armando Fox, and Lisa Yan are faculty members who have also overseen the development of Flextensions and make significant contributions to the project.
 
