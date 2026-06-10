@@ -136,6 +136,74 @@ describe CanvasFacade do
         expect(result.first.late_due_date).to be_nil
       end
     end
+
+    context 'when all_dates is omitted for an assignment with overrides' do
+      # Canvas omits all_dates when an assignment has more than 25 dates, and
+      # the top-level due_at may then be an override's date.
+      let(:assignments_data) do
+        [
+          {
+            'id' => '999',
+            'name' => 'Assignment with many overrides',
+            'due_at' => '2025-03-20T23:59:00Z',
+            'has_overrides' => true
+          }
+        ]
+      end
+
+      it 'explicitly queries date_details for the base dates' do
+        allow(facade).to receive(:get_base_dates).with(external_course_id, '999').and_return(
+          { 'base' => true, 'due_at' => '2025-03-15T23:59:00Z', 'lock_at' => '2025-03-18T23:59:00Z' }
+        )
+
+        result = facade.get_all_assignments(external_course_id)
+
+        expect(result.first.due_date).to eq(DateTime.parse('2025-03-15T23:59:00Z'))
+        expect(result.first.late_due_date).to eq(DateTime.parse('2025-03-18T23:59:00Z'))
+      end
+
+      it 'falls back to top-level dates when date_details cannot be fetched' do
+        allow(facade).to receive(:get_base_dates).with(external_course_id, '999').and_return(nil)
+
+        result = facade.get_all_assignments(external_course_id)
+
+        expect(result.first.due_date).to eq(DateTime.parse('2025-03-20T23:59:00Z'))
+      end
+    end
+  end
+
+  describe '#get_base_dates' do
+    let(:date_details_url) { "courses/#{course_id}/assignments/#{assignment_id}/date_details" }
+
+    it 'returns the base dates from the date_details endpoint' do
+      stubs.get(date_details_url) do
+        [ 200, {}, {
+          id: assignment_id,
+          due_at: '2025-01-15T23:59:00Z',
+          unlock_at: nil,
+          lock_at: '2025-01-20T23:59:00Z',
+          overrides: [ { id: 1, due_at: '2025-02-01T23:59:00Z' } ]
+        }.to_json ]
+      end
+
+      expect(facade.get_base_dates(course_id, assignment_id)).to eq(
+        'due_at' => '2025-01-15T23:59:00Z',
+        'unlock_at' => nil,
+        'lock_at' => '2025-01-20T23:59:00Z',
+        'base' => true
+      )
+      stubs.verify_stubbed_calls
+    end
+
+    it 'returns nil when the request fails' do
+      stubs.get(date_details_url) { [ 401, {}, '{}' ] }
+      expect(facade.get_base_dates(course_id, assignment_id)).to be_nil
+    end
+
+    it 'returns nil when the response cannot be parsed' do
+      stubs.get(date_details_url) { [ 200, {}, '{invalid json}' ] }
+      expect(facade.get_base_dates(course_id, assignment_id)).to be_nil
+    end
   end
 
   describe('initialization') do
@@ -228,7 +296,38 @@ describe CanvasFacade do
     end
 
     it 'has correct response body on successful call' do
-      expect(facade.get_assignment_overrides(course_id, assignment_id).body).to eq('{}')
+      result = facade.get_assignment_overrides(course_id, assignment_id)
+      expect(result.body).to eq('{}')
+      expect(Rack::Utils.parse_query(URI(result.env.url).query)['per_page']).to eq('100')
+      stubs.verify_stubbed_calls
+    end
+  end
+
+  describe('get_all_assignment_overrides') do
+    let(:overrides_url) { "courses/#{course_id}/assignments/#{assignment_id}/overrides" }
+
+    it 'follows pagination links to fetch every override' do
+      stubs.get(overrides_url) do
+        [
+          200,
+          { 'Link' => "<#{overrides_url}?page=2&per_page=100>; rel=\"next\"" },
+          [ { 'id' => 1 } ].to_json
+        ]
+      end
+      stubs.get("#{overrides_url}?page=2&per_page=100") do
+        [ 200, {}, [ { 'id' => 2 } ].to_json ]
+      end
+
+      result = facade.get_all_assignment_overrides(course_id, assignment_id)
+      expect(result.pluck('id')).to eq([ 1, 2 ])
+      stubs.verify_stubbed_calls
+    end
+
+    it 'returns a single page when there is no next link' do
+      stubs.get(overrides_url) { [ 200, {}, [ { 'id' => 1 } ].to_json ] }
+
+      result = facade.get_all_assignment_overrides(course_id, assignment_id)
+      expect(result.pluck('id')).to eq([ 1 ])
       stubs.verify_stubbed_calls
     end
   end
@@ -293,13 +392,13 @@ describe CanvasFacade do
     it 'has correct request body' do
       expect(conn).to receive(:put).with(
         update_assignment_overrid_url,
-        {
+        { assignment_override: {
           student_ids: [ student_id ],
           title: title,
           due_at: mock_date,
           unlock_at: mock_date,
           lock_at: mock_date
-        }
+        } }
       )
 
       facade.update_assignment_override(
@@ -364,7 +463,6 @@ describe CanvasFacade do
     end
 
     before do
-      allow(facade).to receive(:delete_assignment_override)
       allow(facade).to receive_messages(get_current_formatted_time: mock_date, get_existing_student_override: nil, create_assignment_override: create_success_response)
     end
 
@@ -377,6 +475,20 @@ describe CanvasFacade do
       )
 
       expect(result).to be_a(Lmss::Canvas::Override)
+    end
+
+    it 'raises a CanvasAPIError when Canvas rejects the extension' do
+      failure_response = instance_double(Faraday::Response, status: 401, body: '{"errors":"unauthorized"}')
+      allow(facade).to receive(:create_assignment_override).and_return(failure_response)
+
+      expect do
+        facade.provision_extension(
+          course_id,
+          student_id,
+          assignment_id,
+          mock_date
+        )
+      end.to raise_error(CanvasFacade::CanvasAPIError)
     end
 
     it 'passes nil for close_date (lock_at) when late due date is not provided' do
@@ -436,9 +548,9 @@ describe CanvasFacade do
     end
 
     it 'updates the existing assignment override if the student is the only student the override is provisioned to' do
-      allow(facade).to receive(:create_assignment_override).and_return(create_taken_response)
-      allow(facade).to receive(:create_assignment_override).and_return(create_taken_response)
-      expect(facade).to receive(:get_existing_student_override).twice.and_return(OpenStruct.new(mock_override))
+      expect(facade).to receive(:get_existing_student_override).once.and_return(OpenStruct.new(mock_override))
+      expect(facade).not_to receive(:create_assignment_override)
+      expect(facade).not_to receive(:delete_assignment_override)
       expect(facade).to receive(:update_assignment_override).with(
         course_id,
         assignment_id,
@@ -446,9 +558,32 @@ describe CanvasFacade do
         mock_override[:student_ids],
         "#{student_id} extended to #{mock_date}",
         mock_date,
-        mock_date,
+        mock_override[:unlock_at],
         nil
-      ).and_return(instance_double(Faraday::Response, body: '{}'))
+      ).and_return(instance_double(Faraday::Response, status: 200, body: '{}'))
+      facade.provision_extension(
+        course_id,
+        student_id,
+        assignment_id,
+        mock_date
+      )
+    end
+
+    it 'renames an existing single-student override without issue' do
+      # e.g. staff grouped overrides by extension length ("1 day extension");
+      # the rename on update must go through as part of the same request.
+      mock_override[:title] = '1 day extension'
+      expect(facade).to receive(:get_existing_student_override).once.and_return(OpenStruct.new(mock_override))
+      expect(facade).to receive(:update_assignment_override).with(
+        course_id,
+        assignment_id,
+        mock_override[:id],
+        mock_override[:student_ids],
+        "#{student_id} extended to #{mock_date}",
+        mock_date,
+        mock_override[:unlock_at],
+        nil
+      ).and_return(instance_double(Faraday::Response, status: 200, body: '{}'))
       facade.provision_extension(
         course_id,
         student_id,
@@ -459,8 +594,7 @@ describe CanvasFacade do
 
     it 'passes close_date to update when updating existing override' do
       close_date = '2002-03-20T16:00:00Z'
-      allow(facade).to receive(:create_assignment_override).and_return(create_taken_response)
-      expect(facade).to receive(:get_existing_student_override).twice.and_return(OpenStruct.new(mock_override))
+      expect(facade).to receive(:get_existing_student_override).once.and_return(OpenStruct.new(mock_override))
       expect(facade).to receive(:update_assignment_override).with(
         course_id,
         assignment_id,
@@ -468,9 +602,9 @@ describe CanvasFacade do
         mock_override[:student_ids],
         "#{student_id} extended to #{mock_date}",
         mock_date,
-        mock_date,
+        mock_override[:unlock_at],
         close_date
-      ).and_return(instance_double(Faraday::Response, body: '{}'))
+      ).and_return(instance_double(Faraday::Response, status: 200, body: '{}'))
       facade.provision_extension(
         course_id,
         student_id,
@@ -480,16 +614,42 @@ describe CanvasFacade do
       )
     end
 
-    it 'creates a new override if the student\'s existing one has multiple other students' do
+    it 'removes the student from a shared override and creates an individual one' do
       mock_override[:student_ids].append(student_id + 1)
       mock_override_struct = OpenStruct.new(mock_override)
-      allow(facade).to receive(:create_assignment_override).and_return(create_taken_response, create_success_response)
-      expect(facade).to receive(:get_existing_student_override).twice.and_return(mock_override_struct)
+      expect(facade).to receive(:get_existing_student_override).once.and_return(mock_override_struct)
+      expect(facade).not_to receive(:delete_assignment_override)
       expect(facade).to receive(:remove_student_from_override).with(
         course_id,
         mock_override_struct,
         student_id
-      ).and_return(instance_double(Faraday::Response, body: '{}'))
+      ).and_return(instance_double(Faraday::Response, status: 200, body: '{}'))
+      expect(facade).to receive(:create_assignment_override).with(
+        course_id, assignment_id, [ student_id ],
+        "#{student_id} extended to #{mock_date}",
+        mock_date, mock_date, nil
+      ).and_return(create_success_response)
+      facade.provision_extension(
+        course_id,
+        student_id,
+        assignment_id,
+        mock_date
+      )
+    end
+
+    it 'recovers when the student gains an override between the lookup and the create call' do
+      expect(facade).to receive(:get_existing_student_override).twice.and_return(nil, OpenStruct.new(mock_override))
+      expect(facade).to receive(:create_assignment_override).once.and_return(create_taken_response)
+      expect(facade).to receive(:update_assignment_override).with(
+        course_id,
+        assignment_id,
+        mock_override[:id],
+        mock_override[:student_ids],
+        "#{student_id} extended to #{mock_date}",
+        mock_date,
+        mock_override[:unlock_at],
+        nil
+      ).and_return(instance_double(Faraday::Response, status: 200, body: '{}'))
       facade.provision_extension(
         course_id,
         student_id,
@@ -538,7 +698,7 @@ describe CanvasFacade do
         [
           200,
           {},
-          mock_override.to_json
+          [ mock_override ].to_json
         ]
       end
       expect(facade.send(
@@ -547,6 +707,39 @@ describe CanvasFacade do
                student_id,
                assignment_id
              )).to be_nil
+    end
+
+    it 'throws an error if the overrides request fails' do
+      stubs.get(get_assignment_overrides_url) { [ 401, {}, '{"errors":"unauthorized"}' ] }
+      expect do
+        facade.send(
+          :get_existing_student_override,
+          course_id,
+          student_id,
+          assignment_id
+        )
+      end.to raise_error(FailedPipelineError)
+    end
+
+    it 'finds an override beyond the first page of results' do
+      mock_override_other_student = mock_override.clone
+      mock_override_other_student[:student_ids] = [ student_id + 1 ]
+      stubs.get(get_assignment_overrides_url) do
+        [
+          200,
+          { 'Link' => "<#{get_assignment_overrides_url}?page=2&per_page=100>; rel=\"next\"" },
+          [ mock_override_other_student ].to_json
+        ]
+      end
+      stubs.get("#{get_assignment_overrides_url}?page=2&per_page=100") do
+        [ 200, {}, [ mock_override ].to_json ]
+      end
+      expect(facade.send(
+        :get_existing_student_override,
+        course_id,
+        student_id,
+        assignment_id
+      ).id).to eq(override_id)
     end
 
     it 'skips overrides with nil student_ids' do
@@ -585,19 +778,19 @@ describe CanvasFacade do
       mock_override_struct.student_ids.append(student_id + 1)
     end
 
-    it 'removes the student and keeps everything else the same' do
+    it 'removes the student and keeps the title and dates the same' do
       mock_overrideWithoutStudent = OpenStruct.new(mock_override)
       mock_overrideWithoutStudent.student_ids = [ student_id + 1 ]
       expect(facade).to receive(:update_assignment_override).with(
         course_id,
         mock_override_struct.assignment_id,
         mock_override_struct.id,
-        mock_override_struct.student_ids,
+        [ student_id + 1 ],
         mock_override_struct.title,
         mock_override_struct.due_at,
         mock_override_struct.unlock_at,
         mock_override_struct.lock_at
-      ).and_return(OpenStruct.new({ body: mock_overrideWithoutStudent.to_h.to_json }))
+      ).and_return(OpenStruct.new({ status: 200, body: mock_overrideWithoutStudent.to_h.to_json }))
       expect(facade.send(
                :remove_student_from_override,
                course_id,
@@ -606,17 +799,39 @@ describe CanvasFacade do
              ))
     end
 
+    it 'does not mutate the student_ids on the override being updated' do
+      allow(facade).to receive(:update_assignment_override).and_return(
+        OpenStruct.new({ status: 200, body: { student_ids: [ student_id + 1 ] }.to_json })
+      )
+      facade.send(:remove_student_from_override, course_id, mock_override_struct, student_id)
+      expect(mock_override_struct.student_ids).to include(student_id)
+    end
+
     it 'throws a pipeline error if the student cannot be removed from the override' do
       expect(facade).to receive(:update_assignment_override).with(
         course_id,
         mock_override_struct.assignment_id,
         mock_override_struct.id,
-        mock_override_struct.student_ids,
+        [ student_id + 1 ],
         mock_override_struct.title,
         mock_override_struct.due_at,
         mock_override_struct.unlock_at,
         mock_override_struct.lock_at
-      ).and_return(OpenStruct.new({ body: mock_override_struct.to_h.to_json }))
+      ).and_return(OpenStruct.new({ status: 200, body: mock_override_struct.to_h.to_json }))
+      expect do
+        facade.send(
+          :remove_student_from_override,
+          course_id,
+          mock_override_struct,
+          student_id
+        )
+      end.to raise_error(FailedPipelineError)
+    end
+
+    it 'throws a pipeline error if the update request fails' do
+      allow(facade).to receive(:update_assignment_override).and_return(
+        OpenStruct.new({ status: 400, body: '{"errors":"bad request"}' })
+      )
       expect do
         facade.send(
           :remove_student_from_override,

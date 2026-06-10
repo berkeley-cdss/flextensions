@@ -139,8 +139,13 @@ class CanvasFacade < LmsFacade
     next_page = links.find { |page| page[:rel] == 'next' }
     return JSON.parse(response.body) if next_page.nil?
 
-    # NOTE: Do not log the full :url as it contains an auth token (from canvas)
-    JSON.parse(response.body) + depaginate_response(@canvas_conn.get(next_page[:url], headers: auth_header))
+    # NOTE: Do not log the full :url as it may contain tokens (from canvas)
+    # The connection's default headers already carry the Authorization header;
+    # passing them again here would append them to the URL as query params.
+    rest = depaginate_response(@canvas_conn.get(next_page[:url]))
+    raise CanvasAPIError, 'Failed to fetch a paginated Canvas response' unless rest.is_a?(Array)
+
+    JSON.parse(response.body) + rest
   end
 
   ##
@@ -239,6 +244,11 @@ class CanvasFacade < LmsFacade
       if assignment_data['all_dates']
         base_date = assignment_data['all_dates'].find { |date| date['base'] == true }
         assignment_data['base_date'] = base_date
+      elsif assignment_data['has_overrides']
+        # Canvas omits all_dates once an assignment has more than 25 dates, and
+        # the top-level due_at may then reflect an override's date rather than
+        # the base date, so explicitly query the base ("Everyone") dates.
+        assignment_data['base_date'] = get_base_dates(course_id, assignment_data['id'])
       end
       # Return as Lmss::Canvas::Assignment object
       Lmss::Canvas::Assignment.new(assignment_data)
@@ -256,13 +266,60 @@ class CanvasFacade < LmsFacade
   end
 
   ##
-  # Gets a list of the assignment overrides for a specified assignment.
+  # Gets the date details for an assignment.
+  # The top-level due_at/unlock_at/lock_at of this response are always the
+  # base ("Everyone") dates, regardless of how many overrides exist.
+  #
+  # @param  [Integer] course_id     the course the assignment belongs to.
+  # @param  [Integer] assignment_id the assignment to fetch date details for.
+  # @return [Faraday::Response] the date details for the assignment.
+  def get_assignment_date_details(course_id, assignment_id)
+    @canvas_conn.get("courses/#{course_id}/assignments/#{assignment_id}/date_details")
+  end
+
+  ##
+  # Explicitly fetches the base (i.e. "Everyone"/all students) dates for an assignment.
+  #
+  # The assignment endpoints cannot be trusted for this: Canvas omits all_dates
+  # when an assignment has more than 25 dates, and due_at may then be an
+  # override's date. This uses the date_details endpoint, whose top-level dates
+  # are always the base dates.
+  #
+  # @param  [Integer] course_id     the course the assignment belongs to.
+  # @param  [Integer] assignment_id the assignment to fetch the base dates for.
+  # @return [Hash, nil] hash with 'due_at', 'unlock_at', 'lock_at' and
+  #                     'base' => true (matching the all_dates format), or nil
+  #                     if the dates could not be fetched.
+  def get_base_dates(course_id, assignment_id)
+    response = get_assignment_date_details(course_id, assignment_id)
+    return nil unless response.success?
+
+    details = JSON.parse(response.body)
+    details.slice('due_at', 'unlock_at', 'lock_at').merge('base' => true)
+  rescue JSON::ParserError
+    nil
+  end
+
+  ##
+  # Gets a single page of the assignment overrides for a specified assignment.
   #
   # @param   [Integer]    courseId     the course to fetch the overrides from.
   # @param   [Integer]    assignmentId the assignment to fetch the overrides from.
-  # @return  [Faraday::Response] all of the overrides for the specified assignment.
+  # @return  [Faraday::Response] the first page of overrides for the specified assignment.
   def get_assignment_overrides(courseId, assignmentId)
-    @canvas_conn.get("courses/#{courseId}/assignments/#{assignmentId}/overrides")
+    @canvas_conn.get("courses/#{courseId}/assignments/#{assignmentId}/overrides", { per_page: 100 })
+  end
+
+  ##
+  # Gets all of the assignment overrides for a specified assignment (depaginated).
+  # An assignment can have arbitrarily many overrides, so callers that need to
+  # find a specific override must use this rather than a single page.
+  #
+  # @param   [Integer] course_id     the course to fetch the overrides from.
+  # @param   [Integer] assignment_id the assignment to fetch the overrides from.
+  # @return  [Array<Hash>|Faraday::Response] all overrides, or the raw response on failure.
+  def get_all_assignment_overrides(course_id, assignment_id)
+    depaginate_response(get_assignment_overrides(course_id, assignment_id))
   end
 
   ##
@@ -301,12 +358,16 @@ class CanvasFacade < LmsFacade
   # @param   [String]     lockDate     the updated date the override should lock the assignment.
   # @return  [Faraday::Response] information about the updated override.
   def update_assignment_override(courseId, assignmentId, overrideId, studentIds, title, dueDate, unlockDate, lockDate)
+    # NOTE: Canvas requires the params be nested under assignment_override,
+    # just like the create endpoint; un-nested params are silently ignored.
     @canvas_conn.put("courses/#{courseId}/assignments/#{assignmentId}/overrides/#{overrideId}", {
-      student_ids: studentIds,
-      title: title,
-      due_at: dueDate,
-      unlock_at: unlockDate,
-      lock_at: lockDate
+      assignment_override: {
+        student_ids: studentIds,
+        title: title,
+        due_at: dueDate,
+        unlock_at: unlockDate,
+        lock_at: lockDate
+      }
     })
   end
 
@@ -324,38 +385,62 @@ class CanvasFacade < LmsFacade
   ##
   # Provisions a new extension to a user.
   #
-  # @param   [Integer] courseId the course to provision the extension in.
-  # @param   [Integer] studentId the student to provisoin the extension for.
-  # @param   [Integer] assignmentId the assignment the extension should be provisioned for.
-  # @param   [String]  newDueDate the date the assignment should be due.
+  # If the student already has an override:
+  # - and they are the only student on it, the override is updated in place.
+  #   This includes renaming the override (e.g. an override staff titled
+  #   "1 day extension" becomes "<student> extended to <date>"); Canvas
+  #   accepts a title change on update.
+  # - and it is shared with other students (e.g. a group override titled
+  #   "2 days extension"), the student is removed from the shared override --
+  #   keeping its title and dates intact for the remaining students -- and a
+  #   new individual override is created for this student.
+  #
+  # @param   [Integer] course_id the course to provision the extension in.
+  # @param   [Integer] student_id the student to provision the extension for.
+  # @param   [Integer] assignment_id the assignment the extension should be provisioned for.
+  # @param   [String]  new_due_date the date the assignment should be due.
   # @param   [String]  new_close_date the close date for submissions (optional, nil means no close date set).
   # @return  [Lmss::Canvas::Override] the override that acts as the extension.
-  # @raises  [FailedPipelineError] if the creation response body could not be parsed.
+  # @raises  [FailedPipelineError] if a Canvas response body could not be parsed.
   # @raises  [NotFoundError]       if the user has an existing override that cannot be located.
+  # @raises  [CanvasAPIError]      if Canvas rejected the extension.
   def provision_extension(course_id, student_id, assignment_id, new_due_date, new_close_date = nil)
-    # get existing_overrides for an assignment
-    student_override = get_existing_student_override(course_id, student_id, assignment_id)
-    if !student_override.nil?
-      delete_assignment_override(course_id, assignment_id, student_override.id)
-    end
-
-    # create new override
     override_title = "#{student_id} extended to #{new_due_date}"
-    create_response = create_assignment_override(
-      course_id, assignment_id, [ student_id ], override_title, new_due_date, get_current_formatted_time, new_close_date
-    )
 
-    decoded_response = parse_create_response(create_response)
-    if create_response.status != 400 || override_has_errors?(decoded_response)
-      return Lmss::Canvas::Override.new(decoded_response)
+    # Find the student's existing override, if any. This searches *all*
+    # overrides (depaginated), since an assignment may have well over a page
+    # of overrides.
+    student_override = get_existing_student_override(course_id, student_id, assignment_id)
+
+    response = if student_override.nil?
+      create_assignment_override(
+        course_id, assignment_id, [ student_id ], override_title, new_due_date,
+        get_current_formatted_time, new_close_date
+      )
+    else
+      handle_override_logic(
+        course_id, student_override, student_id, assignment_id, override_title,
+        new_due_date, new_close_date
+      )
+    end
+    decoded_response = parse_create_response(response)
+
+    # Canvas reports 'taken' when the student already belongs to an override,
+    # e.g. one created between our lookup above and the create call.
+    if response.status == 400 && override_taken_error?(decoded_response)
+      curr_override = fetch_existing_override(course_id, student_id, assignment_id)
+      response = handle_override_logic(
+        course_id, curr_override, student_id, assignment_id, override_title,
+        new_due_date, new_close_date
+      )
+      decoded_response = parse_create_response(response)
     end
 
-    curr_override = fetch_existing_override(course_id, student_id, assignment_id)
-    handle_response = handle_override_logic(
-      course_id, curr_override, student_id, assignment_id, override_title,
-      new_due_date, new_close_date
-    )
-    Lmss::Canvas::Override.new(parse_create_response(handle_response))
+    unless (200..299).cover?(response.status)
+      raise CanvasAPIError, "Canvas could not save the extension (HTTP #{response.status})"
+    end
+
+    Lmss::Canvas::Override.new(decoded_response)
   end
 
   private
@@ -370,10 +455,9 @@ class CanvasFacade < LmsFacade
   # @throws [FailedPipelineError] if the existing overrides response body could not be parsed.
   def get_existing_student_override(course_id, student_id, assignment_id)
     begin
-      all_assignment_overrides = JSON.parse(
-        get_assignment_overrides(course_id, assignment_id).body,
-        object_class: OpenStruct
-      )
+      # Depaginate: with many overrides (e.g. > 25) the student's override may
+      # not be on the first page, and missing it here would orphan it.
+      all_assignment_overrides = get_all_assignment_overrides(course_id, assignment_id)
     rescue JSON::ParserError
       raise FailedPipelineError.new(
         'Update Student Extension',
@@ -382,8 +466,18 @@ class CanvasFacade < LmsFacade
       )
     end
 
-    all_assignment_overrides.each do |override|
-      return override if override&.student_ids&.map(&:to_i)&.include?(student_id.to_i)
+    # depaginate_response returns the raw response when the request failed.
+    unless all_assignment_overrides.is_a?(Array)
+      raise FailedPipelineError.new(
+        'Update Student Extension',
+        'Get Existing Student Override',
+        'Fetch Assignment Overrides'
+      )
+    end
+
+    all_assignment_overrides.each do |override_data|
+      override = OpenStruct.new(override_data)
+      return override if override.student_ids&.map(&:to_i)&.include?(student_id.to_i)
     end
     nil
   end
@@ -407,19 +501,25 @@ class CanvasFacade < LmsFacade
   # @return  [Faraday::Response] the new override if successful.
   # @raises  [FailedPipelineError] if the student could not be removed from the override.
   def remove_student_from_override(courseId, override, studentId)
-    override.student_ids.delete(studentId)
+    # Keep the override's title and dates untouched so the remaining students
+    # are unaffected (e.g. a shared "1 day extension" override keeps its name).
+    remaining_student_ids = override.student_ids.reject { |id| id.to_i == studentId.to_i }
     res = update_assignment_override(
       courseId,
       override.assignment_id,
       override.id,
-      override.student_ids,
+      remaining_student_ids,
       override.title,
       override.due_at,
       override.unlock_at,
       override.lock_at
     )
-    decodedBody = JSON.parse(res.body, object_class: OpenStruct)
-    if decodedBody&.student_ids&.include?(studentId)
+    decodedBody = begin
+      JSON.parse(res.body, object_class: OpenStruct)
+    rescue JSON::ParserError
+      nil
+    end
+    if !(200..299).cover?(res.status) || decodedBody&.student_ids&.map(&:to_i)&.include?(studentId.to_i)
       raise FailedPipelineError.new(
         'Update Student Extension',
         'Remove Student from Existing Override',
@@ -442,12 +542,15 @@ class CanvasFacade < LmsFacade
   end
 
   ##
-  # Checks if the override has errors.
+  # Checks whether a 400 response failed solely because the student already
+  # belongs to another override ('taken'), in which case we can recover by
+  # locating and updating the existing override.
   #
   # @param  [OpenStruct] decoded_response the decoded response to check for errors.
-  # @return [Boolean] true if the override has errors, false otherwise.
-  def override_has_errors?(decoded_response)
-    decoded_response&.errors&.assignment_override_students&.any? { |error| error&.type != 'taken' }
+  # @return [Boolean] true if the failure is recoverable as described above.
+  def override_taken_error?(decoded_response)
+    errors = decoded_response&.errors&.assignment_override_students
+    errors.present? && errors.all? { |error| error&.type == 'taken' }
   end
 
   ##
@@ -478,11 +581,17 @@ class CanvasFacade < LmsFacade
   # @return [Faraday::Response] the response from updating or creating the override.
   def handle_override_logic(courseId, curr_override, studentId, assignmentId, overrideTitle, newDueDate, newCloseDate)
     if curr_override.student_ids.length == 1
+      # The student is the only one on the override: update it in place.
+      # Renaming the override here is safe since no other student depends on
+      # it. Preserve the original unlock date so we don't unlock the
+      # assignment earlier than intended.
       update_assignment_override(
         courseId, assignmentId, curr_override.id, curr_override.student_ids, overrideTitle, newDueDate,
-        get_current_formatted_time, newCloseDate
+        curr_override.unlock_at, newCloseDate
       )
     else
+      # The override is shared with other students: pull this student out of
+      # it (leaving its title and dates intact) and give them their own.
       remove_student_from_override(courseId, curr_override, studentId)
       create_assignment_override(
         courseId, assignmentId, [ studentId ], overrideTitle, newDueDate, get_current_formatted_time, newCloseDate

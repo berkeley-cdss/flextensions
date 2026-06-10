@@ -9,36 +9,38 @@ module API
 
       def create
         find_extension_params
-        # Get External Assignment object to find initial due date
-        assignment_response = @canvas_facade.get_assignment(
-          @course_to_lms.external_course_id.to_i,
-          @assignment.external_assignment_id.to_i
-        )
-        if assignment_response.status != 200
-          render json: assignment_response.to_json, status: :internal_server_error
+        course_id = @course_to_lms.external_course_id.to_i
+        assignment_id = @assignment.external_assignment_id.to_i
+
+        # Explicitly query the base ("Everyone") due date. The assignment's own
+        # due_at cannot be trusted when overrides exist (Canvas may return an
+        # override's date, especially with more than 25 overrides).
+        base_dates = @canvas_facade.get_base_dates(course_id, assignment_id)
+        if base_dates.nil?
+          render json: { error: 'Could not fetch assignment dates from Canvas' }.to_json,
+                 status: :internal_server_error
           return
         end
-        assignment_json = JSON.parse(assignment_response.body)
 
         # Provision Extension
-        response = @canvas_facade.provision_extension(
-          @course_to_lms.external_course_id.to_i,
-          params[:student_uid].to_i,
-          @assignment.external_assignment_id.to_i,
-          params[:new_due_date]
-        )
-        unless response.success?
-          render json: response.body, status: response.status
+        begin
+          override = @canvas_facade.provision_extension(
+            course_id,
+            params[:student_uid].to_i,
+            assignment_id,
+            params[:new_due_date]
+          )
+        rescue CanvasFacade::CanvasAPIError, FailedPipelineError, NotFoundError => e
+          render json: { error: e.message }.to_json, status: :internal_server_error
           return
         end
-        assignment_override = JSON.parse(response.body)
 
         @extension = Extension.new(
           assignment_id: @assignment.id,
           student_email: nil,
-          initial_due_date: assignment_json['due_at'],
-          new_due_date: assignment_override['due_at'],
-          external_extension_id: assignment_override['id'],
+          initial_due_date: base_dates['due_at'],
+          new_due_date: override.override_due_date || params[:new_due_date],
+          external_extension_id: override.id,
           last_processed_by_id: nil
         )
         unless @extension.save

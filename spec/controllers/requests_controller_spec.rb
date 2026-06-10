@@ -328,7 +328,7 @@ RSpec.describe RequestsController, type: :controller do
 
       # stub out Canvas bits so that your Request#approve never blows up
       stub_request(:get,  "#{ENV.fetch('CANVAS_URL', nil)}/api/v1/courses/456/assignments/x1/overrides")
-        .with(headers: { 'Authorization' => 'Bearer instructor_token' })
+        .with(headers: { 'Authorization' => 'Bearer instructor_token' }, query: hash_including({}))
         .to_return(status: 200, body: '[]', headers: {})
 
       stub_request(:post, "#{ENV.fetch('CANVAS_URL', nil)}/api/v1/courses/456/assignments/x1/overrides")
