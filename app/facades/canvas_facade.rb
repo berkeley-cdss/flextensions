@@ -385,15 +385,22 @@ class CanvasFacade < LmsFacade
   ##
   # Provisions a new extension to a user.
   #
+  # Overrides are titled "N day(s) extension" (computed from the base due
+  # date) so that all students with the same length extension share a group:
+  # if an override with the matching title and dates already exists, the
+  # student is added to it rather than getting their own override. Keeping
+  # students grouped also keeps the total override count down, which matters
+  # because Canvas stops reporting reliable assignment dates once an
+  # assignment has more than 25 overrides.
+  #
   # If the student already has an override:
-  # - and they are the only student on it, the override is updated in place.
-  #   This includes renaming the override (e.g. an override staff titled
-  #   "1 day extension" becomes "<student> extended to <date>"); Canvas
-  #   accepts a title change on update.
-  # - and it is shared with other students (e.g. a group override titled
-  #   "2 days extension"), the student is removed from the shared override --
-  #   keeping its title and dates intact for the remaining students -- and a
-  #   new individual override is created for this student.
+  # - and it is already the matching group, nothing is changed.
+  # - and they are the only student on it, it is updated (and renamed, e.g.
+  #   "1 day extension" -> "2 days extension") in place, or deleted in favor
+  #   of joining an existing matching group.
+  # - and it is shared with other students, the student is removed from it --
+  #   keeping its title and dates intact for the remaining students -- and
+  #   then added to the matching group or given a new override.
   #
   # @param   [Integer] course_id the course to provision the extension in.
   # @param   [Integer] student_id the student to provision the extension for.
@@ -405,58 +412,58 @@ class CanvasFacade < LmsFacade
   # @raises  [NotFoundError]       if the user has an existing override that cannot be located.
   # @raises  [CanvasAPIError]      if Canvas rejected the extension.
   def provision_extension(course_id, student_id, assignment_id, new_due_date, new_close_date = nil)
-    override_title = "#{student_id} extended to #{new_due_date}"
+    override_title = extension_override_title(course_id, assignment_id, new_due_date)
+    recovering = false
 
-    # Find the student's existing override, if any. This searches *all*
-    # overrides (depaginated), since an assignment may have well over a page
-    # of overrides.
-    student_override = get_existing_student_override(course_id, student_id, assignment_id)
+    loop do
+      # Search *all* overrides (depaginated), since an assignment may have
+      # well over a page of overrides.
+      overrides = list_override_structs(course_id, assignment_id)
+      student_override = find_student_override(overrides, student_id)
+      raise NotFoundError, 'could not find student\'s override' if recovering && student_override.nil?
 
-    response = if student_override.nil?
-      create_assignment_override(
-        course_id, assignment_id, [ student_id ], override_title, new_due_date,
-        get_current_formatted_time, new_close_date
-      )
-    else
-      handle_override_logic(
-        course_id, student_override, student_id, assignment_id, override_title,
-        new_due_date, new_close_date
-      )
-    end
-    decoded_response = parse_create_response(response)
+      group_override = find_group_override(overrides, override_title, new_due_date, new_close_date)
 
-    # Canvas reports 'taken' when the student already belongs to an override,
-    # e.g. one created between our lookup above and the create call.
-    if response.status == 400 && override_taken_error?(decoded_response)
-      curr_override = fetch_existing_override(course_id, student_id, assignment_id)
-      response = handle_override_logic(
-        course_id, curr_override, student_id, assignment_id, override_title,
-        new_due_date, new_close_date
+      # The student is already in the matching group: nothing to post.
+      if student_override && group_override && student_override.id == group_override.id
+        return Lmss::Canvas::Override.new(student_override)
+      end
+
+      response = move_student_to_extension_override(
+        course_id, student_id, assignment_id, student_override, group_override,
+        override_title, new_due_date, new_close_date
       )
       decoded_response = parse_create_response(response)
-    end
 
-    unless (200..299).cover?(response.status)
-      raise CanvasAPIError, "Canvas could not save the extension (HTTP #{response.status})"
-    end
+      # Canvas reports 'taken' when the student already belongs to an
+      # override, e.g. one created between our lookup above and the write;
+      # re-fetch the overrides and retry once.
+      if !recovering && response.status == 400 && override_taken_error?(decoded_response)
+        recovering = true
+        next
+      end
 
-    Lmss::Canvas::Override.new(decoded_response)
+      unless (200..299).cover?(response.status)
+        raise CanvasAPIError, "Canvas could not save the extension (HTTP #{response.status})"
+      end
+
+      return Lmss::Canvas::Override.new(decoded_response)
+    end
   end
 
   private
 
   ##
-  # Gets the existing override for a student.
+  # Fetches every override for an assignment as OpenStructs.
   #
-  # @param  [Integer] courseId the courseId to check for an existing override.
-  # @param  [Integer] studentId the student to check for an existing override for.
-  # @param  [Integer] assignmentId the assignmnet to check for an existing override for.
-  # @return [OpenStruct|nil] the override if it is found or nil if not.
-  # @throws [FailedPipelineError] if the existing overrides response body could not be parsed.
-  def get_existing_student_override(course_id, student_id, assignment_id)
+  # @param  [Integer] course_id the course to fetch the overrides from.
+  # @param  [Integer] assignment_id the assignment to fetch the overrides from.
+  # @return [Array<OpenStruct>] all of the assignment's overrides.
+  # @throws [FailedPipelineError] if the overrides could not be fetched or parsed.
+  def list_override_structs(course_id, assignment_id)
     begin
-      # Depaginate: with many overrides (e.g. > 25) the student's override may
-      # not be on the first page, and missing it here would orphan it.
+      # Depaginate: with many overrides (e.g. > 25) the override we're looking
+      # for may not be on the first page, and missing it would orphan it.
       all_assignment_overrides = get_all_assignment_overrides(course_id, assignment_id)
     rescue JSON::ParserError
       raise FailedPipelineError.new(
@@ -475,11 +482,98 @@ class CanvasFacade < LmsFacade
       )
     end
 
-    all_assignment_overrides.each do |override_data|
-      override = OpenStruct.new(override_data)
-      return override if override.student_ids&.map(&:to_i)&.include?(student_id.to_i)
+    all_assignment_overrides.map { |override_data| OpenStruct.new(override_data) }
+  end
+
+  ##
+  # Finds the override the student currently belongs to, if any.
+  #
+  # @param  [Array<OpenStruct>] overrides the assignment's overrides.
+  # @param  [Integer] student_id the student to look for.
+  # @return [OpenStruct|nil] the override if it is found or nil if not.
+  def find_student_override(overrides, student_id)
+    overrides.find { |override| override.student_ids&.map(&:to_i)&.include?(student_id.to_i) }
+  end
+
+  ##
+  # Finds an existing extension group override that the student could join:
+  # an adhoc (student list) override with the same title, due date, and
+  # close date.
+  #
+  # @param  [Array<OpenStruct>] overrides the assignment's overrides.
+  # @param  [String] title the extension group title (e.g. "1 day extension").
+  # @param  [String] due_date the extension due date.
+  # @param  [String] close_date the extension close date (may be nil).
+  # @return [OpenStruct|nil] the matching group override, or nil if none.
+  def find_group_override(overrides, title, due_date, close_date)
+    overrides.find do |override|
+      override.student_ids.present? &&
+        override.title == title &&
+        same_canvas_time?(override.due_at, due_date) &&
+        same_canvas_time?(override.lock_at, close_date)
     end
+  end
+
+  ##
+  # Gets the existing override for a student.
+  #
+  # @param  [Integer] course_id the courseId to check for an existing override.
+  # @param  [Integer] student_id the student to check for an existing override for.
+  # @param  [Integer] assignment_id the assignment to check for an existing override for.
+  # @return [OpenStruct|nil] the override if it is found or nil if not.
+  # @throws [FailedPipelineError] if the existing overrides response body could not be parsed.
+  def get_existing_student_override(course_id, student_id, assignment_id)
+    find_student_override(list_override_structs(course_id, assignment_id), student_id)
+  end
+
+  ##
+  # Computes the title for an extension override: "N day(s) extension",
+  # so that all students with the same length extension share a title and
+  # can be grouped into one override.
+  #
+  # Uses the explicitly-queried base due date (the assignment's own due_at
+  # cannot be trusted once it has many overrides). Falls back to
+  # "Extended to <date>" when the number of days cannot be determined.
+  #
+  # @param  [Integer] course_id the course the assignment belongs to.
+  # @param  [Integer] assignment_id the assignment being extended.
+  # @param  [String]  new_due_date the new due date for the extension.
+  # @return [String] the override title.
+  def extension_override_title(course_id, assignment_id, new_due_date)
+    base_due_date = get_base_dates(course_id, assignment_id)&.fetch('due_at', nil)
+    days = extension_days(base_due_date, new_due_date)
+    return "Extended to #{new_due_date}" if days.nil? || days < 1
+
+    days == 1 ? '1 day extension' : "#{days} days extension"
+  end
+
+  ##
+  # Computes the length of an extension in days, rounded to the nearest day.
+  #
+  # @param  [String] base_due_date the assignment's base due date.
+  # @param  [String] new_due_date the extension's due date.
+  # @return [Integer|nil] the number of days, or nil if it cannot be computed.
+  def extension_days(base_due_date, new_due_date)
+    return nil if base_due_date.blank? || new_due_date.blank?
+
+    ((Time.zone.parse(new_due_date.to_s) - Time.zone.parse(base_due_date.to_s)) / 1.day).round
+  rescue ArgumentError
     nil
+  end
+
+  ##
+  # Compares two Canvas timestamps for equality, tolerating different
+  # formats/zones (e.g. "2025-01-16T23:59:00-08:00" vs "2025-01-17T07:59:00Z").
+  #
+  # @param  [String] time_a the first timestamp (may be nil).
+  # @param  [String] time_b the second timestamp (may be nil).
+  # @return [Boolean] true if both are blank or both represent the same time.
+  def same_canvas_time?(time_a, time_b)
+    return time_a.blank? && time_b.blank? if time_a.blank? || time_b.blank?
+
+    Time.zone.parse(time_a.to_s) == Time.zone.parse(time_b.to_s)
+  rescue ArgumentError
+    false
   end
 
   ##
@@ -554,48 +648,71 @@ class CanvasFacade < LmsFacade
   end
 
   ##
-  # Fetches the existing override for a student.
+  # Moves a student into the right extension override, detaching them from
+  # any override they currently belong to first (a student may only belong
+  # to one adhoc override per assignment).
   #
-  # @param  [Integer] courseId the courseId to fetch the override for.
-  # @param  [Integer] studentId the studentId to fetch the override for.
-  # @param  [Integer] assignmentId the assignmentId to fetch the override for.
-  # @return [OpenStruct] the existing override.
-  # @raises [NotFoundError] if the override could not be found.
-  def fetch_existing_override(courseId, studentId, assignmentId)
-    curr_override = get_existing_student_override(courseId, studentId, assignmentId)
-    raise NotFoundError, 'could not find student\'s override' if curr_override.nil?
+  # @param  [Integer] course_id the course to provision the extension in.
+  # @param  [Integer] student_id the student to provision the extension for.
+  # @param  [Integer] assignment_id the assignment being extended.
+  # @param  [OpenStruct|nil] student_override the student's current override, if any.
+  # @param  [OpenStruct|nil] group_override the matching extension group override, if any.
+  # @param  [String] override_title the title for the extension override.
+  # @param  [String] new_due_date the new due date for the override.
+  # @param  [String] new_close_date the close date for the override (maps to lock_at in Canvas API).
+  # @return [Faraday::Response] the response from the final create/update call.
+  def move_student_to_extension_override(course_id, student_id, assignment_id, student_override, group_override,
+                                         override_title, new_due_date, new_close_date)
+    if student_override
+      if student_override.student_ids.length == 1 && group_override.nil?
+        # The student is alone on their override and there is no group to
+        # join: update it in place. Renaming the override here (e.g.
+        # "1 day extension" -> "2 days extension") is safe since no other
+        # student depends on it. Preserve the original unlock date so we
+        # don't unlock the assignment earlier than intended.
+        return update_assignment_override(
+          course_id, assignment_id, student_override.id, student_override.student_ids, override_title,
+          new_due_date, student_override.unlock_at, new_close_date
+        )
+      elsif student_override.student_ids.length == 1
+        # Alone on their override but a matching group exists: the old
+        # override would be left empty once they join the group, so delete it.
+        delete_assignment_override(course_id, assignment_id, student_override.id)
+      else
+        # The override is shared with other students: pull this student out,
+        # leaving its title and dates intact for the remaining students.
+        remove_student_from_override(course_id, student_override, student_id)
+      end
+    end
 
-    curr_override
+    if group_override
+      add_student_to_override(course_id, group_override, student_id)
+    else
+      create_assignment_override(
+        course_id, assignment_id, [ student_id ], override_title, new_due_date,
+        get_current_formatted_time, new_close_date
+      )
+    end
   end
 
   ##
-  # Handles the logic for updating or creating an override.
+  # Adds a student to an existing (group) override, keeping its title and
+  # dates untouched for the students already in it.
   #
-  # @param  [Integer] courseId the courseId to handle the override logic for.
-  # @param  [OpenStruct] curr_override the current override to handle the logic for.
-  # @param  [Integer] studentId the studentId to handle the override logic for.
-  # @param  [Integer] assignmentId the assignmentId to handle the override logic for.
-  # @param  [String] overrideTitle the title of the override.
-  # @param  [String] newDueDate the new due date for the override.
-  # @param  [String] newCloseDate the close date for the override (maps to lock_at in Canvas API).
-  # @return [Faraday::Response] the response from updating or creating the override.
-  def handle_override_logic(courseId, curr_override, studentId, assignmentId, overrideTitle, newDueDate, newCloseDate)
-    if curr_override.student_ids.length == 1
-      # The student is the only one on the override: update it in place.
-      # Renaming the override here is safe since no other student depends on
-      # it. Preserve the original unlock date so we don't unlock the
-      # assignment earlier than intended.
-      update_assignment_override(
-        courseId, assignmentId, curr_override.id, curr_override.student_ids, overrideTitle, newDueDate,
-        curr_override.unlock_at, newCloseDate
-      )
-    else
-      # The override is shared with other students: pull this student out of
-      # it (leaving its title and dates intact) and give them their own.
-      remove_student_from_override(courseId, curr_override, studentId)
-      create_assignment_override(
-        courseId, assignmentId, [ studentId ], overrideTitle, newDueDate, get_current_formatted_time, newCloseDate
-      )
-    end
+  # @param  [Integer] course_id the course the override belongs to.
+  # @param  [OpenStruct] override the group override to add the student to.
+  # @param  [Integer] student_id the student to add.
+  # @return [Faraday::Response] the response from updating the override.
+  def add_student_to_override(course_id, override, student_id)
+    update_assignment_override(
+      course_id,
+      override.assignment_id,
+      override.id,
+      override.student_ids.map(&:to_i) | [ student_id.to_i ],
+      override.title,
+      override.due_at,
+      override.unlock_at,
+      override.lock_at
+    )
   end
 end

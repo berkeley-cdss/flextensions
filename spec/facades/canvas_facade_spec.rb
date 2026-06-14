@@ -463,7 +463,15 @@ describe CanvasFacade do
     end
 
     before do
-      allow(facade).to receive_messages(get_current_formatted_time: mock_date, get_existing_student_override: nil, create_assignment_override: create_success_response)
+      # With no base due date available, the override title falls back to
+      # "Extended to <date>". Title computation itself is covered in the
+      # extension_override_title specs.
+      allow(facade).to receive_messages(
+        get_current_formatted_time: mock_date,
+        get_base_dates: nil,
+        list_override_structs: [],
+        create_assignment_override: create_success_response
+      )
     end
 
     it 'returns correct response body on successful creation' do
@@ -494,7 +502,7 @@ describe CanvasFacade do
     it 'passes nil for close_date (lock_at) when late due date is not provided' do
       expect(facade).to receive(:create_assignment_override).with(
         course_id, assignment_id, [ student_id ],
-        "#{student_id} extended to #{mock_date}",
+        "Extended to #{mock_date}",
         mock_date, mock_date, nil
       ).and_return(create_success_response)
 
@@ -510,7 +518,7 @@ describe CanvasFacade do
       close_date = '2002-03-20T16:00:00Z'
       expect(facade).to receive(:create_assignment_override).with(
         course_id, assignment_id, [ student_id ],
-        "#{student_id} extended to #{mock_date}",
+        "Extended to #{mock_date}",
         mock_date, mock_date, close_date
       ).and_return(create_success_response)
 
@@ -536,7 +544,7 @@ describe CanvasFacade do
     end
 
     it 'throws an error if the existing override cannot be found' do
-      allow(facade).to receive_messages(create_assignment_override: create_taken_response, get_existing_student_override: nil)
+      allow(facade).to receive_messages(create_assignment_override: create_taken_response, list_override_structs: [])
       expect do
         facade.provision_extension(
           course_id,
@@ -548,7 +556,7 @@ describe CanvasFacade do
     end
 
     it 'updates the existing assignment override if the student is the only student the override is provisioned to' do
-      expect(facade).to receive(:get_existing_student_override).once.and_return(OpenStruct.new(mock_override))
+      allow(facade).to receive(:list_override_structs).and_return([ OpenStruct.new(mock_override) ])
       expect(facade).not_to receive(:create_assignment_override)
       expect(facade).not_to receive(:delete_assignment_override)
       expect(facade).to receive(:update_assignment_override).with(
@@ -556,7 +564,7 @@ describe CanvasFacade do
         assignment_id,
         mock_override[:id],
         mock_override[:student_ids],
-        "#{student_id} extended to #{mock_date}",
+        "Extended to #{mock_date}",
         mock_date,
         mock_override[:unlock_at],
         nil
@@ -570,16 +578,16 @@ describe CanvasFacade do
     end
 
     it 'renames an existing single-student override without issue' do
-      # e.g. staff grouped overrides by extension length ("1 day extension");
-      # the rename on update must go through as part of the same request.
+      # e.g. moving a student from the "1 day extension" group title to a new
+      # one; the rename on update must go through as part of the same request.
       mock_override[:title] = '1 day extension'
-      expect(facade).to receive(:get_existing_student_override).once.and_return(OpenStruct.new(mock_override))
+      allow(facade).to receive(:list_override_structs).and_return([ OpenStruct.new(mock_override) ])
       expect(facade).to receive(:update_assignment_override).with(
         course_id,
         assignment_id,
         mock_override[:id],
         mock_override[:student_ids],
-        "#{student_id} extended to #{mock_date}",
+        "Extended to #{mock_date}",
         mock_date,
         mock_override[:unlock_at],
         nil
@@ -594,13 +602,13 @@ describe CanvasFacade do
 
     it 'passes close_date to update when updating existing override' do
       close_date = '2002-03-20T16:00:00Z'
-      expect(facade).to receive(:get_existing_student_override).once.and_return(OpenStruct.new(mock_override))
+      allow(facade).to receive(:list_override_structs).and_return([ OpenStruct.new(mock_override) ])
       expect(facade).to receive(:update_assignment_override).with(
         course_id,
         assignment_id,
         mock_override[:id],
         mock_override[:student_ids],
-        "#{student_id} extended to #{mock_date}",
+        "Extended to #{mock_date}",
         mock_date,
         mock_override[:unlock_at],
         close_date
@@ -617,7 +625,7 @@ describe CanvasFacade do
     it 'removes the student from a shared override and creates an individual one' do
       mock_override[:student_ids].append(student_id + 1)
       mock_override_struct = OpenStruct.new(mock_override)
-      expect(facade).to receive(:get_existing_student_override).once.and_return(mock_override_struct)
+      allow(facade).to receive(:list_override_structs).and_return([ mock_override_struct ])
       expect(facade).not_to receive(:delete_assignment_override)
       expect(facade).to receive(:remove_student_from_override).with(
         course_id,
@@ -626,7 +634,7 @@ describe CanvasFacade do
       ).and_return(instance_double(Faraday::Response, status: 200, body: '{}'))
       expect(facade).to receive(:create_assignment_override).with(
         course_id, assignment_id, [ student_id ],
-        "#{student_id} extended to #{mock_date}",
+        "Extended to #{mock_date}",
         mock_date, mock_date, nil
       ).and_return(create_success_response)
       facade.provision_extension(
@@ -638,14 +646,14 @@ describe CanvasFacade do
     end
 
     it 'recovers when the student gains an override between the lookup and the create call' do
-      expect(facade).to receive(:get_existing_student_override).twice.and_return(nil, OpenStruct.new(mock_override))
+      expect(facade).to receive(:list_override_structs).twice.and_return([], [ OpenStruct.new(mock_override) ])
       expect(facade).to receive(:create_assignment_override).once.and_return(create_taken_response)
       expect(facade).to receive(:update_assignment_override).with(
         course_id,
         assignment_id,
         mock_override[:id],
         mock_override[:student_ids],
-        "#{student_id} extended to #{mock_date}",
+        "Extended to #{mock_date}",
         mock_date,
         mock_override[:unlock_at],
         nil
@@ -656,6 +664,151 @@ describe CanvasFacade do
         assignment_id,
         mock_date
       )
+    end
+
+    context 'when grouping extensions of the same length' do
+      let(:base_due) { '2025-01-15T23:59:00Z' }
+      let(:new_due) { '2025-01-16T23:59:00Z' }
+      let(:group_override) do
+        OpenStruct.new(
+          id: 99,
+          assignment_id: assignment_id,
+          title: '1 day extension',
+          due_at: '2025-01-16T23:59:00Z',
+          unlock_at: base_due,
+          lock_at: nil,
+          student_ids: [ student_id + 1 ]
+        )
+      end
+
+      before do
+        allow(facade).to receive(:get_base_dates).and_return({ 'base' => true, 'due_at' => base_due })
+      end
+
+      it 'adds the student to an existing group override with the same extension' do
+        allow(facade).to receive(:list_override_structs).and_return([ group_override ])
+        expect(facade).not_to receive(:create_assignment_override)
+        expect(facade).to receive(:update_assignment_override).with(
+          course_id,
+          assignment_id,
+          group_override.id,
+          [ student_id + 1, student_id ],
+          '1 day extension',
+          group_override.due_at,
+          group_override.unlock_at,
+          nil
+        ).and_return(instance_double(Faraday::Response, status: 200, body: '{}'))
+        facade.provision_extension(course_id, student_id, assignment_id, new_due)
+      end
+
+      it 'does nothing when the student is already in the matching group override' do
+        group_override.student_ids = [ student_id + 1, student_id ]
+        allow(facade).to receive(:list_override_structs).and_return([ group_override ])
+        expect(facade).not_to receive(:create_assignment_override)
+        expect(facade).not_to receive(:update_assignment_override)
+        expect(facade).not_to receive(:delete_assignment_override)
+
+        result = facade.provision_extension(course_id, student_id, assignment_id, new_due)
+        expect(result.id).to eq(group_override.id)
+      end
+
+      it 'moves a lone student into the matching group and deletes their old override' do
+        own_override = OpenStruct.new(
+          id: 50,
+          assignment_id: assignment_id,
+          title: 'Extended to 2025-01-20T23:59:00Z',
+          due_at: '2025-01-20T23:59:00Z',
+          unlock_at: base_due,
+          lock_at: nil,
+          student_ids: [ student_id ]
+        )
+        allow(facade).to receive(:list_override_structs).and_return([ own_override, group_override ])
+        expect(facade).not_to receive(:create_assignment_override)
+        expect(facade).to receive(:delete_assignment_override).with(course_id, assignment_id, own_override.id)
+        expect(facade).to receive(:update_assignment_override).with(
+          course_id,
+          assignment_id,
+          group_override.id,
+          [ student_id + 1, student_id ],
+          '1 day extension',
+          group_override.due_at,
+          group_override.unlock_at,
+          nil
+        ).and_return(instance_double(Faraday::Response, status: 200, body: '{}'))
+        facade.provision_extension(course_id, student_id, assignment_id, new_due)
+      end
+
+      it 'moves a student out of a shared override into the matching group' do
+        shared_override = OpenStruct.new(
+          id: 50,
+          assignment_id: assignment_id,
+          title: '3 days extension',
+          due_at: '2025-01-18T23:59:00Z',
+          unlock_at: base_due,
+          lock_at: nil,
+          student_ids: [ student_id, student_id + 2 ]
+        )
+        allow(facade).to receive(:list_override_structs).and_return([ shared_override, group_override ])
+        expect(facade).not_to receive(:create_assignment_override)
+        expect(facade).not_to receive(:delete_assignment_override)
+        expect(facade).to receive(:remove_student_from_override).with(
+          course_id,
+          shared_override,
+          student_id
+        ).and_return(instance_double(Faraday::Response, status: 200, body: '{}'))
+        expect(facade).to receive(:update_assignment_override).with(
+          course_id,
+          assignment_id,
+          group_override.id,
+          [ student_id + 1, student_id ],
+          '1 day extension',
+          group_override.due_at,
+          group_override.unlock_at,
+          nil
+        ).and_return(instance_double(Faraday::Response, status: 200, body: '{}'))
+        facade.provision_extension(course_id, student_id, assignment_id, new_due)
+      end
+
+      it 'does not join a group whose close date differs' do
+        group_override.lock_at = '2025-01-19T23:59:00Z'
+        allow(facade).to receive(:list_override_structs).and_return([ group_override ])
+        expect(facade).not_to receive(:update_assignment_override)
+        expect(facade).to receive(:create_assignment_override).with(
+          course_id, assignment_id, [ student_id ],
+          '1 day extension',
+          new_due, mock_date, nil
+        ).and_return(create_success_response)
+        facade.provision_extension(course_id, student_id, assignment_id, new_due)
+      end
+    end
+  end
+
+  describe 'extension_override_title' do
+    it 'titles overrides by extension length so similar extensions share a group' do
+      allow(facade).to receive(:get_base_dates).and_return({ 'base' => true, 'due_at' => '2025-01-15T23:59:00Z' })
+      expect(facade.send(:extension_override_title, course_id, assignment_id, '2025-01-16T23:59:00Z'))
+        .to eq('1 day extension')
+      expect(facade.send(:extension_override_title, course_id, assignment_id, '2025-01-18T23:59:00Z'))
+        .to eq('3 days extension')
+    end
+
+    it 'computes the number of days across timezones' do
+      allow(facade).to receive(:get_base_dates).and_return({ 'base' => true, 'due_at' => '2025-01-16T07:59:00Z' })
+      # Base is Jan 15 11:59pm PT; one day later expressed in PT.
+      expect(facade.send(:extension_override_title, course_id, assignment_id, '2025-01-16T23:59:00-08:00'))
+        .to eq('1 day extension')
+    end
+
+    it 'falls back to an absolute title when the base due date is unavailable' do
+      allow(facade).to receive(:get_base_dates).and_return(nil)
+      expect(facade.send(:extension_override_title, course_id, assignment_id, '2025-01-16T23:59:00Z'))
+        .to eq('Extended to 2025-01-16T23:59:00Z')
+    end
+
+    it 'falls back to an absolute title when the new date is not at least a day later' do
+      allow(facade).to receive(:get_base_dates).and_return({ 'base' => true, 'due_at' => '2025-01-15T23:59:00Z' })
+      expect(facade.send(:extension_override_title, course_id, assignment_id, '2025-01-15T20:00:00Z'))
+        .to eq('Extended to 2025-01-15T20:00:00Z')
     end
   end
 
