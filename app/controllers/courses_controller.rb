@@ -1,6 +1,6 @@
 class CoursesController < ApplicationController
   before_action :authenticate_user
-  before_action :set_course, only: %i[show edit sync_assignments sync_enrollments enrollments delete]
+  before_action :set_course, only: %i[show edit sync_assignments sync_enrollments sync_status bulk_update_assignments enrollments delete]
   before_action :set_pending_request_count
   before_action :determine_user_role
 
@@ -79,6 +79,17 @@ class CoursesController < ApplicationController
     render json: { message: 'Assignments synced successfully.' }, status: :ok
   end
 
+  def bulk_update_assignments
+    return render json: { error: 'Course not found.' }, status: :not_found unless @course
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @role == 'instructor'
+
+    enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
+    scope = Assignment.where(course_to_lms_id: CourseToLms.where(course_id: @course.id).select(:id))
+    scope = scope.where.not(due_date: nil) if enabled
+    scope.update_all(enabled: enabled) # rubocop:disable Rails/SkipsModelValidations
+    render json: { success: true }, status: :ok
+  end
+
   def sync_enrollments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
     return render json: { error: 'You do not have permission.' }, status: :forbidden unless @is_course_admin
@@ -87,12 +98,25 @@ class CoursesController < ApplicationController
     render json: { message: 'Users synced successfully.' }, status: :ok
   end
 
+  def sync_status
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @is_course_admin
+
+    course_to_lms = @course.course_to_lms(1)
+    return render json: { error: 'LMS connection not found.' }, status: :not_found unless course_to_lms
+
+    render json: {
+      roster_synced_at: course_to_lms.recent_roster_sync&.dig('synced_at'),
+      assignments_synced_at: course_to_lms.recent_assignment_sync&.dig('synced_at')
+    }, status: :ok
+  end
+
   def enrollments
     @side_nav = 'enrollments'
     return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
 
     @enrollments = @course.user_to_courses.includes(:user)
     @is_course_admin = @course.course_admin?(@user)
+    @approved_late_days = Request.total_approved_late_days_by_user(@course)
   end
 
   def delete
@@ -131,7 +155,6 @@ class CoursesController < ApplicationController
     sorted_semesters.map { |semester| [ semester, grouped[semester] ] }
   end
 
-  # Filters Canvas API course hashes by their term name
   def filter_by_semester(courses, semester)
     courses.select { |c| c.dig('term', 'name') == semester }
   end
