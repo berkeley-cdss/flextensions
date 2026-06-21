@@ -81,7 +81,7 @@ class CoursesController < ApplicationController
 
   def sync_enrollments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
-    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @is_course_admin
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.course_staff?(@user)
 
     @course.sync_all_enrollments_from_canvas(@user.id)
     render json: { message: 'Users synced successfully.' }, status: :ok
@@ -93,6 +93,7 @@ class CoursesController < ApplicationController
 
     @enrollments = @course.user_to_courses.includes(:user)
     @is_course_admin = @course.course_admin?(@user)
+    @enrollments_last_synced_at = enrollments_last_synced_at
   end
 
   def delete
@@ -113,6 +114,17 @@ class CoursesController < ApplicationController
   end
 
   private
+
+  # Returns the time the roster was last synced from Canvas, or nil if never synced.
+  def enrollments_last_synced_at
+    synced_at = @course.course_to_lms&.recent_roster_sync&.dig('synced_at')
+    return nil if synced_at.blank?
+
+    Time.zone.parse(synced_at.to_s)
+  rescue ArgumentError, TypeError
+    nil
+  end
+
   def set_course
     @course = Course.find_by(id: params[:id])
     redirect_to courses_path, alert: 'Course not found.' unless @course
