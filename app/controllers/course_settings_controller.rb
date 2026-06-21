@@ -59,20 +59,22 @@ class CourseSettingsController < ApplicationController
   end
 
   def course_settings_params
-    params.require(:course_settings).permit(
-      :enable_extensions,
-      :auto_approve_days,
-      :auto_approve_extended_request_days,
-      :max_auto_approve,
-      :enable_gradescope,
-      :gradescope_course_url,
-      :extend_late_due_date,
-      :enable_emails,
-      :reply_email,
-      :email_subject,
-      :email_template,
-      :enable_slack_webhook_url,
-      :slack_webhook_url
+    params.expect(
+      course_settings: [
+        :enable_extensions,
+        :auto_approve_days,
+        :auto_approve_extended_request_days,
+        :max_auto_approve,
+        :enable_gradescope,
+        :gradescope_course_url,
+        :extend_late_due_date,
+        :enable_emails,
+        :reply_email,
+        :email_subject,
+        :email_template,
+        :enable_slack_webhook_url,
+        :slack_webhook_url
+      ]
     )
   end
 
