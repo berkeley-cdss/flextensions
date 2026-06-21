@@ -44,7 +44,7 @@ class CoursesController < ApplicationController
     @courses = Course.fetch_courses(token)
     flash[:alert] = 'No courses found.' if @courses.empty?
 
-    @semesters = @courses.filter_map { |c| c.dig('term', 'name') }.uniq.sort
+    @semesters = @courses.filter_map { |c| Course.semester_from_term(c['term'], c['created_at']) }.uniq.sort
     @selected_semester = params[:semester]
 
     # TODO: Add spec for when a course is created, but the user is not enrolled in it.
@@ -143,9 +143,9 @@ class CoursesController < ApplicationController
     sorted_semesters.map { |semester| [ semester, grouped[semester] ] }
   end
 
-  # Filters Canvas API course hashes by their term name
+  # Filters Canvas API course hashes by their derived semester string
   def filter_by_semester(courses, semester)
-    courses.select { |c| c.dig('term', 'name') == semester }
+    courses.select { |c| Course.semester_from_term(c['term'], c['created_at']) == semester }
   end
 
   # TODO: This should be moved to the Canvas Facade
