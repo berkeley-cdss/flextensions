@@ -62,6 +62,40 @@ class Course < ApplicationRecord
     semesters.sort_by { |s| semester_sort_key(s) }.reverse
   end
 
+  # Month a term starts in maps to its Berkeley season.
+  # Spring starts in January, Summer in late May, Fall in late August.
+  SEASON_BY_START_MONTH = {
+    1 => 'Spring', 2 => 'Spring', 3 => 'Spring', 4 => 'Spring',
+    5 => 'Summer', 6 => 'Summer', 7 => 'Summer',
+    8 => 'Fall', 9 => 'Fall', 10 => 'Fall', 11 => 'Fall', 12 => 'Fall'
+  }.freeze
+
+  # Derives a "Season Year" semester string for a Canvas course.
+  # Prefers the term's name, but bCourses leaves it blank on some terms
+  # (e.g. Summer 2026), so we fall back to deriving the season from the first
+  # available date: the term start, then the course's own created_at (some
+  # courses have neither a named term nor a term start date).
+  # Returns nil when no name or parseable date is available.
+  def self.semester_from_term(term, created_at = nil)
+    name = term.is_a?(Hash) ? term['name'].presence : nil
+    return name if name
+
+    term_start = term.is_a?(Hash) ? term['start_at'].presence : nil
+    semester_from_date(term_start || created_at)
+  end
+
+  # Builds a "Season Year" string from a date-like string, or nil if it is
+  # blank or unparseable.
+  def self.semester_from_date(date_string)
+    return nil if date_string.blank?
+
+    date = Date.parse(date_string.to_s)
+    season = SEASON_BY_START_MONTH[date.month]
+    season && "#{season} #{date.year}"
+  rescue ArgumentError, TypeError
+    nil
+  end
+
   # Note: This is too close to the association, course_to_lmss
   def course_to_lms(lms_id = 1)
     CourseToLms.find_by(course_id: id, lms_id: lms_id)
@@ -230,8 +264,9 @@ class Course < ApplicationRecord
     response_data = JSON.parse(response.body)
     course.course_name = response_data['name']
     course.course_code = response_data['course_code']
-    # Semester is sourced from the Canvas term name (e.g. "Spring 2026")
-    course.semester = response_data.dig('term', 'name')
+    # Semester is sourced from the Canvas term name (e.g. "Spring 2026"), or
+    # derived from a date when bCourses leaves the name blank.
+    course.semester = semester_from_term(response_data['term'], response_data['created_at'])
     course.save!
     course
   end

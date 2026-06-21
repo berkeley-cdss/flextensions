@@ -139,6 +139,33 @@ RSpec.describe Course, type: :model do
       expect(course.semester).to be_nil
     end
 
+    it 'derives semester from term start_at when the name is blank' do
+      stub_request(:get, %r{api/v1/courses/canvas_123})
+        .to_return(status: 200, body: {
+          name: 'Intro to RSpec',
+          course_code: 'RSPEC101',
+          term: { name: nil, start_at: '2026-05-26T07:00:00Z' }
+        }.to_json)
+
+      course = described_class.find_or_create_course(course_data, token)
+
+      expect(course.semester).to eq('Summer 2026')
+    end
+
+    it 'derives semester from created_at when there is no term or start date' do
+      stub_request(:get, %r{api/v1/courses/canvas_123})
+        .to_return(status: 200, body: {
+          name: 'Computational Structures in Data Science (Spring 2026)',
+          course_code: 'DATA C88C SP26',
+          start_at: nil,
+          created_at: '2026-01-14T10:36:13Z'
+        }.to_json)
+
+      course = described_class.find_or_create_course(course_data, token)
+
+      expect(course.semester).to eq('Spring 2026')
+    end
+
     it 'updates semester on existing course when Canvas term changes' do
       described_class.create!(canvas_id: 'canvas_123', course_name: 'Intro to RSpec',
                               course_code: 'RSPEC101', semester: 'Fall 2025')
@@ -214,6 +241,61 @@ end
     it 'returns [-1, -1] for nil or blank' do
       expect(described_class.semester_sort_key(nil)).to eq([ -1, -1 ])
       expect(described_class.semester_sort_key('')).to eq([ -1, -1 ])
+    end
+  end
+
+  describe '.semester_from_term' do
+    it 'returns the term name when present' do
+      expect(described_class.semester_from_term({ 'name' => 'Spring 2026' })).to eq('Spring 2026')
+    end
+
+    it 'prefers the term name over the start date' do
+      term = { 'name' => 'Spring 2026', 'start_at' => '2026-05-26T07:00:00Z' }
+      expect(described_class.semester_from_term(term)).to eq('Spring 2026')
+    end
+
+    it 'derives Summer from a late-May start date when the name is blank' do
+      term = { 'name' => '', 'start_at' => '2026-05-26T07:00:00Z' }
+      expect(described_class.semester_from_term(term)).to eq('Summer 2026')
+    end
+
+    it 'derives Spring from a January start date' do
+      term = { 'start_at' => '2026-01-13T08:00:00Z' }
+      expect(described_class.semester_from_term(term)).to eq('Spring 2026')
+    end
+
+    it 'derives Fall from an August start date' do
+      term = { 'start_at' => '2026-08-20T07:00:00Z' }
+      expect(described_class.semester_from_term(term)).to eq('Fall 2026')
+    end
+
+    it 'returns nil when term is nil' do
+      expect(described_class.semester_from_term(nil)).to be_nil
+    end
+
+    it 'returns nil when name and start_at are missing and no created_at is given' do
+      expect(described_class.semester_from_term({})).to be_nil
+    end
+
+    it 'returns nil when start_at is unparseable' do
+      expect(described_class.semester_from_term({ 'start_at' => 'not-a-date' })).to be_nil
+    end
+
+    it 'falls back to created_at when the term has no name or start date' do
+      expect(described_class.semester_from_term({}, '2026-01-14T10:36:13Z')).to eq('Spring 2026')
+    end
+
+    it 'falls back to created_at when the term is nil' do
+      expect(described_class.semester_from_term(nil, '2026-08-20T07:00:00Z')).to eq('Fall 2026')
+    end
+
+    it 'prefers the term start date over created_at' do
+      term = { 'start_at' => '2026-05-26T07:00:00Z' }
+      expect(described_class.semester_from_term(term, '2026-01-14T10:36:13Z')).to eq('Summer 2026')
+    end
+
+    it 'returns nil when created_at is also unparseable' do
+      expect(described_class.semester_from_term(nil, 'not-a-date')).to be_nil
     end
   end
 

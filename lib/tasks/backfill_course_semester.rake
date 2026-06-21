@@ -35,7 +35,7 @@ namespace :courses do
         response = CanvasFacade.new(token).get_course(course.canvas_id)
         if response&.success?
           data = JSON.parse(response.body)
-          semester = data.dig('term', 'name')
+          semester = Course.semester_from_term(data['term'], data['created_at'])
           if semester.present?
             course.update!(semester: semester)
             updated_count += 1

@@ -332,6 +332,32 @@ RSpec.describe CoursesController, type: :controller do
 
         expect(assigns(:selected_semester)).to eq('Spring 2026')
       end
+
+      context 'when a term name is blank' do
+        let(:canvas_courses) do
+          [
+            {
+              'id' => '201',
+              'name' => 'Summer Course',
+              'course_code' => 'SC201',
+              'enrollments' => [ { 'type' => 'teacher' } ],
+              'term' => { 'name' => nil, 'start_at' => '2026-05-26T07:00:00Z' }
+            }
+          ]
+        end
+
+        it 'derives the semester from the term start date' do
+          get :new
+
+          expect(assigns(:semesters)).to contain_exactly('Summer 2026')
+        end
+
+        it 'filters by the derived semester' do
+          get :new, params: { semester: 'Summer 2026' }
+
+          expect(assigns(:courses_teacher).pluck('name')).to eq([ 'Summer Course' ])
+        end
+      end
     end
   end
 
