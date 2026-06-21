@@ -222,7 +222,7 @@ class RequestsController < ApplicationController
   end
 
   def request_params
-    params.require(:request).permit(:assignment_id, :reason, :documentation, :custom_q1, :custom_q2, :requested_due_date, :user_id)
+    params.expect(request: [ :assignment_id, :reason, :documentation, :custom_q1, :custom_q2, :requested_due_date, :user_id ])
   end
 
   def authenticate_user
