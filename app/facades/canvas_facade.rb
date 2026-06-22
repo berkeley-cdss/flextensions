@@ -221,7 +221,7 @@ class CanvasFacade < LmsFacade
   # @return [Faraday::Response] single page of assignments in the course.
   def get_assignments(course_id)
     @canvas_conn.get("courses/#{course_id}/assignments", {
-      'include[]' => [ 'all_dates', 'overrides' ],
+      'include' => [ 'all_dates', 'overrides' ],
       'override_assignment_dates' => false,
       'per_page' => 100
     })
