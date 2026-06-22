@@ -190,6 +190,7 @@ class CanvasFacade < LmsFacade
       per_page: 100,
       'include[]': 'term'
     })
+    # TODO: Remove duplication of courses with multiple roles (e.g. teacher + ta)
     teacher_courses + ta_courses
   end
 

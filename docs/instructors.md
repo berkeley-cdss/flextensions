@@ -105,6 +105,11 @@ Control when and how requests are automatically approved:
 - **Maximum requests to auto-approve**
   Sets a per-student limit on auto-approved requests. Use `0` for no limit.
 
+- **Approval minimum hours before deadline**
+  _This setting is enabled by default with a value of `0`._
+
+  When enabled, a request is only auto-approved if the student submits it at least this many hours before the assignment's deadline. Requests made later are held for manual review instead. A value of `0` still requires the deadline to not have already passed, so late requests are never silently auto-approved. Recommended values are `0` (block only after the deadline) or `24` (require requests at least a day ahead). Disable the toggle to skip this check entirely.
+
 After setting these options, click **Save Settings** to save.
 
 ### Extend Late Due Date Automatically

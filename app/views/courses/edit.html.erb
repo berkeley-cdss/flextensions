@@ -101,6 +101,35 @@
                                 </div>
 
 
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        <%= hidden_field_tag 'course_settings[enable_min_hours_before_deadline]', false %>
+                                        <%= check_box_tag 'course_settings[enable_min_hours_before_deadline]',
+                                                         true,
+                                                         @course.course_settings&.enable_min_hours_before_deadline.nil? ? true : @course.course_settings&.enable_min_hours_before_deadline,
+                                                         class: 'form-check-input',
+                                                         id: 'enable-min-hours-before-deadline' %>
+                                        <label class="form-check-label" for="enable-min-hours-before-deadline">Require minimum hours before deadline for auto-approval</label>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3 row border-bottom pb-3">
+                                    <label for="min-hours-before-deadline" class="col-sm-4 col-form-label">Approval minimum hours before deadline</label>
+                                    <div class="col-sm-8">
+                                        <%= number_field_tag 'course_settings[min_hours_before_deadline]',
+                                                           @course.course_settings&.min_hours_before_deadline || 0,
+                                                           min: 0,
+                                                           step: 1,
+                                                           class: 'form-control',
+                                                           id: 'min-hours-before-deadline',
+                                                           placeholder: 'Number of hours' %>
+                                        <small class="text-muted">
+                                            When enabled, a request is only auto-approved if it is made at least this many hours before the assignment's deadline; otherwise it is held for manual review.
+                                            A value of <code>0</code> still requires the deadline to not have passed. Recommended values are <code>0</code> or <code>24</code>.
+                                        </small>
+                                    </div>
+                                </div>
+
                                 <div class="mb-3 border-bottom pb-3">
                                     <div class="form-check form-switch">
                                         <%= hidden_field_tag 'course_settings[extend_late_due_date]', false %>

@@ -10,10 +10,12 @@
 #  enable_emails                      :boolean          default(FALSE)
 #  enable_extensions                  :boolean          default(FALSE)
 #  enable_gradescope                  :boolean          default(FALSE)
+#  enable_min_hours_before_deadline   :boolean          default(TRUE), not null
 #  enable_slack_webhook_url           :boolean
 #  extend_late_due_date               :boolean          default(TRUE), not null
 #  gradescope_course_url              :string
 #  max_auto_approve                   :integer          default(0)
+#  min_hours_before_deadline          :integer          default(0), not null
 #  reply_email                        :string
 #  slack_webhook_url                  :string
 #  created_at                         :datetime         not null
@@ -37,6 +39,13 @@ RSpec.describe CourseSettings, type: :model do
   describe 'associations' do
     it 'belongs to course' do
       expect(course_settings.course).to eq(course)
+    end
+  end
+
+  describe 'minimum hours before deadline defaults' do
+    it 'defaults to enabled with zero hours' do
+      expect(course_settings.enable_min_hours_before_deadline).to be true
+      expect(course_settings.min_hours_before_deadline).to eq(0)
     end
   end
 
