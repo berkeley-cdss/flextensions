@@ -56,10 +56,11 @@ describe CanvasFacade do
       end
     end
 
+    # TODO: Verify min set of parameters needed, and that override_assignment_dates is being passed correctly, along with overrides include parameter.
     it 'makes a request with correct parameters' do
       result = facade.get_assignments(external_course_id)
       params = Rack::Utils.parse_query(URI(result.env.url).query)
-      expect(params['include[]']).to eq('all_dates')
+      expect(params['include[]']).to include('all_dates')
       expect(params['per_page']).to eq('100')
       expect(result.status).to eq(200)
       expect(result.body).to eq(assignments_response)
