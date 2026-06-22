@@ -11,10 +11,12 @@
 #  enable_emails                      :boolean          default(FALSE)
 #  enable_extensions                  :boolean          default(FALSE)
 #  enable_gradescope                  :boolean          default(FALSE)
+#  enable_min_hours_before_deadline   :boolean          default(TRUE), not null
 #  enable_slack_webhook_url           :boolean
 #  extend_late_due_date               :boolean          default(TRUE), not null
 #  gradescope_course_url              :string
 #  max_auto_approve                   :integer          default(0)
+#  min_hours_before_deadline          :integer          default(0), not null
 #  reply_email                        :string
 #  slack_webhook_url                  :string
 #  created_at                         :datetime         not null

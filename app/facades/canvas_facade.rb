@@ -195,6 +195,7 @@ class CanvasFacade < LmsFacade
       per_page: 100,
       'include[]': 'term'
     })
+    # TODO: Remove duplication of courses with multiple roles (e.g. teacher + ta)
     teacher_courses + ta_courses
   end
 
@@ -225,7 +226,8 @@ class CanvasFacade < LmsFacade
   # @return [Faraday::Response] single page of assignments in the course.
   def get_assignments(course_id)
     @canvas_conn.get("courses/#{course_id}/assignments", {
-      'include[]' => 'all_dates',
+      'include' => [ 'all_dates', 'overrides' ],
+      'override_assignment_dates' => false,
       'per_page' => 100
     })
   end
@@ -262,7 +264,11 @@ class CanvasFacade < LmsFacade
   # @param  [Integer] assignmentId the id of the assignment to fetch.
   # @return [Faraday::Response] information about the requested assignment.
   def get_assignment(courseId, assignmentId)
-    @canvas_conn.get("courses/#{courseId}/assignments/#{assignmentId}")
+    @canvas_conn.get("courses/#{courseId}/assignments/#{assignmentId}", {
+      'include[]' => 'overrides',
+      'all_dates' => true,
+      'override_assignment_dates' => false
+    })
   end
 
   ##

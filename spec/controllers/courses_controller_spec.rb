@@ -202,16 +202,18 @@ RSpec.describe CoursesController, type: :controller do
       end
     end
 
-    context 'when user is a TA (not course admin)' do
+    context 'when user is a TA (staff but not course admin)' do
       before do
         UserToCourse.create!(user: user, course: course, role: 'ta')
       end
 
-      it 'returns forbidden' do
+      it 'syncs enrollments and returns OK' do
+        allow_any_instance_of(Course).to receive(:sync_all_enrollments_from_canvas)
+
         post :sync_enrollments, params: { id: course.id }
 
-        expect(response).to have_http_status(:forbidden)
-        expect(response.parsed_body).to eq({ 'error' => 'You do not have permission.' })
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to eq({ 'message' => 'Users synced successfully.' })
       end
     end
 
@@ -329,6 +331,32 @@ RSpec.describe CoursesController, type: :controller do
         get :new, params: { semester: 'Spring 2026' }
 
         expect(assigns(:selected_semester)).to eq('Spring 2026')
+      end
+
+      context 'when a term name is blank' do
+        let(:canvas_courses) do
+          [
+            {
+              'id' => '201',
+              'name' => 'Summer Course',
+              'course_code' => 'SC201',
+              'enrollments' => [ { 'type' => 'teacher' } ],
+              'term' => { 'name' => nil, 'start_at' => '2026-05-26T07:00:00Z' }
+            }
+          ]
+        end
+
+        it 'derives the semester from the term start date' do
+          get :new
+
+          expect(assigns(:semesters)).to contain_exactly('Summer 2026')
+        end
+
+        it 'filters by the derived semester' do
+          get :new, params: { semester: 'Summer 2026' }
+
+          expect(assigns(:courses_teacher).pluck('name')).to eq([ 'Summer Course' ])
+        end
       end
     end
   end
