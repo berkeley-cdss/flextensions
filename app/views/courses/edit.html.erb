@@ -1,0 +1,66 @@
+<% selected_season, selected_year = Course.parse_semester(@course.semester) %>
+<div class="container-fluid mb-5">
+    <div class="row">
+        <div class="col-12">
+            <%= render "courses/course_title" %>
+            <h1 class="sr-only">Course Details</h1>
+            <%= form_with model: @course, url: course_path(@course), method: :patch do |form| %>
+                <div class="card rounded-0 mb-4">
+                    <div class="card-header bg-light">
+                        <h2 class="card-title mb-0 h5">Course Details</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3 row">
+                            <label for="course-name" class="col-sm-4 col-form-label">Course Name</label>
+                            <div class="col-sm-8">
+                                <%= form.text_field :course_name,
+                                                    class: 'form-control',
+                                                    id: 'course-name',
+                                                    placeholder: 'e.g. Introduction to Computer Science' %>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row">
+                            <label for="course-code" class="col-sm-4 col-form-label">Course Code</label>
+                            <div class="col-sm-8">
+                                <%= form.text_field :course_code,
+                                                    class: 'form-control',
+                                                    id: 'course-code',
+                                                    placeholder: 'e.g. COMPSCI 61A' %>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row">
+                            <label for="semester-season" class="col-sm-4 col-form-label">Semester</label>
+                            <div class="col-sm-8">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <%= select_tag 'course[semester_season]',
+                                                       options_for_select([ [ 'Season', '' ] ] + Course::SEMESTER_SEASONS.map { |s| [ s, s ] }, selected_season),
+                                                       class: 'form-select',
+                                                       id: 'semester-season',
+                                                       'aria-label': 'Semester season' %>
+                                    </div>
+                                    <div class="col-6">
+                                        <%= select_tag 'course[semester_year]',
+                                                       options_for_select([ [ 'Year', '' ] ] + Course.semester_year_options.reverse.map { |y| [ y, y ] }, selected_year),
+                                                       class: 'form-select',
+                                                       id: 'semester-year',
+                                                       'aria-label': 'Semester year' %>
+                                    </div>
+                                </div>
+                                <% if @course.semester.present? %>
+                                    <small class="text-muted">Current semester: <%= @course.semester %></small>
+                                <% end %>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mb-4">
+                    <%= form.submit 'Save Course Details', class: 'btn btn-success px-4' %>
+                </div>
+            <% end %>
+        </div>
+    </div>
+</div>

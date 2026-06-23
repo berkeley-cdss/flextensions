@@ -244,6 +244,40 @@ end
     end
   end
 
+  describe '.semester_year_options' do
+    it 'spans 2012 through next year relative to the given date' do
+      options = described_class.semester_year_options(Date.new(2026, 6, 23))
+      expect(options.first).to eq(2012)
+      expect(options.last).to eq(2027)
+    end
+  end
+
+  describe '.parse_semester' do
+    around do |example|
+      travel_to(Date.new(2026, 6, 23)) { example.run }
+    end
+
+    it 'splits a well-formed semester into [season, year]' do
+      expect(described_class.parse_semester('Spring 2026')).to eq([ 'Spring', 2026 ])
+      expect(described_class.parse_semester('Fall 2025')).to eq([ 'Fall', 2025 ])
+    end
+
+    it 'returns [nil, nil] for an unrecognized season' do
+      expect(described_class.parse_semester('Autumn 2026')).to eq([ nil, nil ])
+    end
+
+    it 'returns [nil, nil] for an out-of-range year' do
+      expect(described_class.parse_semester('Spring 2011')).to eq([ nil, nil ])
+      expect(described_class.parse_semester('Spring 2099')).to eq([ nil, nil ])
+    end
+
+    it 'returns [nil, nil] for blank or malformed input' do
+      expect(described_class.parse_semester(nil)).to eq([ nil, nil ])
+      expect(described_class.parse_semester('')).to eq([ nil, nil ])
+      expect(described_class.parse_semester('Spring2026')).to eq([ nil, nil ])
+    end
+  end
+
   describe '.semester_from_term' do
     it 'returns the term name when present' do
       expect(described_class.semester_from_term({ 'name' => 'Spring 2026' })).to eq('Spring 2026')

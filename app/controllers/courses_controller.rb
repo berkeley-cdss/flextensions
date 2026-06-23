@@ -1,6 +1,6 @@
 class CoursesController < ApplicationController
   before_action :authenticate_user
-  before_action :set_course, only: %i[show edit sync_assignments sync_enrollments enrollments delete]
+  before_action :set_course, only: %i[show edit update sync_assignments sync_enrollments enrollments delete]
   before_action :set_pending_request_count
   before_action :determine_user_role
 
@@ -61,10 +61,10 @@ class CoursesController < ApplicationController
     end
   end
 
+  # Course Details: edit the course name, code and semester.
   def edit
-    return redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
-
-    redirect_to approvals_course_settings_path(@course)
+    @side_nav = 'course_details'
+    redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
   end
 
   def create
@@ -73,6 +73,24 @@ class CoursesController < ApplicationController
       .select { |c| params[:courses]&.include?(c['id'].to_s) }
       .each { |course_api| Course.create_or_update_from_canvas(course_api, token, @user) }
     redirect_to courses_path, notice: 'Selected courses and their assignments have been imported successfully.'
+  end
+
+  def update
+    @side_nav = 'course_details'
+    return redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
+
+    attrs = course_params.to_h
+    # Only overwrite the semester when both dropdowns are set; this preserves a
+    # value stored in an unexpected format that the picker left blank.
+    semester = combined_semester
+    attrs[:semester] = semester if semester.present?
+
+    if @course.update(attrs)
+      redirect_to edit_course_path(@course), notice: 'Course details updated successfully.'
+    else
+      flash.now[:alert] = "Failed to update course details: #{@course.errors.full_messages.to_sentence}"
+      render :edit, status: :unprocessable_content
+    end
   end
 
   def sync_assignments
@@ -117,6 +135,20 @@ class CoursesController < ApplicationController
   end
 
   private
+
+  def course_params
+    params.require(:course).permit(:course_name, :course_code)
+  end
+
+  # Combines the season + year dropdowns into a "Season Year" string, or nil
+  # when either is blank.
+  def combined_semester
+    season = params.dig(:course, :semester_season)
+    year = params.dig(:course, :semester_year)
+    return nil if season.blank? || year.blank?
+
+    "#{season} #{year}"
+  end
 
   # Returns the time the roster was last synced from Canvas, or nil if never synced.
   def enrollments_last_synced_at
