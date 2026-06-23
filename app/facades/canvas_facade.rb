@@ -222,11 +222,19 @@ class CanvasFacade < LmsFacade
   ##
   # Gets assignments for a course (single page).
   #
+  # We pass override_assignment_dates=false so the top-level due_at/unlock_at/
+  # lock_at are the assignment's base ("Everyone") dates rather than the dates
+  # overridden for the calling user. This is the reliable source for the base
+  # date at any number of overrides. include[]=all_dates is requested as a
+  # convenience (it carries the base date explicitly for assignments with
+  # fewer than 25 dates), but is NOT relied upon past that limit.
+  # See docs/Canvas_Dates_API.md.
+  #
   # @param  [String] course_id the Canvas course id to fetch assignments for.
   # @return [Faraday::Response] single page of assignments in the course.
   def get_assignments(course_id)
     @canvas_conn.get("courses/#{course_id}/assignments", {
-      'include' => [ 'all_dates', 'overrides' ],
+      'include[]' => 'all_dates',
       'override_assignment_dates' => false,
       'per_page' => 100
     })
@@ -240,68 +248,57 @@ class CanvasFacade < LmsFacade
   def get_all_assignments(course_id)
     assignments = depaginate_response(get_assignments(course_id))
 
-    # Process assignments to extract base dates
     assignments.map do |assignment_data|
-      # Unpack base date from all_dates array
-      if assignment_data['all_dates']
-        base_date = assignment_data['all_dates'].find { |date| date['base'] == true }
+      # Pull the base ("Everyone") date out of all_dates, but only when Canvas
+      # actually returned the full list. Canvas truncates all_dates to [] once
+      # an assignment has >= 25 dates (ALL_DATES_LIMIT) and signals the
+      # truncation by adding all_dates_count. Note all_dates is ALWAYS an array
+      # (never omitted) when include[]=all_dates is requested, so check both the
+      # truncation flag and the length rather than trusting truthiness. When
+      # truncated/empty, base_date is left unset and the Assignment PORO falls
+      # back to the top-level dates, which are already the base dates because we
+      # request override_assignment_dates=false. See docs/Canvas_Dates_API.md.
+      all_dates = assignment_data['all_dates']
+      truncated = assignment_data.key?('all_dates_count')
+      if !truncated && all_dates.is_a?(Array) && all_dates.any?
+        base_date = all_dates.find { |date| date['base'] == true }
         assignment_data['base_date'] = base_date
-      elsif assignment_data['has_overrides']
-        # Canvas omits all_dates once an assignment has more than 25 dates, and
-        # the top-level due_at may then reflect an override's date rather than
-        # the base date, so explicitly query the base ("Everyone") dates.
-        assignment_data['base_date'] = get_base_dates(course_id, assignment_data['id'])
       end
-      # Return as Lmss::Canvas::Assignment object
       Lmss::Canvas::Assignment.new(assignment_data)
     end
   end
 
   ##
-  # Gets a specified assignment from a course.
+  # Gets a specified assignment from a course, with its base ("Everyone") dates
+  # at the top level (override_assignment_dates=false). See docs/Canvas_Dates_API.md.
   #
-  # @param  [Integer] courseId     the course to fetch the assignment from.
-  # @param  [Integer] assignmentId the id of the assignment to fetch.
+  # @param  [Integer] course_id     the course to fetch the assignment from.
+  # @param  [Integer] assignment_id the id of the assignment to fetch.
   # @return [Faraday::Response] information about the requested assignment.
-  def get_assignment(courseId, assignmentId)
-    @canvas_conn.get("courses/#{courseId}/assignments/#{assignmentId}", {
-      'include[]' => 'overrides',
-      'all_dates' => true,
+  def get_assignment(course_id, assignment_id)
+    @canvas_conn.get("courses/#{course_id}/assignments/#{assignment_id}", {
       'override_assignment_dates' => false
     })
   end
 
   ##
-  # Gets the date details for an assignment.
-  # The top-level due_at/unlock_at/lock_at of this response are always the
-  # base ("Everyone") dates, regardless of how many overrides exist.
+  # Fetches the base ("Everyone"/all students) dates for an assignment.
   #
-  # @param  [Integer] course_id     the course the assignment belongs to.
-  # @param  [Integer] assignment_id the assignment to fetch date details for.
-  # @return [Faraday::Response] the date details for the assignment.
-  def get_assignment_date_details(course_id, assignment_id)
-    @canvas_conn.get("courses/#{course_id}/assignments/#{assignment_id}/date_details")
-  end
-
-  ##
-  # Explicitly fetches the base (i.e. "Everyone"/all students) dates for an assignment.
-  #
-  # The assignment endpoints cannot be trusted for this: Canvas omits all_dates
-  # when an assignment has more than 25 dates, and due_at may then be an
-  # override's date. This uses the date_details endpoint, whose top-level dates
-  # are always the base dates.
+  # Reads the top-level due_at/unlock_at/lock_at from the assignment endpoint
+  # with override_assignment_dates=false, which Canvas guarantees to be the base
+  # dates for any number of overrides. The /date_details endpoint is NOT needed
+  # for this -- it exposes no base date key and its top-level dates are the same
+  # base dates. See docs/Canvas_Dates_API.md.
   #
   # @param  [Integer] course_id     the course the assignment belongs to.
   # @param  [Integer] assignment_id the assignment to fetch the base dates for.
-  # @return [Hash, nil] hash with 'due_at', 'unlock_at', 'lock_at' and
-  #                     'base' => true (matching the all_dates format), or nil
-  #                     if the dates could not be fetched.
+  # @return [Hash, nil] { 'due_at', 'unlock_at', 'lock_at' }, or nil if the
+  #                     dates could not be fetched.
   def get_base_dates(course_id, assignment_id)
-    response = get_assignment_date_details(course_id, assignment_id)
+    response = get_assignment(course_id, assignment_id)
     return nil unless response.success?
 
-    details = JSON.parse(response.body)
-    details.slice('due_at', 'unlock_at', 'lock_at').merge('base' => true)
+    JSON.parse(response.body).slice('due_at', 'unlock_at', 'lock_at')
   rescue JSON::ParserError
     nil
   end

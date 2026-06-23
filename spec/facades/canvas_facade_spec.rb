@@ -56,11 +56,12 @@ describe CanvasFacade do
       end
     end
 
-    # TODO: Verify min set of parameters needed, and that override_assignment_dates is being passed correctly, along with overrides include parameter.
     it 'makes a request with correct parameters' do
       result = facade.get_assignments(external_course_id)
       params = Rack::Utils.parse_query(URI(result.env.url).query)
       expect(params['include[]']).to include('all_dates')
+      # override_assignment_dates=false makes the top-level dates the base dates.
+      expect(params['override_assignment_dates']).to eq('false')
       expect(params['per_page']).to eq('100')
       expect(result.status).to eq(200)
       expect(result.body).to eq(assignments_response)
@@ -138,71 +139,87 @@ describe CanvasFacade do
       end
     end
 
-    context 'when all_dates is omitted for an assignment with overrides' do
-      # Canvas omits all_dates when an assignment has more than 25 dates, and
-      # the top-level due_at may then be an override's date.
+    context 'when all_dates is truncated for an assignment with >= 25 overrides' do
+      # Canvas returns all_dates as an empty array once an assignment has 25 or
+      # more dates (ALL_DATES_LIMIT). Because we request
+      # override_assignment_dates=false, the top-level due_at/lock_at are still
+      # the base dates, so the PORO falls back to them. See docs/Canvas_Dates_API.md.
       let(:assignments_data) do
         [
           {
             'id' => '999',
-            'name' => 'Assignment with many overrides',
+            'name' => 'Assignment with 25+ overrides',
             'due_at' => '2025-03-20T23:59:00Z',
-            'has_overrides' => true
+            'lock_at' => '2025-03-25T23:59:00Z',
+            'all_dates' => [],
+            'all_dates_count' => 30
           }
         ]
       end
 
-      it 'explicitly queries date_details for the base dates' do
-        allow(facade).to receive(:get_base_dates).with(external_course_id, '999').and_return(
-          { 'base' => true, 'due_at' => '2025-03-15T23:59:00Z', 'lock_at' => '2025-03-18T23:59:00Z' }
-        )
-
-        result = facade.get_all_assignments(external_course_id)
-
-        expect(result.first.due_date).to eq(DateTime.parse('2025-03-15T23:59:00Z'))
-        expect(result.first.late_due_date).to eq(DateTime.parse('2025-03-18T23:59:00Z'))
-      end
-
-      it 'falls back to top-level dates when date_details cannot be fetched' do
-        allow(facade).to receive(:get_base_dates).with(external_course_id, '999').and_return(nil)
+      it 'uses the top-level base dates and does not make an extra API call' do
+        expect(facade).not_to receive(:get_base_dates)
 
         result = facade.get_all_assignments(external_course_id)
 
         expect(result.first.due_date).to eq(DateTime.parse('2025-03-20T23:59:00Z'))
+        expect(result.first.late_due_date).to eq(DateTime.parse('2025-03-25T23:59:00Z'))
+      end
+
+      context 'when all_dates_count is set but all_dates is non-empty' do
+        # Defensive: all_dates_count is the definitive truncation signal, so we
+        # must not trust the (partial) all_dates list even if it has entries.
+        let(:assignments_data) do
+          [
+            {
+              'id' => '999',
+              'name' => 'Assignment with 25+ overrides',
+              'due_at' => '2025-03-20T23:59:00Z',
+              'all_dates' => [ { 'base' => true, 'due_at' => '2099-01-01T00:00:00Z' } ],
+              'all_dates_count' => 30
+            }
+          ]
+        end
+
+        it 'ignores the truncated all_dates and uses the top-level base date' do
+          result = facade.get_all_assignments(external_course_id)
+
+          expect(result.first.due_date).to eq(DateTime.parse('2025-03-20T23:59:00Z'))
+        end
       end
     end
   end
 
   describe '#get_base_dates' do
-    let(:date_details_url) { "courses/#{course_id}/assignments/#{assignment_id}/date_details" }
+    let(:assignment_url) { "courses/#{course_id}/assignments/#{assignment_id}" }
 
-    it 'returns the base dates from the date_details endpoint' do
-      stubs.get(date_details_url) do
+    it 'returns the base dates from the assignment endpoint (override_assignment_dates=false)' do
+      stubs.get(assignment_url) do |env|
+        params = Rack::Utils.parse_query(URI(env.url).query)
+        expect(params['override_assignment_dates']).to eq('false')
         [ 200, {}, {
           id: assignment_id,
           due_at: '2025-01-15T23:59:00Z',
           unlock_at: nil,
-          lock_at: '2025-01-20T23:59:00Z',
-          overrides: [ { id: 1, due_at: '2025-02-01T23:59:00Z' } ]
+          lock_at: '2025-01-20T23:59:00Z'
         }.to_json ]
       end
 
       expect(facade.get_base_dates(course_id, assignment_id)).to eq(
         'due_at' => '2025-01-15T23:59:00Z',
         'unlock_at' => nil,
-        'lock_at' => '2025-01-20T23:59:00Z',
-        'base' => true
+        'lock_at' => '2025-01-20T23:59:00Z'
       )
       stubs.verify_stubbed_calls
     end
 
     it 'returns nil when the request fails' do
-      stubs.get(date_details_url) { [ 401, {}, '{}' ] }
+      stubs.get(assignment_url) { [ 401, {}, '{}' ] }
       expect(facade.get_base_dates(course_id, assignment_id)).to be_nil
     end
 
     it 'returns nil when the response cannot be parsed' do
-      stubs.get(date_details_url) { [ 200, {}, '{invalid json}' ] }
+      stubs.get(assignment_url) { [ 200, {}, '{invalid json}' ] }
       expect(facade.get_base_dates(course_id, assignment_id)).to be_nil
     end
   end
@@ -286,6 +303,12 @@ describe CanvasFacade do
     it 'has correct response body on successful call' do
       expect(facade.get_assignment(course_id, assignment_id).body).to eq('{}')
       stubs.verify_stubbed_calls
+    end
+
+    it 'requests base dates with override_assignment_dates=false' do
+      result = facade.get_assignment(course_id, assignment_id)
+      params = Rack::Utils.parse_query(URI(result.env.url).query)
+      expect(params['override_assignment_dates']).to eq('false')
     end
   end
 
@@ -683,7 +706,7 @@ describe CanvasFacade do
       end
 
       before do
-        allow(facade).to receive(:get_base_dates).and_return({ 'base' => true, 'due_at' => base_due })
+        allow(facade).to receive(:get_base_dates).and_return({ 'due_at' => base_due })
       end
 
       it 'adds the student to an existing group override with the same extension' do
@@ -786,7 +809,7 @@ describe CanvasFacade do
 
   describe 'extension_override_title' do
     it 'titles overrides by extension length so similar extensions share a group' do
-      allow(facade).to receive(:get_base_dates).and_return({ 'base' => true, 'due_at' => '2025-01-15T23:59:00Z' })
+      allow(facade).to receive(:get_base_dates).and_return({ 'due_at' => '2025-01-15T23:59:00Z' })
       expect(facade.send(:extension_override_title, course_id, assignment_id, '2025-01-16T23:59:00Z'))
         .to eq('1 day extension')
       expect(facade.send(:extension_override_title, course_id, assignment_id, '2025-01-18T23:59:00Z'))
@@ -794,7 +817,7 @@ describe CanvasFacade do
     end
 
     it 'computes the number of days across timezones' do
-      allow(facade).to receive(:get_base_dates).and_return({ 'base' => true, 'due_at' => '2025-01-16T07:59:00Z' })
+      allow(facade).to receive(:get_base_dates).and_return({ 'due_at' => '2025-01-16T07:59:00Z' })
       # Base is Jan 15 11:59pm PT; one day later expressed in PT.
       expect(facade.send(:extension_override_title, course_id, assignment_id, '2025-01-16T23:59:00-08:00'))
         .to eq('1 day extension')
@@ -807,7 +830,7 @@ describe CanvasFacade do
     end
 
     it 'falls back to an absolute title when the new date is not at least a day later' do
-      allow(facade).to receive(:get_base_dates).and_return({ 'base' => true, 'due_at' => '2025-01-15T23:59:00Z' })
+      allow(facade).to receive(:get_base_dates).and_return({ 'due_at' => '2025-01-15T23:59:00Z' })
       expect(facade.send(:extension_override_title, course_id, assignment_id, '2025-01-15T20:00:00Z'))
         .to eq('Extended to 2025-01-15T20:00:00Z')
     end
