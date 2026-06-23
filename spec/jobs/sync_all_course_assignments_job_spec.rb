@@ -114,6 +114,95 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
       end
     end
 
+    context 'when assignment has many overrides and no base_date' do
+      let(:overrides) { Array.new(25) { |i| { 'id' => i, 'due_at' => '2025-12-31T23:59:00Z' } } }
+      let(:canvas_assignments) do
+        [
+          build_canvas_assignment(
+            'id' => '123',
+            'name' => 'Assignment with many overrides',
+            # Root-level due date Canvas may have derived from an override.
+            'due_at' => '2025-12-31T23:59:00Z',
+            'lock_at' => '2026-01-05T23:59:00Z',
+            'base_date' => nil,
+            'overrides' => overrides
+          )
+        ]
+      end
+
+      it 'does not overwrite due dates on a subsequent sync' do
+        existing_assignment = create(:assignment,
+          course_to_lms: course_to_lms,
+          external_assignment_id: '123',
+          name: 'Old Name',
+          due_date: DateTime.parse('2025-01-15T23:59:00Z'),
+          late_due_date: DateTime.parse('2025-01-20T23:59:00Z')
+        )
+
+        described_class.perform_now(course_to_lms.id, sync_user.id)
+
+        existing_assignment.reload
+        # Name still syncs, but the suspect due dates are preserved.
+        expect(existing_assignment.name).to eq('Assignment with many overrides')
+        expect(existing_assignment.due_date).to eq(DateTime.parse('2025-01-15T23:59:00Z'))
+        expect(existing_assignment.late_due_date).to eq(DateTime.parse('2025-01-20T23:59:00Z'))
+      end
+
+      it 'still sets due dates when the assignment is new' do
+        described_class.perform_now(course_to_lms.id, sync_user.id)
+
+        assignment = Assignment.find_by(external_assignment_id: '123')
+        expect(assignment.due_date).to eq(DateTime.parse('2025-12-31T23:59:00Z'))
+        expect(assignment.late_due_date).to eq(DateTime.parse('2026-01-05T23:59:00Z'))
+      end
+
+      it 'logs that the due date update was skipped' do
+        create(:assignment,
+          course_to_lms: course_to_lms,
+          external_assignment_id: '123',
+          due_date: DateTime.parse('2025-01-15T23:59:00Z')
+        )
+
+        expect(Rails.logger).to receive(:warn).with(/Skipping due date update/)
+
+        described_class.perform_now(course_to_lms.id, sync_user.id)
+      end
+    end
+
+    context 'when assignment has many overrides but a base_date is present' do
+      let(:overrides) { Array.new(30) { |i| { 'id' => i, 'due_at' => '2025-12-31T23:59:00Z' } } }
+      let(:canvas_assignments) do
+        [
+          build_canvas_assignment(
+            'id' => '123',
+            'name' => 'Assignment with base_date and overrides',
+            'due_at' => nil,
+            'lock_at' => nil,
+            'base_date' => {
+              'due_at' => '2025-03-15T23:59:00Z',
+              'lock_at' => '2025-03-20T23:59:00Z'
+            },
+            'overrides' => overrides
+          )
+        ]
+      end
+
+      it 'updates due dates from the base_date' do
+        existing_assignment = create(:assignment,
+          course_to_lms: course_to_lms,
+          external_assignment_id: '123',
+          due_date: DateTime.parse('2025-01-15T23:59:00Z'),
+          late_due_date: DateTime.parse('2025-01-20T23:59:00Z')
+        )
+
+        described_class.perform_now(course_to_lms.id, sync_user.id)
+
+        existing_assignment.reload
+        expect(existing_assignment.due_date).to eq(DateTime.parse('2025-03-15T23:59:00Z'))
+        expect(existing_assignment.late_due_date).to eq(DateTime.parse('2025-03-20T23:59:00Z'))
+      end
+    end
+
     context 'when sync_user is not staff' do
       let(:student_user) { course.students.first }
 

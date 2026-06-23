@@ -15,7 +15,13 @@ module CanvasSpecHelpers
 
     assignment_data = defaults.merge(attrs.transform_keys(&:to_s))
 
-    assignment_data['base_date'] ||= derive_base_date(assignment_data)
+    # Only derive a base_date when the caller didn't supply one. Passing an
+    # explicit `base_date: nil` lets specs model the case where Canvas omits the
+    # base date (e.g. an assignment with many overrides) while still returning a
+    # root-level due date.
+    unless assignment_data.key?('base_date')
+      assignment_data['base_date'] = derive_base_date(assignment_data)
+    end
 
     Lmss::Canvas::Assignment.new(assignment_data)
   end
