@@ -34,17 +34,47 @@
 				text: 'Enrollments',
 				active: @side_nav == 'enrollments' %>
 
-			<%= render 'layouts/components/sidebar_menu_item',
-				path: approvals_course_settings_path(@course.id),
-				icon: 'fas fa-cog',
-				text: 'Settings',
-				active: %w[approvals emails].include?(@side_nav) %>
+			<% settings_pages = %w[course_details approvals emails form_settings] %>
+			<% settings_open = settings_pages.include?(@side_nav) %>
+			<li class="nav-item p-2">
+				<a class="nav-link d-flex align-items-center <%= settings_open ? 'active' : 'link-body-emphasis' %>"
+					data-bs-toggle="collapse"
+					href="#settingsSubmenu"
+					role="button"
+					aria-expanded="<%= settings_open %>"
+					aria-controls="settingsSubmenu">
+					<div class="sidebar-icon-container ms-3">
+						<i class="fas fa-cog fa-fw me-3"></i>
+					</div>
+					<span class="nav-text ms-2">Settings</span>
+					<i class="fas fa-chevron-down fa-xs ms-auto"></i>
+				</a>
+				<ul class="nav flex-column collapse ms-4 <%= 'show' if settings_open %>" id="settingsSubmenu">
+					<%= render 'layouts/components/sidebar_menu_item',
+						path: edit_course_path(@course.id),
+						icon: 'fas fa-circle-info',
+						text: 'Course Details',
+						active: @side_nav == 'course_details' %>
 
-			<%= render 'layouts/components/sidebar_menu_item',
-				path: edit_course_form_setting_path(@course.id),
-				icon: 'fas fa-file-alt',
-				text: 'Form',
-				active: @side_nav == 'form_settings' %>
+					<%= render 'layouts/components/sidebar_menu_item',
+						path: approvals_course_settings_path(@course.id),
+						icon: 'fas fa-circle-check',
+						text: 'Approvals',
+						active: @side_nav == 'approvals' %>
+
+					<%= render 'layouts/components/sidebar_menu_item',
+						path: emails_course_settings_path(@course.id),
+						icon: 'fas fa-envelope',
+						text: 'Email Templates',
+						active: @side_nav == 'emails' %>
+
+					<%= render 'layouts/components/sidebar_menu_item',
+						path: edit_course_form_setting_path(@course.id),
+						icon: 'fas fa-file-alt',
+						text: 'Request Form',
+						active: @side_nav == 'form_settings' %>
+				</ul>
+			</li>
 
 			<%= render 'layouts/components/sidebar_menu_item',
 				path: new_course_request_path(@course.id),
