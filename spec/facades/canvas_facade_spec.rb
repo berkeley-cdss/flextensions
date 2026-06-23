@@ -42,10 +42,7 @@ describe CanvasFacade do
           'id' => '456',
           'name' => 'Assignment 1',
           'due_at' => '2025-01-15T23:59:00Z',
-          'all_dates' => [
-            { 'base' => true, 'due_at' => '2025-01-15T23:59:00Z' },
-            { 'base' => false, 'due_at' => '2025-01-20T23:59:00Z' }
-          ]
+          'lock_at' => '2025-01-20T23:59:00Z'
         }
       ].to_json
     end
@@ -59,9 +56,10 @@ describe CanvasFacade do
     it 'makes a request with correct parameters' do
       result = facade.get_assignments(external_course_id)
       params = Rack::Utils.parse_query(URI(result.env.url).query)
-      expect(params['include[]']).to include('all_dates')
-      # override_assignment_dates=false makes the top-level dates the base dates.
+      # override_assignment_dates=false makes the top-level dates the base dates,
+      # so we do not request include[]=all_dates. See docs/Canvas_Dates_API.md.
       expect(params['override_assignment_dates']).to eq('false')
+      expect(params).not_to have_key('include[]')
       expect(params['per_page']).to eq('100')
       expect(result.status).to eq(200)
       expect(result.body).to eq(assignments_response)
@@ -70,22 +68,21 @@ describe CanvasFacade do
 
   describe '#get_all_assignments' do
     let(:external_course_id) { '123' }
+    # With override_assignment_dates=false the top-level due_at/lock_at are the
+    # base ("Everyone") dates, regardless of override count.
     let(:assignments_data) do
       [
         {
           'id' => '456',
           'name' => 'Assignment 1',
           'due_at' => '2025-01-15T23:59:00Z',
-          'all_dates' => [
-            { 'base' => true, 'due_at' => '2025-01-15T23:59:00Z', 'lock_at' => '2025-01-20T23:59:00Z' },
-            { 'base' => false, 'due_at' => '2025-01-20T23:59:00Z', 'lock_at' => '2025-01-25T23:59:00Z' }
-          ]
+          'lock_at' => '2025-01-20T23:59:00Z'
         },
         {
           'id' => '789',
           'name' => 'Assignment 2',
           'due_at' => '2025-02-15T23:59:00Z',
-          'all_dates' => []
+          'lock_at' => nil
         }
       ]
     end
@@ -104,7 +101,7 @@ describe CanvasFacade do
       expect(facade).to have_received(:depaginate_response)
     end
 
-    it 'processes assignments to extract base dates' do
+    it 'reads the base dates from the top-level fields' do
       result = facade.get_all_assignments(external_course_id)
 
       expect(result.first.due_date).to eq(DateTime.parse('2025-01-15T23:59:00Z'))
@@ -120,30 +117,10 @@ describe CanvasFacade do
       expect(result.map(&:id)).to contain_exactly('456', '789')
     end
 
-    context 'when assignment has no all_dates' do
-      let(:assignments_data) do
-        [
-          {
-            'id' => '999',
-            'name' => 'Assignment without all_dates',
-            'due_at' => '2025-03-15T23:59:00Z'
-          }
-        ]
-      end
-
-      it 'falls back to top-level due_at when base dates missing' do
-        result = facade.get_all_assignments(external_course_id)
-
-        expect(result.first.due_date).to eq(DateTime.parse('2025-03-15T23:59:00Z'))
-        expect(result.first.late_due_date).to be_nil
-      end
-    end
-
-    context 'when all_dates is truncated for an assignment with >= 25 overrides' do
-      # Canvas returns all_dates as an empty array once an assignment has 25 or
-      # more dates (ALL_DATES_LIMIT). Because we request
-      # override_assignment_dates=false, the top-level due_at/lock_at are still
-      # the base dates, so the PORO falls back to them. See docs/Canvas_Dates_API.md.
+    context 'when an assignment has 25+ overrides (top-level dates still correct)' do
+      # override_assignment_dates=false returns the base dates at the top level
+      # for any number of overrides, so no all_dates parsing or extra call is
+      # needed. See docs/Canvas_Dates_API.md.
       let(:assignments_data) do
         [
           {
@@ -157,35 +134,13 @@ describe CanvasFacade do
         ]
       end
 
-      it 'uses the top-level base dates and does not make an extra API call' do
+      it 'uses the top-level base dates and makes no extra API call' do
         expect(facade).not_to receive(:get_base_dates)
 
         result = facade.get_all_assignments(external_course_id)
 
         expect(result.first.due_date).to eq(DateTime.parse('2025-03-20T23:59:00Z'))
         expect(result.first.late_due_date).to eq(DateTime.parse('2025-03-25T23:59:00Z'))
-      end
-
-      context 'when all_dates_count is set but all_dates is non-empty' do
-        # Defensive: all_dates_count is the definitive truncation signal, so we
-        # must not trust the (partial) all_dates list even if it has entries.
-        let(:assignments_data) do
-          [
-            {
-              'id' => '999',
-              'name' => 'Assignment with 25+ overrides',
-              'due_at' => '2025-03-20T23:59:00Z',
-              'all_dates' => [ { 'base' => true, 'due_at' => '2099-01-01T00:00:00Z' } ],
-              'all_dates_count' => 30
-            }
-          ]
-        end
-
-        it 'ignores the truncated all_dates and uses the top-level base date' do
-          result = facade.get_all_assignments(external_course_id)
-
-          expect(result.first.due_date).to eq(DateTime.parse('2025-03-20T23:59:00Z'))
-        end
       end
     end
   end

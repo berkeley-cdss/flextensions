@@ -224,17 +224,14 @@ class CanvasFacade < LmsFacade
   #
   # We pass override_assignment_dates=false so the top-level due_at/unlock_at/
   # lock_at are the assignment's base ("Everyone") dates rather than the dates
-  # overridden for the calling user. This is the reliable source for the base
-  # date at any number of overrides. include[]=all_dates is requested as a
-  # convenience (it carries the base date explicitly for assignments with
-  # fewer than 25 dates), but is NOT relied upon past that limit.
-  # See docs/Canvas_Dates_API.md.
+  # overridden for the calling user. Canvas guarantees these top-level dates are
+  # the base dates for any number of overrides, so we do NOT need include[]=
+  # all_dates (which is truncated past 25 dates anyway). See docs/Canvas_Dates_API.md.
   #
   # @param  [String] course_id the Canvas course id to fetch assignments for.
   # @return [Faraday::Response] single page of assignments in the course.
   def get_assignments(course_id)
     @canvas_conn.get("courses/#{course_id}/assignments", {
-      'include[]' => 'all_dates',
       'override_assignment_dates' => false,
       'per_page' => 100
     })
@@ -246,24 +243,7 @@ class CanvasFacade < LmsFacade
   # @param  [String] course_id the Canvas course id to fetch assignments for.
   # @return [Array<Lmss::Canvas::Assignment>] list of assignments in the course.
   def get_all_assignments(course_id)
-    assignments = depaginate_response(get_assignments(course_id))
-
-    assignments.map do |assignment_data|
-      # Pull the base ("Everyone") date out of all_dates, but only when Canvas
-      # actually returned the full list. Canvas truncates all_dates to [] once
-      # an assignment has >= 25 dates (ALL_DATES_LIMIT) and signals the
-      # truncation by adding all_dates_count. Note all_dates is ALWAYS an array
-      # (never omitted) when include[]=all_dates is requested, so check both the
-      # truncation flag and the length rather than trusting truthiness. When
-      # truncated/empty, base_date is left unset and the Assignment PORO falls
-      # back to the top-level dates, which are already the base dates because we
-      # request override_assignment_dates=false. See docs/Canvas_Dates_API.md.
-      all_dates = assignment_data['all_dates']
-      truncated = assignment_data.key?('all_dates_count')
-      if !truncated && all_dates.is_a?(Array) && all_dates.any?
-        base_date = all_dates.find { |date| date['base'] == true }
-        assignment_data['base_date'] = base_date
-      end
+    depaginate_response(get_assignments(course_id)).map do |assignment_data|
       Lmss::Canvas::Assignment.new(assignment_data)
     end
   end

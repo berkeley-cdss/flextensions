@@ -10,10 +10,10 @@ date** of a Canvas assignment and how it reads/writes **assignment overrides**
 (the per-student/section extensions we provision).
 
 It exists because the obvious-looking ways to get the base date are subtly
-wrong for assignments with many overrides, and we kept adding API calls
-(`/date_details`) that turned out not to help. The goal here is to write down
-what each Canvas parameter actually does — with citations — so we stop
-re-litigating it.
+wrong for assignments with many overrides, and we kept adding machinery
+(`include[]=all_dates`, the `/date_details` call) that turned out not to help.
+The goal here is to write down what each Canvas parameter actually does — with
+citations — so we stop re-litigating it.
 
 > Citations point at `instructure/canvas-lms@master`. Behaviour is stable across
 > recent Canvas versions but line numbers drift; search the file for the quoted
@@ -24,17 +24,20 @@ re-litigating it.
 - **To get the base date, request the assignment (list or single) with
   `override_assignment_dates=false` and read the top-level `due_at` /
   `unlock_at` / `lock_at`.** Canvas guarantees these are the assignment's own
-  ("Everyone") dates, for *any* number of overrides.
-- **`include[]=all_dates` is a convenience, not a source of truth.** Canvas
-  truncates it to `[]` once an assignment has **≥ 25** dates
-  (`ALL_DATES_LIMIT`). Do not depend on its `base: true` entry existing.
+  ("Everyone") dates, for *any* number of overrides. **This is the only thing we
+  need for the base date — we read the top-level dates and request neither
+  `all_dates` nor `overrides` on the assignment list.**
+- **`include[]=all_dates` is not needed and we no longer request it.** It's a
+  compact, *truncated* date summary (`[]` once an assignment has **≥ 25** dates,
+  `ALL_DATES_LIMIT`); the top-level dates above are simpler and not truncated.
+- **`include[]=overrides` is unrelated to the base date.** It returns the full
+  list of override *records* (not a base date, not capped by the 25 limit). It
+  is also unnecessary on the bulk list — sync only stores dates — and we fetch
+  overrides directly from the overrides endpoint when provisioning. See
+  [all_dates vs overrides](#all_dates-vs-overrides).
 - **`/date_details` (Learning Object Dates) does not help us.** It has **no
   `base`/`base_date` field**; its top-level `due_at` is the same base date you
   already get from `override_assignment_dates=false`. We removed our use of it.
-- **`include[]=overrides` is unrelated to the base date.** It returns the full
-  override records. We don't need it on the bulk assignment list (sync only
-  reads dates); we fetch overrides directly from the overrides endpoint when
-  provisioning.
 - **Yes, we still call the single-assignment endpoint** — on demand, to read a
   base date when provisioning an extension (`get_base_dates`). The bulk list is
   for syncing the assignment table; the single call is for "what's the base
@@ -71,6 +74,10 @@ Source: [`app/controllers/assignments_api_controller.rb`](https://github.com/ins
 (`assignment.overridden_for(user)`).
 
 ### `include[]=all_dates` and the 25-date limit
+
+> We **do not** request `all_dates` anymore (the top-level dates from
+> `override_assignment_dates=false` are enough). This section is kept as the
+> reference for *why* `all_dates` can't be trusted as a base-date source.
 
 With `include[]=all_dates` the response carries an array of `AssignmentDate`
 objects — one per override, plus a `base: true` entry **iff** the assignment has
@@ -123,12 +130,46 @@ Source (pinned):
 
 ### `include[]=overrides`
 
-Returns an array of full `AssignmentOverride` records (id, title, `student_ids`,
-`due_at`, …); requires manage-assignments permission. This is *override data*,
-not the base date, and is not subject to the 25-date `all_dates` truncation.
-We don't request it on the bulk list (sync doesn't use it). When provisioning we
-read overrides from the dedicated, paginated overrides endpoint instead — see
+Returns an array of full `AssignmentOverride` records — `id`, `title`,
+`assignment_id`, the target (`student_ids`/`course_section_id`/`group_id`/…),
+and the overridden `due_at`/`unlock_at`/`lock_at`. It is gated on
+manage-assignments permission (the caller only sets `include_overrides` when the
+user can manage). It is **not** subject to the 25-date `all_dates` truncation:
+
+```ruby
+if opts[:overrides].present?
+  hash["overrides"] = assignment_overrides_json(opts[:overrides], user)
+elsif opts[:include_overrides]
+  hash["overrides"] = assignment_overrides_json(assignment.assignment_overrides.select(&:active?), user)
+end
+```
+
+We don't request it on the bulk list (sync only stores dates). When provisioning
+we read overrides from the dedicated, paginated overrides endpoint instead — see
 [Reading overrides](#reading-overrides-for-provisioning).
+
+Source (pinned):
+[`lib/api/v1/assignment.rb@9e60178`](https://github.com/instructure/canvas-lms/blob/9e60178649c2bc13684bbdf2019010aa9f3b21a3/lib/api/v1/assignment.rb#L391),
+[`lib/api/v1/assignment_override.rb`](https://github.com/instructure/canvas-lms/blob/9e60178649c2bc13684bbdf2019010aa9f3b21a3/lib/api/v1/assignment_override.rb).
+
+### `all_dates` vs `overrides`
+
+They look similar (both list per-override dates) but answer different questions,
+and only one carries the base date:
+
+| | `include[]=all_dates` | `include[]=overrides` |
+| --- | --- | --- |
+| What it is | Date *summaries* (`AssignmentDate`: `id`, `base`, `title`, `due_at`, `unlock_at`, `lock_at`) | Full override *records* (`AssignmentOverride`: target ids, title, overridden dates) |
+| Includes the base ("Everyone") date? | **Yes** — a synthetic `base: true` entry, when one exists | **No** — overrides only; the base date stays in the top-level `due_at` |
+| Truncated at 25? | **Yes** → `[]` + `all_dates_count` | **No** — all active overrides |
+| Permission | Visibility-filtered; no manage permission needed | Requires manage-assignments |
+| Good for | A quick "what dates does this assignment have" pill list (small assignments) | Enumerating the actual override objects (who/what each targets) |
+
+So `overrides` being "complete" doesn't make `all_dates` redundant *in general* —
+`overrides` never contains the base date. But **for our needs neither is
+required**: the base date comes from the top-level `due_at`
+(`override_assignment_dates=false`), and when we need the override objects we hit
+the overrides endpoint directly.
 
 ### `/date_details` (Learning Object Dates) — and why we don't use it
 
@@ -177,13 +218,11 @@ All of this lives in `app/facades/canvas_facade.rb`.
 ### Reading the base date
 
 - `get_assignments(course_id)` — bulk list for sync. Sends
-  `include[]=all_dates`, `override_assignment_dates=false`, `per_page=100`.
+  `override_assignment_dates=false`, `per_page=100`. No `include[]` — the
+  top-level dates are all we need.
 - `get_all_assignments(course_id)` — depaginates the above and builds
-  `Lmss::Canvas::Assignment` POROs. It reads the `all_dates` `base: true` entry
-  **only when the list is untruncated** — i.e. `all_dates_count` is absent and
-  `all_dates` is a non-empty array (the common < 25 case). Otherwise it leaves
-  `base_date` unset and falls back to the top-level base dates (the ≥ 25 case).
-  Both paths yield the base date.
+  `Lmss::Canvas::Assignment` POROs straight from the top-level fields. No
+  `all_dates`/`base_date` parsing.
 - `get_assignment(course_id, assignment_id)` — single assignment with
   `override_assignment_dates=false`.
 - `get_base_dates(course_id, assignment_id)` — calls `get_assignment` and
@@ -191,9 +230,8 @@ All of this lives in `app/facades/canvas_facade.rb`.
   provisioning an extension (to record the original due date and to title the
   override by extension length).
 
-`Lmss::Canvas::Assignment#extract_date_field` prefers `base_date` (the
-`all_dates` base entry) when set and otherwise reads the top-level field — which,
-thanks to `override_assignment_dates=false`, is the base date.
+`Lmss::Canvas::Assignment#extract_date_field` just reads the top-level field —
+which, thanks to `override_assignment_dates=false`, is the base date.
 
 ### Reading overrides for provisioning
 
@@ -217,7 +255,7 @@ update (PUT) endpoint, which previously made title/date updates no-ops.
 | Need | Call | Key params |
 | --- | --- | --- |
 | Base date, one assignment | `GET assignments/:id` | `override_assignment_dates=false` |
-| Base date, all assignments | `GET assignments` | `override_assignment_dates=false`, `include[]=all_dates`, `per_page=100` |
+| Base date, all assignments | `GET assignments` | `override_assignment_dates=false`, `per_page=100` |
 | All overrides for an assignment | `GET assignments/:id/overrides` | `per_page=100` + depaginate |
 | Create / update an override | `POST` / `PUT .../overrides[/:id]` | body under `assignment_override:` |
 | ~~Base date via date_details~~ | — | not needed; no base field |
