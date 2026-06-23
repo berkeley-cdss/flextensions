@@ -24,7 +24,6 @@ Rails.application.routes.draw do
   get '/courses', to: 'courses#index', as: 'courses'
   get '/courses/new', to: 'courses#new', as: :new_course
   get '/courses/:id', to: 'courses#show', as: :course
-  get '/courses/:id/edit', to: 'courses#edit', as: :course_settings
 
   resources :courses do
     member do
@@ -53,8 +52,14 @@ Rails.application.routes.draw do
       end
     end
     resource :form_setting, only: [:edit, :update]
+
+    # Course-level settings split into focused, bookmarkable pages. They all
+    # edit the single CourseSettings record, so they live on one controller.
+    resource :course_settings, only: [:update], controller: :course_settings, as: :settings do
+      get :approvals
+      get :emails
+    end
   end
-  post 'course_settings/update'
 
   resources :assignments do
     member do

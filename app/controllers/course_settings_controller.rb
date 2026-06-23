@@ -17,14 +17,25 @@ class CourseSettingsController < ApplicationController
   \n\nBest regards,
   \n{{course_name}} Staff".freeze
 
+  # Approval and notification settings (formerly the "General Settings" tab).
+  def approvals
+    @side_nav = 'approvals'
+    @course_settings = @course.course_settings || @course.build_course_settings
+  end
+
+  # Email subject/body templates (formerly the "Email Settings" tab).
+  def emails
+    @side_nav = 'emails'
+    @course_settings = @course.course_settings || @course.build_course_settings
+  end
+
   # rubocop:disable Metrics/AbcSize
   def update
-    @side_nav = 'course_settings'
     @course_settings = @course.course_settings || @course.build_course_settings
 
     if params[:reset_email_template].present?
       reset_email_templates
-      redirect_to course_settings_path(@course, tab: 'email'), notice: 'Email templates reset to defaults.'
+      redirect_to emails_course_settings_path(@course), notice: 'Email templates reset to defaults.'
     elsif @course_settings.update(course_settings_params)
       if @course_settings.enable_slack_webhook_url &&
          @course_settings.slack_webhook_url.present? &&
@@ -35,21 +46,26 @@ class CourseSettingsController < ApplicationController
           @course_settings.slack_webhook_url
         )
         unless success
-          redirect_to course_settings_path(@course, tab: params[:tab]), alert: 'Failed to send Slack notification. Please check the webhook URL.'
+          redirect_to settings_redirect_path, alert: 'Failed to send Slack notification. Please check the webhook URL.'
           return
         end
-        redirect_to course_settings_path(@course, tab: params[:tab]), notice: 'Course settings updated successfully. Check your Slack channel for Notifications.'
+        redirect_to settings_redirect_path, notice: 'Course settings updated successfully. Check your Slack channel for Notifications.'
         return
       end
-      redirect_to course_settings_path(@course, tab: params[:tab]), notice: 'Course settings updated successfully.'
+      redirect_to settings_redirect_path, notice: 'Course settings updated successfully.'
     else
       flash[:alert] = "Failed to update course settings: #{@course_settings.errors.full_messages.to_sentence}"
-      redirect_to course_settings_path(@course, tab: params[:tab])
+      redirect_to settings_redirect_path
     end
   end
   # rubocop:enable Metrics/AbcSize
 
   private
+
+  # Redirects back to the settings page the form was submitted from.
+  def settings_redirect_path
+    params[:page] == 'emails' ? emails_course_settings_path(@course) : approvals_course_settings_path(@course)
+  end
 
   def reset_email_templates
     @course_settings.update(

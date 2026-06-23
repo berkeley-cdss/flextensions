@@ -35,10 +35,10 @@
 				active: @side_nav == 'enrollments' %>
 
 			<%= render 'layouts/components/sidebar_menu_item',
-				path: course_settings_path(@course.id),
+				path: approvals_course_settings_path(@course.id),
 				icon: 'fas fa-cog',
 				text: 'Settings',
-				active: @side_nav == 'edit' %>
+				active: %w[approvals emails].include?(@side_nav) %>
 
 			<%= render 'layouts/components/sidebar_menu_item',
 				path: edit_course_form_setting_path(@course.id),

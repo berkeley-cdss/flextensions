@@ -5,6 +5,6 @@
 
 <% unless extensions_enabled %>
 <div class="alert alert-warning">
-  <strong>Flextensions is disabled for this course.</strong> To allow to students to see this course, please enable extensions in <a href="<%= course_settings_path(course, tab: 'general') %>">Course Settings</a>.
+  <strong>Flextensions is disabled for this course.</strong> To allow to students to see this course, please enable extensions in <a href="<%= approvals_course_settings_path(course) %>">Approvals settings</a>.
 </div>
 <% end %> 

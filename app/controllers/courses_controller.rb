@@ -62,8 +62,9 @@ class CoursesController < ApplicationController
   end
 
   def edit
-    @side_nav = 'edit'
-    redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
+    return redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
+
+    redirect_to approvals_course_settings_path(@course)
   end
 
   def create
