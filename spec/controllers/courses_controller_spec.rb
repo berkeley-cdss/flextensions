@@ -123,7 +123,6 @@ RSpec.describe CoursesController, type: :controller do
         get :edit, params: { id: course.id }
 
         expect(response).to render_template(:edit)
-        expect(assigns(:side_nav)).to eq('course_details')
       end
     end
   end

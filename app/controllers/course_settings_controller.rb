@@ -19,13 +19,11 @@ class CourseSettingsController < ApplicationController
 
   # Approval and notification settings (formerly the "General Settings" tab).
   def approvals
-    @side_nav = 'approvals'
     @course_settings = @course.course_settings || @course.build_course_settings
   end
 
   # Email subject/body templates (formerly the "Email Settings" tab).
   def emails
-    @side_nav = 'emails'
     @course_settings = @course.course_settings || @course.build_course_settings
   end
 

@@ -5,6 +5,7 @@
 			<i class="fa-solid fa-xmark"></i>
 		</button>
 
+	<% nav = sidebar_section %>
 	<ul class="nav nav-pills flex-column mt-3 mt-md-0">
 		<li class="nav-item p-2 border-bottom">
 		<%= link_to "/courses", class: "nav-link d-flex align-items-center" do %>
@@ -19,23 +20,23 @@
 			path: course_path(@course.id),
 			icon: 'fas fa-tasks',
 			text: 'Assignments',
-			active: @side_nav == 'show' %>
+			active: nav == 'show' %>
 
 		<%= render 'layouts/components/sidebar_menu_item',
 			path: course_requests_path(@course.id),
 			icon: 'fas fa-clock',
 			text: "Requests  <span class=\"badge rounded-pill float-end text-bg-danger ms-2\">#{@pending_requests_count}</span>",
-			active: @side_nav == 'requests' %>
+			active: nav == 'requests' %>
 
 		<% if @role == 'instructor' %>
 			<%= render 'layouts/components/sidebar_menu_item',
 				path: enrollments_course_path(@course.id),
 				icon: 'fas fa-users',
 				text: 'Enrollments',
-				active: @side_nav == 'enrollments' %>
+				active: nav == 'enrollments' %>
 
 			<% settings_pages = %w[course_details approvals emails form_settings] %>
-			<% settings_open = settings_pages.include?(@side_nav) %>
+			<% settings_open = settings_pages.include?(nav) %>
 			<li class="nav-item p-2">
 				<a class="nav-link d-flex align-items-center <%= settings_open ? 'active' : 'link-body-emphasis' %>"
 					data-bs-toggle="collapse"
@@ -54,25 +55,25 @@
 						path: edit_course_path(@course.id),
 						icon: 'fas fa-circle-info',
 						text: 'Course Details',
-						active: @side_nav == 'course_details' %>
+						active: nav == 'course_details' %>
 
 					<%= render 'layouts/components/sidebar_menu_item',
 						path: approvals_course_settings_path(@course.id),
 						icon: 'fas fa-circle-check',
 						text: 'Approvals',
-						active: @side_nav == 'approvals' %>
+						active: nav == 'approvals' %>
 
 					<%= render 'layouts/components/sidebar_menu_item',
 						path: emails_course_settings_path(@course.id),
 						icon: 'fas fa-envelope',
 						text: 'Email Templates',
-						active: @side_nav == 'emails' %>
+						active: nav == 'emails' %>
 
 					<%= render 'layouts/components/sidebar_menu_item',
 						path: edit_course_form_setting_path(@course.id),
 						icon: 'fas fa-file-alt',
 						text: 'Request Form',
-						active: @side_nav == 'form_settings' %>
+						active: nav == 'form_settings' %>
 				</ul>
 			</li>
 
@@ -80,7 +81,7 @@
 				path: new_course_request_path(@course.id),
 				icon: 'fas fa-user-plus',
 				text: 'Request for Student',
-				active: @side_nav == 'form' %>
+				active: nav == 'form' %>
 		<% end %>
 
 		<% if @role == 'student' %>
@@ -88,7 +89,7 @@
 				path: new_course_request_path(@course.id),
 				icon: 'fas fa-file-pen',
 				text: 'Request Extension',
-				active: @side_nav == 'form' %>
+				active: nav == 'form' %>
 		<% end %>
 	</ul>
 </nav>

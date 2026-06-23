@@ -25,7 +25,6 @@ class CoursesController < ApplicationController
     return redirect_to courses_path, alert: 'Course not found.' unless @course
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.has_canvas_linked?
 
-    @side_nav = 'show'
     @course.regenerate_readonly_api_token_if_blank
 
     if @role == 'student'
@@ -63,7 +62,6 @@ class CoursesController < ApplicationController
 
   # Course Details: edit the course name, code and semester.
   def edit
-    @side_nav = 'course_details'
     redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
   end
 
@@ -76,7 +74,6 @@ class CoursesController < ApplicationController
   end
 
   def update
-    @side_nav = 'course_details'
     return redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
 
     attrs = course_params.to_h
@@ -109,7 +106,6 @@ class CoursesController < ApplicationController
   end
 
   def enrollments
-    @side_nav = 'enrollments'
     return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
 
     @enrollments = @course.user_to_courses.includes(:user)

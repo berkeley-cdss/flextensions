@@ -123,7 +123,6 @@ RSpec.describe CourseSettingsController, type: :controller do
 
         expect(response).to have_http_status(:ok)
         expect(response).to render_template(:approvals)
-        expect(assigns(:side_nav)).to eq('approvals')
       end
     end
 
@@ -133,7 +132,6 @@ RSpec.describe CourseSettingsController, type: :controller do
 
         expect(response).to have_http_status(:ok)
         expect(response).to render_template(:emails)
-        expect(assigns(:side_nav)).to eq('emails')
       end
     end
   end
