@@ -38,7 +38,7 @@
 			<% settings_pages = %w[course_details approvals emails form_settings] %>
 			<% settings_open = settings_pages.include?(nav) %>
 			<li class="nav-item p-2">
-				<a class="nav-link d-flex align-items-center <%= settings_open ? 'active' : 'link-body-emphasis' %>"
+				<a class="nav-link d-flex align-items-center link-body-emphasis<%= ' collapsed' unless settings_open %>"
 					data-bs-toggle="collapse"
 					href="#settingsSubmenu"
 					role="button"
@@ -47,7 +47,7 @@
 					<div class="sidebar-icon-container ms-3">
 						<i class="fas fa-cog fa-fw me-3"></i>
 					</div>
-					<span class="nav-text ms-2">Settings</span>
+					<span class="nav-text ms-2">Course Settings</span>
 					<i class="fas fa-chevron-down fa-xs ms-auto"></i>
 				</a>
 				<ul class="nav flex-column collapse ms-4 <%= 'show' if settings_open %>" id="settingsSubmenu">
