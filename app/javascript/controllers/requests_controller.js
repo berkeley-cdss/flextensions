@@ -25,6 +25,8 @@ export default class extends Controller {
                 ordering: true,
                 info: true,
                 responsive: true,
+                pageLength: 50,
+                lengthMenu: [[25, 50, 100, 200, -1], [25, 50, 100, 200, "All"]],
                 columnDefs: [
                     { orderable: false, targets: 'no-sort' },
                     { type: "date", targets: [5, 6, 7] },
@@ -33,6 +35,7 @@ export default class extends Controller {
                 order: [[5, "asc"]],
                 layout: {
                     topStart: {
+                        pageLength: {},
                         buttons: [
                             {
                                 extend: 'colvis',
