@@ -19,7 +19,10 @@
 FactoryBot.define do
   factory :user do
     sequence(:email) { |n| "user#{n}@example.com" }
-    sequence(:canvas_uid, &:to_s)
+    # Prefixed so the generated value can never collide with the bare numeric
+    # canvas_uids some specs hardcode (e.g. '123', '124'); the global sequence
+    # would otherwise eventually reach those numbers across a full suite run.
+    sequence(:canvas_uid) { |n| "canvas-uid-#{n}" }
     sequence(:name) { |n| "User #{n}" }
 
     factory :admin do

@@ -29,11 +29,29 @@
 									(<%= @request.user.student_id %>)
 								<% end %>
 							</span>
+							<% if @request.user.email.present? %>
+								<%= mail_to @request.user.email, @request.user.email, class: "ms-2" %>
+							<% end %>
+							<% if @review.allow_extended_requests? %>
+								<span class="badge text-bg-warning ms-2" title="This student is allowed to request longer extensions than the standard limit.">Extended requests allowed</span>
+							<% end %>
 						</div>
+						<p class="mb-2 text-muted small">
+							<strong>Submitted:</strong>
+							<%= @request.created_at.strftime('%a, %b %-d, %Y %-I:%M%P') %>
+							<% if @assignment&.due_date.present? %>
+								<% if @review.submitted_after_deadline? %>
+									<span class="badge text-bg-danger ms-1">after original deadline</span>
+								<% else %>
+									<span class="badge text-bg-secondary ms-1">before original deadline</span>
+								<% end %>
+							<% end %>
+						</p>
 						<% if @request.assignment.present? %>
 							<p class="mb-2">
 								<strong class="fs-5">Assignment:</strong>
 								<span class="fs-5"><%= @request.assignment.name %></span>
+								<%= assignment_link_for(@request.assignment, @course) %>
 							</p>
 							<div class="row">
 								<div class="col-md-6">
@@ -64,6 +82,13 @@
 								<p><strong>Number of Days: </strong><%= @number_of_days || '#' %></p>
 							</div>
 						</div>
+						<% if @request.status == 'pending' && @assignment&.late_due_date.present? && @review.new_late_due_date.present? %>
+							<p class="text-muted small mb-2">
+								<i class="fas fa-info-circle"></i>
+								On approval, the late due date will be set to
+								<strong><%= @review.new_late_due_date.strftime('%a, %b %-d, %Y %-I:%M%P') %></strong>.
+							</p>
+						<% end %>
 					</div>
 
 					<!-- Display Reason for Extension -->
@@ -114,6 +139,20 @@
 							<div class="p-3 bg-light">
 								<%= @request.custom_q2 %>
 							</div>
+						</div>
+					<% end %>
+
+					<!-- Display this student's extension history in the course -->
+					<%= render "student_extension_history", review: @review, course: @course %>
+
+					<!-- Show who processed the request, if already decided -->
+					<% if @request.status != 'pending' %>
+						<div class="mb-4">
+							<p class="text-muted small mb-0">
+								<%= @request.status.capitalize %>
+								on <%= @request.updated_at.strftime('%a, %b %-d, %Y %-I:%M%P') %>
+								by <%= @request.auto_approved ? 'Auto Approval System' : (@request.last_processed_by_user&.name || 'Unknown') %>
+							</p>
 						</div>
 					<% end %>
 
