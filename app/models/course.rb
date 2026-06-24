@@ -63,7 +63,7 @@ class Course < ApplicationRecord
   end
 
   # Seasons offered in the Course Details semester picker.
-  SEMESTER_SEASONS = %w[Spring Summer Fall Winter].freeze
+  SEMESTER_SEASONS = %w[Winter Spring Summer Fall].freeze
   # Earliest selectable academic year in the semester picker.
   FIRST_SEMESTER_YEAR = 2012
 

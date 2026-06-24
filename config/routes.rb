@@ -51,11 +51,9 @@ Rails.application.routes.draw do
         patch :toggle_allow_extended_requests
       end
     end
-    resource :form_setting, only: [:edit, :update]
+    resource :form_setting, only: [:edit, :update], path: 'settings/form'
 
-    # Course-level settings split into focused, bookmarkable pages. They all
-    # edit the single CourseSettings record, so they live on one controller.
-    resource :course_settings, only: [:update], controller: :course_settings, as: :settings do
+    resource :course_settings, only: [:update], controller: :course_settings, as: :settings, path: 'settings' do
       get :approvals
       get :emails
     end

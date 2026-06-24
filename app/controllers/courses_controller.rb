@@ -3,6 +3,7 @@ class CoursesController < ApplicationController
   before_action :set_course, only: %i[show edit update sync_assignments sync_enrollments enrollments delete]
   before_action :set_pending_request_count
   before_action :determine_user_role
+  before_action :require_course_instructor, only: %i[edit update]
 
   def index
     teacher_courses = UserToCourse.includes(:course).where(user: @user, role: UserToCourse.staff_roles)
@@ -60,9 +61,7 @@ class CoursesController < ApplicationController
     end
   end
 
-  # Course Details: edit the course name, code and semester.
   def edit
-    redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
   end
 
   def create
@@ -74,8 +73,6 @@ class CoursesController < ApplicationController
   end
 
   def update
-    return redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
-
     attrs = course_params.to_h
     # Only overwrite the semester when both dropdowns are set; this preserves a
     # value stored in an unexpected format that the picker left blank.
@@ -131,6 +128,12 @@ class CoursesController < ApplicationController
   end
 
   private
+
+  def require_course_instructor
+    return if @role == 'instructor'
+
+    redirect_to course_path(@course.id), alert: 'You do not have access to this page.'
+  end
 
   def course_params
     params.require(:course).permit(:course_name, :course_code)
