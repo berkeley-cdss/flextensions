@@ -17,7 +17,7 @@ RSpec.describe CourseSettingsController, type: :controller do
   describe 'instructor access' do
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
       allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
     end
 
@@ -134,7 +134,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
       allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
 
       # Create settings to enable extensions
@@ -252,7 +252,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
     it 'redirects to courses path when course is not found' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
 
       post :update, params: {
         course_id: 999,

@@ -32,6 +32,7 @@ class RequestsController < ApplicationController
   def show
     @assignment = @request.assignment
     @number_of_days = @request.calculate_days_difference if @request.requested_due_date.present? && @assignment&.due_date.present?
+    @review = RequestReviewPresenter.new(@request) if staff_user?
     render_role_based_view
   end
 
@@ -41,7 +42,7 @@ class RequestsController < ApplicationController
     course_to_lmss = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
 
-    if @role == 'instructor'
+    if staff_user?
       prepare_instructor_new_request(course_to_lmss)
       render :new_for_student and return
     elsif @role == 'student'
@@ -56,7 +57,7 @@ class RequestsController < ApplicationController
 
   def new_for_student
     @side_nav = 'form'
-    return redirect_to course_requests_path(@course), alert: 'You do not have permission to access this page.' unless @role == 'instructor'
+    return redirect_to course_requests_path(@course), alert: 'You do not have permission to access this page.' unless staff_user?
 
     course_to_lmss = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
@@ -91,7 +92,7 @@ class RequestsController < ApplicationController
   end
 
   def create_for_student
-    return redirect_to course_requests_path(@course), alert: 'You do not have permission to perform this action.' unless @role == 'instructor'
+    return redirect_to course_requests_path(@course), alert: 'You do not have permission to perform this action.' unless staff_user?
 
     student = User.find_by(id: params[:request][:user_id])
     return redirect_to new_course_request_path(@course), alert: 'Student not found.' unless student
@@ -197,8 +198,9 @@ class RequestsController < ApplicationController
   end
 
   def check_instructor_permission
-    result = RequestService.check_instructor_permission(@role, course_path(@course))
-    redirect_to result[:redirect_to], alert: result[:alert] if result != true
+    return if staff_user?
+
+    redirect_to course_path(@course), alert: 'You do not have permission to perform this action.'
   end
 
   def handle_request_error
