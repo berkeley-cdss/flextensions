@@ -40,6 +40,11 @@ gem 'lms-api'
 gem 'sentry-ruby'
 gem 'sentry-rails'
 
+# Self-hosted exception tracking for the public app (Sentry alternative).
+# Mounts a dashboard UI and captures exceptions into our own database.
+# https://github.com/AnjanJ/rails_error_dashboard
+gem 'rails_error_dashboard'
+
 gem 'json'
 
 # Used to make http requests.
