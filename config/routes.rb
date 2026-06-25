@@ -68,4 +68,9 @@ Rails.application.routes.draw do
 
   # This is protected by `require_admin` via blazer.yml
   mount Blazer::Engine, at: "admin/blazer"
+
+  # Self-hosted exception tracking (Sentry alternative for the public app).
+  # Access is restricted to app admins via `config.authenticate_with` in
+  # config/initializers/rails_error_dashboard.rb
+  mount RailsErrorDashboard::Engine, at: "admin/red"
 end
