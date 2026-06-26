@@ -17,7 +17,7 @@ RSpec.describe StagingEmailInterceptor do
     message = build_message(to: 'student@example.com', subject: 'Your extension')
     described_class.delivering_email(message)
 
-    expect(message.to).to eq([described_class::DEFAULT_OVERRIDE])
+    expect(message.to).to eq([ described_class::DEFAULT_OVERRIDE ])
   end
 
   it 'honors STAGING_EMAIL_OVERRIDE when set' do
@@ -30,7 +30,7 @@ RSpec.describe StagingEmailInterceptor do
 
     described_class.delivering_email(message)
 
-    expect(message.to).to eq(['someone@example.com'])
+    expect(message.to).to eq([ 'someone@example.com' ])
   end
 
   it 'preserves the original recipient(s) in the subject line' do
