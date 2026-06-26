@@ -35,7 +35,6 @@ export default class extends Controller {
                 order: [[5, "asc"]],
                 layout: {
                     topStart: {
-                        pageLength: {},
                         buttons: [
                             {
                                 extend: 'colvis',
@@ -66,7 +65,8 @@ export default class extends Controller {
                                         : '<i class="fas fa-edit me-1"></i>Batch Edit';
                                 }
                             }
-                        ]
+                        ],
+                        pageLength: {},
                     }
                 }
             });
