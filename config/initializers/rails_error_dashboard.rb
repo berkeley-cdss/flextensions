@@ -5,12 +5,13 @@ RailsErrorDashboard.configure do |config|
   # AUTHENTICATION (Always Required - Cannot Be Disabled)
   # ============================================================================
 
-  # We authenticate against the app's own admin users (see `authenticate_with`
-  # below), so the built-in HTTP Basic Auth credentials are not used. They are
-  # still set to non-default values so the gem's production validation passes
-  # and Basic Auth can never be relied on by accident.
-  config.dashboard_username = ENV.fetch("ERROR_DASHBOARD_USER", "flextensions-red")
-  config.dashboard_password = ENV.fetch("ERROR_DASHBOARD_PASSWORD", SecureRandom.hex(32))
+  # Authentication is handled exclusively by the `authenticate_with` lambda
+  # below, which defers to the app's own admin users (the same `admin?` check
+  # that gates Blazer). We intentionally do NOT configure
+  # `dashboard_username`/`dashboard_password`: HTTP Basic Auth is never reached
+  # because the lambda is always set, and when `authenticate_with` is present
+  # the gem's `default_credentials?` check short-circuits to false, so there is
+  # no production boot warning about default credentials.
 
   # === Custom Authentication (optional) ===
   # Use your app's existing auth instead of HTTP Basic Auth.
