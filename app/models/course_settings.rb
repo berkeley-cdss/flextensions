@@ -59,7 +59,7 @@ class CourseSettings < ApplicationRecord
   before_save -> { self.pending_notification_email = nil if pending_notification_frequency.nil? }
   validate :gradescope_url_is_valid, if: :enable_gradescope?
   validates :pending_notification_frequency, inclusion: { in: VALID_NOTIFICATION_FREQUENCIES }, allow_nil: true
-  validates :pending_notification_email, presence: true, format: { with: /\A[^@\s]+@[^@\s]+\z/ },
+  validates :pending_notification_email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP },
                                          if: -> { pending_notification_frequency.present? }
   after_save :create_or_update_gradescope_link
 
