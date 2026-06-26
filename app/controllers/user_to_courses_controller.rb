@@ -1,8 +1,8 @@
 class UserToCoursesController < ApplicationController
   before_action :authenticate_user!
   before_action :set_course
-  before_action :set_enrollment
   before_action :authorize_instructor!
+  before_action :set_enrollment
 
   def toggle_allow_extended_requests
     if @enrollment.update(allow_extended_requests: params[:allow_extended_requests])
