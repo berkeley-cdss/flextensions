@@ -73,11 +73,18 @@ class RequestsController < ApplicationController
 
   def create
     Request.merge_date_and_time!(params[:request])
+    assignment_id = request_params[:assignment_id]
+
+    if assignment_id.present? && !assignment_in_course?(assignment_id)
+      redirect_to course_requests_path(@course), alert: 'Assignment not found for this course.'
+      return
+    end
+
     @request = @course.requests.new(request_params.merge(user: @user))
 
     # Check if the assignment already has a pending request, but only if assignment_id exists
-    if request_params[:assignment_id].present? &&
-       Assignment.find_by(id: request_params[:assignment_id])&.has_pending_request_for_user?(@user, @course)
+    if assignment_id.present? &&
+       Assignment.find_by(id: assignment_id)&.has_pending_request_for_user?(@user, @course)
       redirect_to course_requests_path(@course), alert: 'You already have a pending request for this assignment.'
       return
     end
@@ -95,8 +102,13 @@ class RequestsController < ApplicationController
 
     student = User.find_by(id: params[:request][:user_id])
     return redirect_to new_course_request_path(@course), alert: 'Student not found.' unless student
+    return redirect_to new_course_request_path(@course), alert: 'Student is not enrolled in this course.' unless student_enrolled_in_course?(student)
 
     assignment_id = params[:request][:assignment_id]
+    if assignment_id.present? && !assignment_in_course?(assignment_id)
+      return redirect_to new_course_request_path(@course), alert: 'Assignment not found for this course.'
+    end
+
     reject_other_student_requests(student, assignment_id) if assignment_id.present?
 
     Request.merge_date_and_time!(params[:request])
@@ -115,6 +127,12 @@ class RequestsController < ApplicationController
     return redirect_to course_path(@course), alert: 'Request not found.' unless @request
 
     Request.merge_date_and_time!(params[:request])
+
+    assignment_id = request_params[:assignment_id]
+    if assignment_id.present? && !assignment_in_course?(assignment_id)
+      flash.now[:alert] = 'There was a problem updating the request.'
+      return render :edit
+    end
 
     if @request.update(request_params)
       result = @request.process_update(@user)
@@ -222,7 +240,21 @@ class RequestsController < ApplicationController
   end
 
   def request_params
-    params.require(:request).permit(:assignment_id, :reason, :documentation, :custom_q1, :custom_q2, :requested_due_date, :user_id)
+    params.require(:request).permit(:assignment_id, :reason, :documentation, :custom_q1, :custom_q2, :requested_due_date)
+  end
+
+  # Confirms the assignment belongs to one of this course's linked LMSs,
+  # preventing a request from referencing an assignment in another course.
+  def assignment_in_course?(assignment_id)
+    return false if assignment_id.blank?
+
+    Assignment.joins(:course_to_lms).exists?(id: assignment_id, course_to_lms: { course_id: @course.id })
+  end
+
+  # Confirms the target student is actually enrolled in this course before an
+  # instructor can file a request on their behalf.
+  def student_enrolled_in_course?(student)
+    UserToCourse.exists?(user_id: student.id, course_id: @course.id, role: UserToCourse::STUDENT_ROLE)
   end
 
   def authenticate_user
