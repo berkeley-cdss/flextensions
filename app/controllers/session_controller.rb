@@ -1,6 +1,4 @@
 class SessionController < ApplicationController
-  include TokenRefreshable
-
   ## Login work flow explained here
   # Currently the login only supports third-party authentication with Canvas.
   # But the structure to support multiple login methods is largely in place.
