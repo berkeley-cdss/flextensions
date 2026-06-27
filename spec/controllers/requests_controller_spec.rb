@@ -720,4 +720,128 @@ RSpec.describe RequestsController, type: :controller do
       expect(flash[:notice]).not_to match(/has been approved/)
     end
   end
+
+  describe 'Mass-assignment and IDOR protections' do
+    let(:other_user) { User.create!(email: 'other@example.com', canvas_uid: '777', name: 'Other Student') }
+    let(:foreign_course) { create(:course, course_name: 'Foreign Course', canvas_id: '888', course_code: 'FOR101') }
+    let(:foreign_assignment) { foreign_course.assignments.first }
+
+    describe 'POST #create' do
+      it 'ignores user_id in params and assigns the request to the current user' do
+        post :create, params: {
+          course_id: course.id,
+          request: {
+            assignment_id: assignment.id,
+            reason: 'Sick',
+            requested_due_date: Date.tomorrow.to_s,
+            due_time: '10:00',
+            user_id: other_user.id
+          }
+        }
+
+        expect(Request.last.user).to eq(user)
+        expect(Request.last.user).not_to eq(other_user)
+      end
+
+      it 'rejects an assignment that belongs to another course' do
+        post :create, params: {
+          course_id: course.id,
+          request: {
+            assignment_id: foreign_assignment.id,
+            reason: 'Sick',
+            requested_due_date: Date.tomorrow.to_s,
+            due_time: '10:00'
+          }
+        }
+
+        expect(response).to redirect_to(course_requests_path(course))
+        expect(flash[:alert]).to match(/Assignment not found for this course/)
+        expect(Request.last).to be_nil
+      end
+    end
+
+    describe 'PATCH #update' do
+      it 'rejects reassigning to an assignment from another course' do
+        original_assignment_id = request.assignment_id
+
+        patch :update, params: {
+          course_id: course.id,
+          id: request.id,
+          request: {
+            assignment_id: foreign_assignment.id,
+            reason: 'Updated reason',
+            requested_due_date: Date.tomorrow.to_s,
+            due_time: '12:00'
+          }
+        }
+
+        expect(response).to render_template(:edit)
+        expect(flash[:alert]).to match(/problem updating the request/)
+        expect(request.reload.assignment_id).to eq(original_assignment_id)
+      end
+    end
+
+    describe 'POST #create_for_student' do
+      let(:enrolled_student) { User.create!(email: 'enrolled@example.com', canvas_uid: '901', name: 'Enrolled Student') }
+      let(:unenrolled_student) { User.create!(email: 'unenrolled@example.com', canvas_uid: '902', name: 'Unenrolled Student') }
+
+      before do
+        session[:user_id] = instructor.canvas_uid
+        UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      end
+
+      it 'rejects filing on behalf of a student who is not enrolled in the course' do
+        post :create_for_student, params: {
+          course_id: course.id,
+          request: {
+            user_id: unenrolled_student.id,
+            assignment_id: assignment.id,
+            reason: 'Sick',
+            requested_due_date: Date.tomorrow.to_s,
+            due_time: '10:00'
+          }
+        }
+
+        expect(response).to redirect_to(new_course_request_path(course))
+        expect(flash[:alert]).to match(/not enrolled/)
+        expect(Request.where(user: unenrolled_student)).to be_empty
+      end
+
+      it 'creates a request for an enrolled student' do
+        UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
+
+        post :create_for_student, params: {
+          course_id: course.id,
+          request: {
+            user_id: enrolled_student.id,
+            assignment_id: assignment.id,
+            reason: 'Sick',
+            requested_due_date: Date.tomorrow.to_s,
+            due_time: '10:00'
+          }
+        }
+
+        expect(Request.last.user).to eq(enrolled_student)
+      end
+
+      it 'rejects an assignment that belongs to another course' do
+        UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
+
+        post :create_for_student, params: {
+          course_id: course.id,
+          request: {
+            user_id: enrolled_student.id,
+            assignment_id: foreign_assignment.id,
+            reason: 'Sick',
+            requested_due_date: Date.tomorrow.to_s,
+            due_time: '10:00'
+          }
+        }
+
+        expect(response).to redirect_to(new_course_request_path(course))
+        expect(flash[:alert]).to match(/Assignment not found for this course/)
+        expect(Request.where(user: enrolled_student)).to be_empty
+      end
+    end
+  end
 end
