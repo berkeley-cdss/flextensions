@@ -326,9 +326,18 @@ RSpec.describe RequestsController, type: :controller do
         custom_q2_disp: 'hidden'
       )
 
-      # stub out Canvas bits so that your Request#approve never blows up
+      # stub out Canvas bits so that your Request#approve never blows up.
+      # The assignment endpoint provides the base due date (override_assignment_dates=false).
+      stub_request(:get,  "#{ENV.fetch('CANVAS_URL', nil)}/api/v1/courses/456/assignments/x1")
+        .with(headers: { 'Authorization' => 'Bearer instructor_token' }, query: hash_including({}))
+        .to_return(
+          status: 200,
+          body: { id: 'x1', due_at: '2025-01-15T23:59:00Z' }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
       stub_request(:get,  "#{ENV.fetch('CANVAS_URL', nil)}/api/v1/courses/456/assignments/x1/overrides")
-        .with(headers: { 'Authorization' => 'Bearer instructor_token' })
+        .with(headers: { 'Authorization' => 'Bearer instructor_token' }, query: hash_including({}))
         .to_return(status: 200, body: '[]', headers: {})
 
       stub_request(:post, "#{ENV.fetch('CANVAS_URL', nil)}/api/v1/courses/456/assignments/x1/overrides")
