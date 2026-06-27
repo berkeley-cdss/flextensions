@@ -1,6 +1,22 @@
 require 'rails_helper'
 
 RSpec.describe SessionController, type: :controller do
+  let(:user_data) do
+    {
+      'id' => '12345',
+      'name' => 'Test User',
+      'primary_email' => 'test@example.com',
+      'email' => 'test@example.com'
+    }
+  end
+
+  let(:mock_token) do
+    instance_double(OAuth2::AccessToken,
+                    token: 'new-token',
+                    refresh_token: 'new-refresh',
+                    expires_at: 2.hours.from_now.to_i)
+  end
+
   describe 'GET #omniauth_callback' do
     let(:auth_hash) do
       OmniAuth::AuthHash.new(
@@ -34,6 +50,18 @@ RSpec.describe SessionController, type: :controller do
       end
     end
 
+    context 'when a different canvas_uid presents an existing account email' do
+      let!(:existing_user) { User.create!(email: 'test@example.com', canvas_uid: 'old_uid') }
+
+      it 'refuses the login and redirects to root with an error flash' do
+        get :omniauth_callback, params: { provider: 'canvas' }
+
+        expect(existing_user.reload.canvas_uid).to eq('old_uid')
+        expect(response).to redirect_to(root_path)
+        expect(flash[:alert]).to include('could not link your Canvas account')
+      end
+    end
+
     context 'when no auth hash is present' do
       before { request.env.delete('omniauth.auth') }
 
@@ -58,29 +86,54 @@ RSpec.describe SessionController, type: :controller do
     end
   end
 
-  describe '#find_or_create_user and #update_user_credential' do
-    let(:user_data) do
-      {
-        'id' => '12345',
-        'name' => 'Test User',
-        'primary_email' => 'test@example.com',
-        'email' => 'test@example.com'
-      }
+  describe '#canvas_lookup_or_create and #update_user_credential' do
+    context 'when user exists by canvas_uid' do
+      let!(:existing_user) { User.create!(email: 'old@example.com', canvas_uid: '12345') }
+
+      it 'updates email and LMS credentials' do
+        expect do
+          controller.send(:canvas_lookup_or_create, user_data, mock_token)
+        end.to change { existing_user.reload.email }.from('old@example.com').to('test@example.com')
+
+        creds = existing_user.reload.lms_credentials.first
+        expect(creds.token).to eq('new-token')
+      end
     end
 
-    let(:mock_token) do
-      instance_double(OAuth2::AccessToken,
-                      token: 'new-token',
-                      refresh_token: 'new-refresh',
-                      expires_at: 2.hours.from_now.to_i)
+    context 'when a different canvas_uid presents an already-known email' do
+      let!(:existing_user) { User.create!(email: 'test@example.com', canvas_uid: 'old_uid') }
+
+      it 'refuses to re-key the account, returns nil, and leaves it untouched' do
+        result = nil
+        expect do
+          result = controller.send(:canvas_lookup_or_create, user_data, mock_token)
+        end.not_to(change { existing_user.reload.canvas_uid })
+
+        expect(result).to be_nil
+        expect(existing_user.reload.canvas_uid).to eq('old_uid')
+      end
     end
 
+    context 'when user is new' do
+      it 'creates the user and LMS credentials' do
+        expect do
+          controller.send(:canvas_lookup_or_create, user_data, mock_token)
+        end.to change(User, :count).by(1)
+
+        user = User.find_by(canvas_uid: '12345')
+        expect(user.email).to eq('test@example.com')
+        expect(user.lms_credentials.first.token).to eq('new-token')
+      end
+    end
+  end
+
+  describe '#developer_lookup_or_create (masquerade path)' do
     context 'when user exists by email' do
       let!(:existing_user) { User.create!(email: 'test@example.com', canvas_uid: 'old_uid') }
 
-      it 'updates canvas_uid and LMS credentials' do
+      it 'masquerades by re-keying canvas_uid and updates LMS credentials' do
         expect do
-          controller.send(:find_or_create_user, user_data, mock_token)
+          controller.send(:developer_lookup_or_create, user_data, mock_token)
         end.to change { existing_user.reload.canvas_uid }.from('old_uid').to('12345')
 
         creds = existing_user.reload.lms_credentials.first
@@ -93,7 +146,7 @@ RSpec.describe SessionController, type: :controller do
 
       it 'updates email and LMS credentials' do
         expect do
-          controller.send(:find_or_create_user, user_data, mock_token)
+          controller.send(:developer_lookup_or_create, user_data, mock_token)
         end.to change { existing_user.reload.email }.from('old@example.com').to('test@example.com')
       end
     end
@@ -101,13 +154,24 @@ RSpec.describe SessionController, type: :controller do
     context 'when user is new' do
       it 'creates the user and LMS credentials' do
         expect do
-          controller.send(:find_or_create_user, user_data, mock_token)
+          controller.send(:developer_lookup_or_create, user_data, mock_token)
         end.to change(User, :count).by(1)
 
         user = User.find_by(canvas_uid: '12345')
         expect(user.email).to eq('test@example.com')
         expect(user.lms_credentials.first.token).to eq('new-token')
       end
+    end
+  end
+
+  describe '#developer_login_allowed?' do
+    it 'is permitted in the test environment' do
+      expect(controller.send(:developer_login_allowed?)).to be(true)
+    end
+
+    it 'is not permitted in production' do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+      expect(controller.send(:developer_login_allowed?)).to be(false)
     end
   end
 

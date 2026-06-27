@@ -18,6 +18,11 @@ Rails.application.config.middleware.use OmniAuth::Builder do
   # URL-encode the scopes defined in CanvasFacade
   encoded_scopes = CGI.escape(CanvasFacade::CANVAS_API_SCOPES)
 
+  # SECURITY: The :developer provider enables the masquerade login path in
+  # SessionController (developer_lookup_or_create), which lets a developer log
+  # in as any existing user by email without Canvas. It must NEVER be available
+  # in production. This env guard is one of two gates; the controller also
+  # re-checks developer_login_allowed? before taking that path.
   provider :developer, fields: [:email] if Rails.env.development? || Rails.env.test?
 
   provider :canvas,
