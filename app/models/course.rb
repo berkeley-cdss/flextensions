@@ -5,6 +5,7 @@
 #  id                 :bigint           not null, primary key
 #  course_code        :string
 #  course_name        :string
+#  demo_course        :boolean          default(FALSE), not null
 #  readonly_api_token :string
 #  semester           :string
 #  created_at         :datetime         not null
@@ -60,6 +61,28 @@ class Course < ApplicationRecord
   # Sorts an array of semester strings most-recent-first.
   def self.sort_semesters(semesters)
     semesters.sort_by { |s| semester_sort_key(s) }.reverse
+  end
+
+  # Seasons offered in the Course Details semester picker.
+  SEMESTER_SEASONS = %w[Winter Spring Summer Fall].freeze
+  # Earliest selectable academic year in the semester picker.
+  FIRST_SEMESTER_YEAR = 2012
+
+  # Years offered in the semester picker: FIRST_SEMESTER_YEAR through next year.
+  def self.semester_year_options(today = Date.current)
+    (FIRST_SEMESTER_YEAR..today.year + 1).to_a
+  end
+
+  # Splits a stored semester string (e.g. "Spring 2026") into [season, year]
+  # when it is a recognized season paired with an in-range year, otherwise
+  # [nil, nil]. This lets the Course Details form pre-select valid values and
+  # leave the dropdowns empty for anything stored in an unexpected format.
+  def self.parse_semester(semester)
+    season, year = semester.to_s.split
+    return [ nil, nil ] unless SEMESTER_SEASONS.include?(season)
+    return [ nil, nil ] unless year&.match?(/\A\d{4}\z/) && semester_year_options.include?(year.to_i)
+
+    [ season, year.to_i ]
   end
 
   # Month a term starts in maps to its Berkeley season.

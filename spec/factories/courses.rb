@@ -5,6 +5,7 @@
 #  id                 :bigint           not null, primary key
 #  course_code        :string
 #  course_name        :string
+#  demo_course        :boolean          default(FALSE), not null
 #  readonly_api_token :string
 #  semester           :string
 #  created_at         :datetime         not null

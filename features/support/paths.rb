@@ -24,10 +24,10 @@ module NavigationHelpers
       "courses/#{@course.id}/enrollments"
 
     when /^Course Settings page$/
-      "/courses/#{@course.id}/edit"
+      "/courses/#{@course.id}/settings/approvals"
 
     when /^Form Settings page$/
-      "/courses/#{@course.id}/form_setting/edit"
+      "/courses/#{@course.id}/settings/form/edit"
 
     when /^Requests page$/
       "/courses/#{@course.id}/requests"
