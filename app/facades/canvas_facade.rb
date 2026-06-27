@@ -352,16 +352,28 @@ class CanvasFacade < LmsFacade
     )
 
     decoded_response = parse_create_response(create_response)
-    if create_response.status != 400 || override_has_errors?(decoded_response)
-      return Lmss::Canvas::Override.new(decoded_response)
+
+    # Canvas returns a 2xx with the created override on success.
+    return Lmss::Canvas::Override.new(decoded_response) if (200..299).cover?(create_response.status)
+
+    # Canvas returns a 400 with a "taken" error when the student already belongs
+    # to an existing override. That is recoverable: fetch the existing override
+    # and update it (or split the student out of a shared override).
+    if create_response.status == 400 && !override_has_errors?(decoded_response)
+      curr_override = fetch_existing_override(course_id, student_id, assignment_id)
+      handle_response = handle_override_logic(
+        course_id, curr_override, student_id, assignment_id, override_title,
+        new_due_date, new_close_date
+      )
+      return Lmss::Canvas::Override.new(parse_create_response(handle_response))
     end
 
-    curr_override = fetch_existing_override(course_id, student_id, assignment_id)
-    handle_response = handle_override_logic(
-      course_id, curr_override, student_id, assignment_id, override_title,
-      new_due_date, new_close_date
-    )
-    Lmss::Canvas::Override.new(parse_create_response(handle_response))
+    # Any other response (e.g. 401/403 auth failures, 422 validation errors, 5xx,
+    # or a 400 carrying real errors) means Canvas did NOT create the override.
+    # Raise so the caller (Request#approve) does not mark the request approved
+    # without an override actually existing in Canvas.
+    raise CanvasAPIError,
+          "Canvas rejected the assignment override (HTTP #{create_response.status}): #{create_response.body}"
   end
 
   private
