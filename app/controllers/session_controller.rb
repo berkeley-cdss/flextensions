@@ -63,13 +63,38 @@ class SessionController < ApplicationController
       expires_at: expires_at
     )
 
-    # Persist / update the user just like `create`
-    user = find_or_create_user(user_data, access_token)
+    # Choose the account-resolution path based on the provider.
+    #
+    # The :developer provider is a deliberate masquerade hole that lets a
+    # developer log in *as* an existing user without going through Canvas. It
+    # must never be reachable in production, so we gate it twice: the provider
+    # is only registered in dev/test (config/initializers/omniauth.rb) AND we
+    # re-check developer_login_allowed? here as defense in depth.
+    developer = auth.provider == 'developer'
+    if developer && !developer_login_allowed?
+      Rails.logger.error('Developer login attempted in a non-permitted environment')
+      redirect_to root_path, alert: 'Authentication failed. Please try again.'
+      return
+    end
+
+    user =
+      if developer
+        developer_lookup_or_create(user_data, access_token)
+      else
+        canvas_lookup_or_create(user_data, access_token)
+      end
+
+    # canvas_lookup_or_create returns nil when it refuses to silently re-key an
+    # existing account to a new canvas_uid (potential account takeover).
+    if user.nil?
+      redirect_to root_path,
+                  alert: 'We could not link your Canvas account to an existing ' \
+                         'account with the same email. Please contact an administrator.'
+      return
+    end
 
     # Auto-enroll developer login users in test courses
-    if auth.provider == 'developer'
-      ensure_developer_test_enrollments(user)
-    end
+    ensure_developer_test_enrollments(user) if developer
 
     redirect_to courses_path, notice: "Logged in! Welcome, #{user_data['name']}!"
   rescue StandardError => e
@@ -99,10 +124,64 @@ class SessionController < ApplicationController
     end
   end
 
-  # TODO: Refactor.
-  def find_or_create_user(user_data, auth_token)
-    auth_token.token
-    user = nil
+  # Whether the developer (masquerade) login path may be used.
+  #
+  # This mirrors the env guard that registers the :developer OmniAuth provider
+  # in config/initializers/omniauth.rb -- both must be true for developer login
+  # to be reachable. Keeping the check here (and not only in the initializer)
+  # ensures the impersonation path can never run in production even if a
+  # :developer callback somehow reaches the controller.
+  def developer_login_allowed?
+    # Rails.env.local? is true only in development and test, matching the env
+    # guard around the :developer provider in config/initializers/omniauth.rb.
+    Rails.env.local?
+  end
+
+  # Canonical production login path.
+  #
+  # Canvas is the source of truth for identity, so a user is keyed by their
+  # canvas_uid:
+  #   * If we recognize the canvas_uid, we refresh the email from Canvas.
+  #   * If we DON'T recognize the canvas_uid but the incoming email already
+  #     belongs to another account, we REFUSE to re-key that account to the new
+  #     canvas_uid and return nil. Silently re-keying would let anyone able to
+  #     create a Canvas account with a victim's email take over the victim's
+  #     account here.
+  #   * Otherwise we create a brand new account.
+  def canvas_lookup_or_create(user_data, auth_token)
+    user = User.find_by(canvas_uid: user_data['id'])
+
+    if user
+      user.email = user_data['email']
+    elsif User.exists?(email: user_data['primary_email'])
+      # A different canvas_uid is presenting an email we already know. Refuse
+      # the silent account re-key (potential takeover) and let the caller
+      # surface an error to the user.
+      Rails.logger.warn(
+        "Refusing to link canvas_uid=#{user_data['id']} to existing account " \
+        "with email=#{user_data['primary_email']}"
+      )
+      return nil
+    else
+      user = User.new(canvas_uid: user_data['id'])
+      user.assign_attributes(
+        email: user_data['email'],
+        name: user_data['name']
+      )
+    end
+
+    persist_login!(user, auth_token)
+  end
+
+  # Developer / test masquerade path.
+  #
+  # This INTENTIONALLY preserves the legacy email-first matching so a developer
+  # can log in *as* an existing user without going through Canvas. It is a
+  # deliberate impersonation hole and is only ever reached when
+  # developer_login_allowed? is true (see omniauth_callback and omniauth.rb).
+  # Do NOT use this logic for the production Canvas path -- see
+  # canvas_lookup_or_create for why email-first matching is unsafe there.
+  def developer_lookup_or_create(user_data, auth_token)
     if User.exists?(email: user_data['primary_email'])
       user = User.find_by(email: user_data['primary_email'])
       user.canvas_uid = user_data['id']
@@ -116,6 +195,13 @@ class SessionController < ApplicationController
         name: user_data['name']
       )
     end
+
+    persist_login!(user, auth_token)
+  end
+
+  # Shared finalization for both login paths: persist the user, refresh their
+  # LMS credentials, and establish the session.
+  def persist_login!(user, auth_token)
     user.save!
     update_user_credential(user, auth_token)
 
