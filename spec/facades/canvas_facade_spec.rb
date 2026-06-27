@@ -424,6 +424,20 @@ describe CanvasFacade do
       end.to raise_error(FailedPipelineError)
     end
 
+    it 'raises when Canvas rejects the override with an auth error so the request is not silently approved' do
+      unauthorized_response = instance_double(Faraday::Response, status: 401, body: '{"errors":[{"message":"Invalid access token."}]}')
+      allow(facade).to receive(:create_assignment_override).and_return(unauthorized_response)
+
+      expect do
+        facade.provision_extension(
+          course_id,
+          student_id,
+          assignment_id,
+          mock_date
+        )
+      end.to raise_error(CanvasFacade::CanvasAPIError, /HTTP 401/)
+    end
+
     it 'throws an error if the existing override cannot be found' do
       allow(facade).to receive_messages(create_assignment_override: create_taken_response, get_existing_student_override: nil)
       expect do
