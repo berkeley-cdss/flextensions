@@ -58,7 +58,7 @@ RSpec.describe SessionController, type: :controller do
 
         expect(existing_user.reload.canvas_uid).to eq('old_uid')
         expect(response).to redirect_to(root_path)
-        expect(flash[:alert]).to include('could not link your Canvas account')
+        expect(flash[:alert]).to include('could not link your account')
       end
     end
 
@@ -160,6 +160,21 @@ RSpec.describe SessionController, type: :controller do
         user = User.find_by(canvas_uid: '12345')
         expect(user.email).to eq('test@example.com')
         expect(user.lms_credentials.first.token).to eq('new-token')
+      end
+    end
+
+    context 'when developer login is not permitted' do
+      before do
+        allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+      end
+
+      it 'returns nil without creating a user' do
+        result = nil
+        expect do
+          result = controller.send(:developer_lookup_or_create, user_data, mock_token)
+        end.not_to change(User, :count)
+
+        expect(result).to be_nil
       end
     end
   end
