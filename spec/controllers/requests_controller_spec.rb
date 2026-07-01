@@ -743,7 +743,7 @@ RSpec.describe RequestsController, type: :controller do
         expect(Request.last.user).not_to eq(other_user)
       end
 
-      it 'rejects an assignment that belongs to another course' do
+      it 'treats an assignment from another course as an invalid request' do
         post :create, params: {
           course_id: course.id,
           request: {
@@ -754,14 +754,14 @@ RSpec.describe RequestsController, type: :controller do
           }
         }
 
-        expect(response).to redirect_to(course_requests_path(course))
-        expect(flash[:alert]).to match(/Assignment not found for this course/)
+        expect(response).to render_template(:new)
+        expect(flash[:alert]).to match(/problem submitting your request/)
         expect(Request.last).to be_nil
       end
     end
 
     describe 'PATCH #update' do
-      it 'rejects reassigning to an assignment from another course' do
+      it 'ignores an attempt to reassign the assignment and keeps the original' do
         original_assignment_id = request.assignment_id
 
         patch :update, params: {
@@ -775,9 +775,45 @@ RSpec.describe RequestsController, type: :controller do
           }
         }
 
-        expect(response).to render_template(:edit)
-        expect(flash[:alert]).to match(/problem updating the request/)
+        expect(response).to redirect_to(course_request_path(course, request))
         expect(request.reload.assignment_id).to eq(original_assignment_id)
+        expect(request.reason).to eq('Updated reason')
+      end
+    end
+
+    describe "another student's request" do
+      let(:other_student) { User.create!(email: 'other-owner@example.com', canvas_uid: '903', name: 'Other Owner') }
+      let(:others_request) do
+        Request.create!(user: other_student, course: course, assignment: assignment, reason: 'Theirs', requested_due_date: 3.days.from_now)
+      end
+
+      before { UserToCourse.create!(user: other_student, course: course, role: 'student') }
+
+      it 'is not viewable via #show' do
+        get :show, params: { course_id: course.id, id: others_request.id }
+
+        expect(response).to redirect_to(course_path(course))
+        expect(flash[:alert]).to eq('Request not found.')
+      end
+
+      it 'is not editable via #update' do
+        patch :update, params: {
+          course_id: course.id,
+          id: others_request.id,
+          request: { reason: 'Hijacked', requested_due_date: Date.tomorrow.to_s, due_time: '12:00' }
+        }
+
+        expect(response).to redirect_to(course_path(course))
+        expect(flash[:alert]).to eq('Request not found.')
+        expect(others_request.reload.reason).to eq('Theirs')
+      end
+
+      it 'is not cancelable via #cancel' do
+        post :cancel, params: { course_id: course.id, id: others_request.id }
+
+        expect(response).to redirect_to(course_path(course))
+        expect(flash[:alert]).to eq('Request not found.')
+        expect(others_request.reload.status).to eq('pending')
       end
     end
 
@@ -807,6 +843,22 @@ RSpec.describe RequestsController, type: :controller do
         expect(Request.where(user: unenrolled_student)).to be_empty
       end
 
+      it 'rejects filing for a user id that does not exist' do
+        post :create_for_student, params: {
+          course_id: course.id,
+          request: {
+            user_id: 0,
+            assignment_id: assignment.id,
+            reason: 'Sick',
+            requested_due_date: Date.tomorrow.to_s,
+            due_time: '10:00'
+          }
+        }
+
+        expect(response).to redirect_to(new_course_request_path(course))
+        expect(flash[:alert]).to match(/not enrolled/)
+      end
+
       it 'creates a request for an enrolled student' do
         UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
 
@@ -824,7 +876,7 @@ RSpec.describe RequestsController, type: :controller do
         expect(Request.last.user).to eq(enrolled_student)
       end
 
-      it 'rejects an assignment that belongs to another course' do
+      it 'treats an assignment from another course as an invalid request' do
         UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
 
         post :create_for_student, params: {
@@ -838,8 +890,8 @@ RSpec.describe RequestsController, type: :controller do
           }
         }
 
-        expect(response).to redirect_to(new_course_request_path(course))
-        expect(flash[:alert]).to match(/Assignment not found for this course/)
+        expect(response).to render_template(:new_for_student)
+        expect(flash[:alert]).to match(/problem submitting the request/)
         expect(Request.where(user: enrolled_student)).to be_empty
       end
     end
