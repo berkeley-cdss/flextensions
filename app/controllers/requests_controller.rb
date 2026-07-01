@@ -62,7 +62,7 @@ class RequestsController < ApplicationController
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
 
     @assignments = Assignment.enabled_for_course(course_to_lmss).order(:name)
-    @students = User.joins(:user_to_courses).where(user_to_courses: { course_id: @course.id, role: 'student' }).order(:name)
+    @students = User.joins(:enrollments).where(enrollments: { course_id: @course.id, role: 'student' }).order(:name)
     @request = @course.requests.new
   end
 
@@ -253,7 +253,7 @@ class RequestsController < ApplicationController
   end
 
   def prepare_instructor_new_request(course_to_lms_ids)
-    @students = User.joins(:user_to_courses).where(user_to_courses: { course_id: @course.id, role: 'student' }).order(:name)
+    @students = User.joins(:enrollments).where(enrollments: { course_id: @course.id, role: 'student' }).order(:name)
     @request = @course.requests.new
     @assignments = Assignment.enabled_for_course(course_to_lms_ids).order(:name)
   end

@@ -1,15 +1,15 @@
 require 'rails_helper'
 
-RSpec.describe UserToCoursesController, type: :controller do
+RSpec.describe EnrollmentsController, type: :controller do
   let(:instructor) { User.create!(email: 'instructor@example.com', canvas_uid: '100', name: 'Instructor') }
   let(:student_user) { User.create!(email: 'student@example.com', canvas_uid: '200', name: 'Student') }
   let(:course) { Course.create!(course_name: 'Test Course', canvas_id: '456', course_code: 'TST101') }
-  let(:student_enrollment) { UserToCourse.create!(user: student_user, course: course, role: 'student') }
+  let(:student_enrollment) { Enrollment.create!(user: student_user, course: course, role: 'student') }
 
   describe 'PATCH #toggle_allow_extended_requests' do
     context 'when user is an instructor' do
       before do
-        UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
         student_enrollment
         session[:user_id] = instructor.canvas_uid
         instructor.lms_credentials.create!(
@@ -49,8 +49,8 @@ RSpec.describe UserToCoursesController, type: :controller do
       it 'returns unprocessable_entity when update fails' do
         errors = ActiveModel::Errors.new(student_enrollment)
         errors.add(:base, 'Validation failed')
-        allow_any_instance_of(UserToCourse).to receive(:update).and_return(false)
-        allow_any_instance_of(UserToCourse).to receive(:errors).and_return(errors)
+        allow_any_instance_of(Enrollment).to receive(:update).and_return(false)
+        allow_any_instance_of(Enrollment).to receive(:errors).and_return(errors)
 
         patch :toggle_allow_extended_requests, params: {
           course_id: course.id,
@@ -123,7 +123,7 @@ RSpec.describe UserToCoursesController, type: :controller do
 
     context 'when enrollment does not exist' do
       before do
-        UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
         session[:user_id] = instructor.canvas_uid
         instructor.lms_credentials.create!(
           lms_name: 'canvas',

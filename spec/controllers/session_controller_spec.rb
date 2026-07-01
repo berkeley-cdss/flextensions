@@ -148,7 +148,7 @@ RSpec.describe SessionController, type: :controller do
         get :omniauth_callback, params: { provider: 'developer' }
 
         user = User.find_by(canvas_uid: 'test@example.com')
-        enrollment = UserToCourse.find_by(user_id: user.id, course_id: test_course.id)
+        enrollment = Enrollment.find_by(user_id: user.id, course_id: test_course.id)
 
         expect(enrollment).to be_present
         expect(enrollment.role).to eq('student')

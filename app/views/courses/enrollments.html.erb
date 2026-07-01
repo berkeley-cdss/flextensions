@@ -65,7 +65,7 @@
                             data-enrollments-target="checkbox"
                             data-action="change->enrollments#toggleExtended"
                             data-enrollment-id="<%= enrollment.id %>"
-                            data-url="<%= toggle_allow_extended_requests_course_user_to_course_path(@course, enrollment) %>">
+                            data-url="<%= toggle_allow_extended_requests_course_enrollment_path(@course, enrollment) %>">
                       <label class="visually-hidden" for="extended-<%= enrollment.id %>-enabled">
                         Approve extended requests for <%= enrollment.user.name %>
                       </label>
