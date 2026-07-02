@@ -781,7 +781,7 @@ RSpec.describe RequestsController, type: :controller do
         }
 
         expect(response).to render_template(:new)
-        expect(flash[:alert]).to match(/problem submitting your request/)
+        expect(flash[:alert]).to include('problem submitting your request')
         expect(Request.last).to be_nil
       end
     end
@@ -865,7 +865,7 @@ RSpec.describe RequestsController, type: :controller do
         }
 
         expect(response).to redirect_to(new_course_request_path(course))
-        expect(flash[:alert]).to match(/not enrolled/)
+        expect(flash[:alert]).to include('not enrolled')
         expect(Request.where(user: unenrolled_student)).to be_empty
       end
 
@@ -882,7 +882,7 @@ RSpec.describe RequestsController, type: :controller do
         }
 
         expect(response).to redirect_to(new_course_request_path(course))
-        expect(flash[:alert]).to match(/not enrolled/)
+        expect(flash[:alert]).to include('not enrolled')
       end
 
       it 'creates a request for an enrolled student' do
@@ -917,7 +917,7 @@ RSpec.describe RequestsController, type: :controller do
         }
 
         expect(response).to render_template(:new_for_student)
-        expect(flash[:alert]).to match(/problem submitting the request/)
+        expect(flash[:alert]).to include('problem submitting the request')
         expect(Request.where(user: enrolled_student)).to be_empty
       end
     end
