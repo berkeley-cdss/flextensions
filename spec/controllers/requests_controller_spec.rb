@@ -292,6 +292,30 @@ RSpec.describe RequestsController, type: :controller do
       expect(response).to redirect_to(course_request_path(course, request))
       expect(flash[:notice]).to include('updated')
     end
+
+    it 'does not reassign the request to a different assignment' do
+      other_assignment = Assignment.create!(
+        name: 'A2',
+        course_to_lms_id: course_to_lms.id,
+        due_date: 5.days.from_now,
+        external_assignment_id: 'x2',
+        enabled: true
+      )
+
+      patch :update, params: {
+        course_id: course.id,
+        id: request.id,
+        request: {
+          assignment_id: other_assignment.id,
+          reason: 'Updated reason',
+          requested_due_date: Date.tomorrow.to_s,
+          due_time: '12:00'
+        }
+      }
+
+      expect(response).to redirect_to(course_request_path(course, request))
+      expect(request.reload.assignment_id).to eq(assignment.id)
+    end
   end
 
   describe 'POST #cancel' do
