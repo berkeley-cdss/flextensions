@@ -19,7 +19,9 @@
 FactoryBot.define do
   factory :user do
     sequence(:email) { |n| "user#{n}@example.com" }
-    sequence(:canvas_uid, &:to_s)
+    # Offset so generated UIDs never collide with the low, hand-picked
+    # canvas_uid literals (e.g. '123', '566') used directly in specs.
+    sequence(:canvas_uid) { |n| (n + 100_000).to_s }
     sequence(:name) { |n| "User #{n}" }
 
     factory :admin do

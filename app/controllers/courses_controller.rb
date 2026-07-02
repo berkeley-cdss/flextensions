@@ -30,6 +30,7 @@ class CoursesController < ApplicationController
       @assignments = @course.enabled_assignments
     else
       @assignments = @course.assignments
+      @assignments_last_synced_at = assignments_last_synced_at
     end
     render_role_based_view
   end
@@ -115,6 +116,16 @@ class CoursesController < ApplicationController
   # Returns the time the roster was last synced from Canvas, or nil if never synced.
   def enrollments_last_synced_at
     synced_at = @course.course_to_lms&.recent_roster_sync&.dig('synced_at')
+    return nil if synced_at.blank?
+
+    Time.zone.parse(synced_at.to_s)
+  rescue ArgumentError, TypeError
+    nil
+  end
+
+  # Returns the time assignments were last synced from the LMS, or nil if never synced.
+  def assignments_last_synced_at
+    synced_at = @course.course_to_lms&.recent_assignment_sync&.dig('synced_at')
     return nil if synced_at.blank?
 
     Time.zone.parse(synced_at.to_s)
