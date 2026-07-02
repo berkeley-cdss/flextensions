@@ -1,0 +1,57 @@
+<%# Renders this student's other extension requests in the course so an
+    instructor can spot patterns before approving/denying. Locals: review
+    (RequestReviewPresenter), course. %>
+<div class="mb-4">
+	<h3 class="mb-2 h6">This Student's Extension History in <%= course.course_code.presence || 'this Course' %></h3>
+	<p class="text-muted small mb-2">
+		<span class="badge text-bg-success"><%= review.approved_count %> approved</span>
+		<span class="badge text-bg-info"><%= review.pending_count %> pending</span>
+		<span class="badge text-bg-danger"><%= review.denied_count %> denied</span>
+		(excluding this request)
+	</p>
+	<% if review.student_requests.any? %>
+		<div class="table-responsive">
+			<table class="table table-sm table-bordered mb-0">
+				<thead class="table-light">
+					<tr>
+						<th>Assignment</th>
+						<th>Requested Due Date</th>
+						<th># Days</th>
+						<th>Submitted</th>
+						<th>Status</th>
+					</tr>
+				</thead>
+				<tbody>
+					<% review.student_requests.each do |prior| %>
+						<tr>
+							<td><%= link_to prior.assignment&.name || 'N/A', course_request_path(course, prior) %></td>
+							<td><%= prior.requested_due_date&.strftime('%b %-d, %Y %-I:%M%P') || 'N/A' %></td>
+							<td>
+								<% if prior.assignment&.due_date && prior.requested_due_date.present? %>
+									<%= (prior.requested_due_date.to_date - prior.assignment.due_date.to_date).to_i %>
+								<% else %>
+									N/A
+								<% end %>
+							</td>
+							<td><%= prior.created_at&.strftime('%b %-d, %Y') || 'N/A' %></td>
+							<td>
+								<% case prior.status %>
+								<% when 'approved' %>
+									<span class="badge text-bg-success"><%= prior.auto_approved ? 'Auto Approved' : 'Approved' %></span>
+								<% when 'denied' %>
+									<span class="badge text-bg-danger">Denied</span>
+								<% when 'pending' %>
+									<span class="badge text-bg-info">Pending</span>
+								<% else %>
+									<span class="badge text-bg-secondary">Unknown</span>
+								<% end %>
+							</td>
+						</tr>
+					<% end %>
+				</tbody>
+			</table>
+		</div>
+	<% else %>
+		<p class="text-muted small mb-0">This student has no other extension requests in this course.</p>
+	<% end %>
+</div>

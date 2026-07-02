@@ -64,7 +64,7 @@ class CoursesController < ApplicationController
 
   def edit
     @side_nav = 'edit'
-    redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
+    redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless staff_user?
   end
 
   def create
@@ -92,7 +92,7 @@ class CoursesController < ApplicationController
 
   def enrollments
     @side_nav = 'enrollments'
-    return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
+    return redirect_to courses_path, alert: 'You do not have access to this page.' unless staff_user?
 
     @enrollments = @course.user_to_courses.includes(:user)
     @is_course_admin = @course.course_admin?(@user)
@@ -100,7 +100,7 @@ class CoursesController < ApplicationController
   end
 
   def delete
-    return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
+    return redirect_to courses_path, alert: 'You do not have access to this page.' unless staff_user?
     return redirect_to courses_path, alert: 'Extensions are enabled for this course.' if @course.course_settings&.enable_extensions
 
     assignments = Assignment.where(course_to_lms_id: CourseToLms.where(course_id: @course.id).select(:id))
