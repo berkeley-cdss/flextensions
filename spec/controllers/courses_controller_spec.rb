@@ -92,6 +92,33 @@ RSpec.describe CoursesController, type: :controller do
       end
     end
 
+    context 'when the user is an instructor' do
+      let!(:course_to_lms_record) { CourseToLms.create!(course: course, external_course_id: '456', lms_id: 1) }
+
+      before do
+        UserToCourse.create!(user: user, course: course, role: 'teacher')
+      end
+
+      it 'renders the instructor show template' do
+        get :show, params: { id: course.id }
+        expect(response).to render_template('courses/instructor_show')
+      end
+
+      it 'assigns @assignments_last_synced_at from the recent assignment sync' do
+        synced_at = Time.zone.parse('2026-06-20 10:00:00')
+        course_to_lms_record.update!(recent_assignment_sync: { 'synced_at' => synced_at.iso8601 })
+
+        get :show, params: { id: course.id }
+
+        expect(assigns(:assignments_last_synced_at)).to be_within(1.second).of(synced_at)
+      end
+
+      it 'leaves @assignments_last_synced_at nil when assignments have never been synced' do
+        get :show, params: { id: course.id }
+        expect(assigns(:assignments_last_synced_at)).to be_nil
+      end
+    end
+
     context 'when course does not exist' do
       it 'redirects to courses_path with alert' do
         get :show, params: { id: '9999' }

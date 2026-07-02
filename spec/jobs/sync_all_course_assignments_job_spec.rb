@@ -89,23 +89,21 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
       )
     end
 
-    context 'when assignment has base_date field' do
+    context 'when an assignment carries top-level base dates' do
+      # With override_assignment_dates=false the top-level due_at/lock_at are the
+      # base ("Everyone") dates. See docs/Canvas_Dates_API.md.
       let(:canvas_assignments) do
         [
           build_canvas_assignment(
             'id' => '123',
-            'name' => 'Assignment with base_date',
-            'due_at' => nil,
-            'lock_at' => nil,
-            'base_date' => {
-              'due_at' => '2025-03-15T23:59:00Z',
-              'lock_at' => '2025-03-20T23:59:00Z'
-            }
+            'name' => 'Assignment with base dates',
+            'due_at' => '2025-03-15T23:59:00Z',
+            'lock_at' => '2025-03-20T23:59:00Z'
           )
         ]
       end
 
-      it 'uses base_date when present' do
+      it 'stores the top-level base dates' do
         described_class.perform_now(course_to_lms.id, sync_user.id)
 
         assignment = Assignment.find_by(external_assignment_id: '123')

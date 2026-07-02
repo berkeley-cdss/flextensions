@@ -12,12 +12,11 @@ module Lmss
 
       private
 
+      # The facade fetches assignments with override_assignment_dates=false, so
+      # the top-level due_at/lock_at are the assignment's base ("Everyone") dates
+      # for any number of overrides. See docs/Canvas_Dates_API.md.
       def extract_date_field(assignment_data, field_name)
-        if assignment_data['base_date'] && assignment_data['base_date'][field_name].present?
-          DateTime.parse(assignment_data['base_date'][field_name])
-        elsif assignment_data[field_name].present?
-          DateTime.parse(assignment_data[field_name])
-        end
+        DateTime.parse(assignment_data[field_name]) if assignment_data[field_name].present?
       end
     end
   end

@@ -18,7 +18,7 @@ Rails.application.config.middleware.use OmniAuth::Builder do
   # URL-encode the scopes defined in CanvasFacade
   encoded_scopes = CGI.escape(CanvasFacade::CANVAS_API_SCOPES)
 
-  provider :developer, fields: [:email] if Rails.env.development? || Rails.env.test?
+  provider :developer, fields: [:email] if Rails.env.local?
 
   provider :canvas,
           ENV['CANVAS_CLIENT_ID'],

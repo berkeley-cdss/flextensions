@@ -78,9 +78,20 @@ RSpec.describe ApplicationController, type: :controller do
     end
 
     context 'when user token has expired' do
-      it 'resets session and redirects with alert' do
+      before do
         user.lms_credentials.first.update!(expire_time: 1.hour.ago)
         session[:user_id] = user.canvas_uid
+      end
+
+      it 'refreshes the token and continues to the requested action when refresh succeeds' do
+        allow_any_instance_of(described_class).to receive(:refresh_user_token).and_return('new_token')
+
+        get :index
+        expect(response.body).to eq('OK')
+      end
+
+      it 'resets session and redirects with alert when refresh fails' do
+        allow_any_instance_of(described_class).to receive(:refresh_user_token).and_return(nil)
 
         get :index
         expect(response).to redirect_to(root_path)

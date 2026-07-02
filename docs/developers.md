@@ -174,6 +174,12 @@ Notice the ```testid-username```We will be using this style in **class** to grab
 Please don't remove any class that starts with ```testid-```
 
 # Notes
+
+For how Flextensions reads Canvas assignment due dates and reads/writes
+assignment overrides (and the gotchas around `override_assignment_dates`, the
+25-date `all_dates` limit, and `/date_details`), see
+[Canvas Dates API notes](/flextensions/canvas-dates-api/) (`docs/Canvas_Dates_API.md`).
+
 There are now two separate instances of Canvas, each with it's own triad of prod/test/beta environments:
 1. [bcourses.berkeley.edu](bcourses.berkeley.edu)
 2. [ucberkeleysandbox.instructure.com](ucberkeleysandbox.instructure.com)
