@@ -4,7 +4,6 @@ class AssignmentsController < ApplicationController
     course = @assignment.course_to_lms.course
 
     unless course&.course_staff?(current_user)
-      Rails.logger.error 'User does not have permission to toggle assignment enabled status'
       flash.now[:alert] = 'You do not have permission to perform this action.'
       return render json: { redirect_to: course_path(course) }, status: :forbidden
     end
