@@ -53,6 +53,16 @@
                                 <small class="text-muted">Current semester: <%= @course.semester.presence || 'Unknown Semester' %></small>
                             </div>
                         </div>
+
+                        <div class="mb-3 row">
+                            <div class="col-sm-8 offset-sm-4">
+                                <div class="form-check form-switch">
+                                    <%= form.check_box :demo_course, class: 'form-check-input', id: 'demo-course' %>
+                                    <label class="form-check-label" for="demo-course">Demo course</label>
+                                </div>
+                                <small class="text-muted">Marks this as a demo/sandbox course so it can be excluded from usage metrics.</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

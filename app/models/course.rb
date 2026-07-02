@@ -246,22 +246,8 @@ class Course < ApplicationRecord
         gradescope_course_url: nil,
         enable_emails: false,
         reply_email: nil,
-        email_subject: 'Extension Request Status: {{status}} - {{course_code}}',
-        email_template: <<~TEMPLATE
-          Dear {{student_name}},
-
-          Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
-
-          Extension Details:
-          - Original Due Date: {{original_due_date}}
-          - New Due Date: {{new_due_date}}
-          - Extension Days: {{extension_days}}
-
-          If you have any questions, please contact the course staff.
-
-          Best regards,
-          {{course_name}} Staff
-        TEMPLATE
+        email_subject: CourseSettings::DEFAULT_EMAIL_SUBJECT,
+        email_template: CourseSettings::DEFAULT_EMAIL_TEMPLATE
       )
       course_settings.save!
     end

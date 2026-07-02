@@ -3,7 +3,7 @@ class CoursesController < ApplicationController
   before_action :set_course, only: %i[show edit update sync_assignments sync_enrollments enrollments delete]
   before_action :set_pending_request_count
   before_action :determine_user_role
-  before_action :require_course_instructor, only: %i[edit update]
+  before_action :require_course_staff, only: %i[edit update]
 
   def index
     teacher_courses = UserToCourse.includes(:course).where(user: @user, role: UserToCourse.staff_roles)
@@ -133,14 +133,14 @@ class CoursesController < ApplicationController
 
   private
 
-  def require_course_instructor
-    return if @role == 'instructor'
+  def require_course_staff
+    return if @course.course_staff?(@user)
 
     redirect_to course_path(@course.id), alert: 'You do not have access to this page.'
   end
 
   def course_params
-    params.require(:course).permit(:course_name, :course_code)
+    params.require(:course).permit(:course_name, :course_code, :demo_course)
   end
 
   # Course-level settings edited alongside the course itself on Course Details.

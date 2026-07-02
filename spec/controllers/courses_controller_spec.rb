@@ -152,6 +152,12 @@ RSpec.describe CoursesController, type: :controller do
       expect(course.semester).to eq('Fall 2025')
     end
 
+    it 'can flag the course as a demo course' do
+      patch :update, params: { id: course.id, course: { course_name: 'Test Course', demo_course: '1' } }
+
+      expect(course.reload.demo_course).to be true
+    end
+
     it 'leaves the semester unchanged when the dropdowns are blank' do
       course.update!(semester: 'weird-format')
 

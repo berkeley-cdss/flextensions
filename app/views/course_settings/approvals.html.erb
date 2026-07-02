@@ -4,7 +4,6 @@
             <%= render "courses/course_title" %>
             <h1 class="sr-only">Automatic Approvals</h1>
             <%= form_with url: course_settings_path(@course), method: :patch do |form| %>
-                <%= hidden_field_tag :page, 'approvals' %>
                 <div class="card rounded-0 mb-4">
                     <div class="card-header bg-light">
                         <h2 class="card-title mb-0 h5">Automatic Approvals</h2>

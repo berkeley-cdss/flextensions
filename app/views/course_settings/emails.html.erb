@@ -4,7 +4,6 @@
             <%= render "courses/course_title" %>
             <h1 class="sr-only">Email Templates</h1>
             <%= form_with url: course_settings_path(@course), method: :patch do |form| %>
-                <%= hidden_field_tag :page, 'emails' %>
                 <div class="card rounded-0 mb-4">
                     <div class="card-header bg-light d-flex justify-content-between align-items-center">
                         <h2 class="card-title mb-0 h5">Email Template</h2>
@@ -18,7 +17,7 @@
                         <div class="mb-3">
                             <label for="email-subject" class="form-label">Email Subject</label>
                             <%= text_field_tag 'course_settings[email_subject]',
-                                             @course.course_settings&.email_subject || "Extension Request Status: {{status}} - {{course_code}}",
+                                             @course.course_settings&.email_subject || CourseSettings::DEFAULT_EMAIL_SUBJECT,
                                              class: 'form-control',
                                              id: 'email-subject' %>
                             <small class="text-muted">Use {{variable_name}} to insert dynamic values</small>
@@ -27,7 +26,7 @@
                         <div class="mb-3">
                             <label for="email-template" class="form-label">Email Body</label>
                             <%= text_area_tag 'course_settings[email_template]',
-                                            @course.course_settings&.email_template || "Dear {{student_name}},\n\nYour extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.\n\nExtension Details:\n- Original Due Date: {{original_due_date}}\n- New Due Date: {{new_due_date}}\n- Extension Days: {{extension_days}}\n\nIf you have any questions, please contact the course staff.\n\nBest regards,\n{{course_name}} Staff",
+                                            @course.course_settings&.email_template || CourseSettings::DEFAULT_EMAIL_TEMPLATE,
                                             class: 'form-control',
                                             id: 'email-template',
                                             rows: 10 %>

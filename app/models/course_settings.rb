@@ -35,8 +35,9 @@
 
 class CourseSettings < ApplicationRecord
   # TODO: Remove the db default text, and use an AR validation.
-  DEFAULT_EMAIL_TEMPLATE = <<~LIQUID.freeze
-    Hello {{student_name}},
+  DEFAULT_EMAIL_SUBJECT = 'Extension Request Status: {{status}} - {{course_code}}'.freeze
+  DEFAULT_EMAIL_TEMPLATE = <<~TEMPLATE.freeze
+    Dear {{student_name}},
 
     Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
 
@@ -45,11 +46,11 @@ class CourseSettings < ApplicationRecord
     - New Due Date: {{new_due_date}}
     - Extension Days: {{extension_days}}
 
-    If you have any questions, please reach out to your course staff.
+    If you have any questions, please contact the course staff.
 
-    Thank you,
+    Best regards,
     {{course_name}} Staff
-  LIQUID
+  TEMPLATE
 
   belongs_to :course
 
