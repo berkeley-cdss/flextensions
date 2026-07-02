@@ -142,7 +142,7 @@ class Course < ApplicationRecord
   end
 
   def course_student?(user)
-    user_to_courses.where(user_id: user.id).any?(&:student?)
+    enrollments.where(user_id: user.id).any?(&:student?)
   end
 
   # Extensions are enabled only when the course has settings that turn them on.

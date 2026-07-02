@@ -23,7 +23,7 @@ RSpec.describe AssignmentsController, type: :controller do
 
     context 'when the user is an instructor' do
       before do
-        UserToCourse.create!(user: user, course: course, role: UserToCourse::TEACHER_ROLE)
+        Enrollment.create!(user: user, course: course, role: Enrollment::TEACHER_ROLE)
       end
 
       it 'updates the enabled status to true' do
@@ -45,7 +45,7 @@ RSpec.describe AssignmentsController, type: :controller do
 
     context 'when the user is not an instructor' do
       before do
-        UserToCourse.create!(user: user, course: course, role: UserToCourse::STUDENT_ROLE)
+        Enrollment.create!(user: user, course: course, role: Enrollment::STUDENT_ROLE)
       end
 
       it 'returns a forbidden status' do
@@ -58,7 +58,7 @@ RSpec.describe AssignmentsController, type: :controller do
 
     context 'when a student forges an instructor role in the request body' do
       before do
-        UserToCourse.create!(user: user, course: course, role: UserToCourse::STUDENT_ROLE)
+        Enrollment.create!(user: user, course: course, role: Enrollment::STUDENT_ROLE)
       end
 
       it 'ignores the client-supplied role and returns forbidden' do
@@ -72,7 +72,7 @@ RSpec.describe AssignmentsController, type: :controller do
     context 'when course-level extensions are disabled' do
       before do
         course_settings.update!(enable_extensions: false)
-        UserToCourse.create!(user: user, course: course, role: UserToCourse::TEACHER_ROLE)
+        Enrollment.create!(user: user, course: course, role: Enrollment::TEACHER_ROLE)
       end
 
       it 'still allows enabling the assignment and returns ok status' do
@@ -85,7 +85,7 @@ RSpec.describe AssignmentsController, type: :controller do
 
     context 'when there is no due_date on an Assignment' do
       before do
-        UserToCourse.create!(user: user, course: course, role: UserToCourse::TEACHER_ROLE)
+        Enrollment.create!(user: user, course: course, role: Enrollment::TEACHER_ROLE)
         assignment.update!(due_date: nil)
       end
 

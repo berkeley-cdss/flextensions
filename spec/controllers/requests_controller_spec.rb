@@ -88,7 +88,7 @@ RSpec.describe RequestsController, type: :controller do
 
     it 'renders the on-behalf-of form for staff' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
 
       get :new, params: { course_id: course.id }
 
@@ -856,7 +856,7 @@ RSpec.describe RequestsController, type: :controller do
         Request.create!(user: other_student, course: course, assignment: assignment, reason: 'Theirs', requested_due_date: 3.days.from_now)
       end
 
-      before { UserToCourse.create!(user: other_student, course: course, role: 'student') }
+      before { Enrollment.create!(user: other_student, course: course, role: 'student') }
 
       it 'is not viewable via #show' do
         get :show, params: { course_id: course.id, id: others_request.id }
@@ -892,7 +892,7 @@ RSpec.describe RequestsController, type: :controller do
 
       before do
         session[:user_id] = instructor.canvas_uid
-        UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
       end
 
       it 'rejects filing on behalf of a student who is not enrolled in the course' do
@@ -929,7 +929,7 @@ RSpec.describe RequestsController, type: :controller do
       end
 
       it 'creates a request for an enrolled student' do
-        UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
+        Enrollment.create!(user: enrolled_student, course: course, role: 'student')
 
         post :create_for_student, params: {
           course_id: course.id,
@@ -946,7 +946,7 @@ RSpec.describe RequestsController, type: :controller do
       end
 
       it 'treats an assignment from another course as an invalid request' do
-        UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
+        Enrollment.create!(user: enrolled_student, course: course, role: 'student')
 
         post :create_for_student, params: {
           course_id: course.id,
@@ -968,7 +968,7 @@ RSpec.describe RequestsController, type: :controller do
 
   describe 'staff-only actions' do
     before do
-      UserToCourse.create!(user: user, course: course, role: 'student')
+      Enrollment.create!(user: user, course: course, role: 'student')
     end
 
     it 'forbids a student from approving a request' do
@@ -1025,7 +1025,7 @@ RSpec.describe RequestsController, type: :controller do
     it 'still allows staff when extensions are disabled' do
       course.course_settings.update!(enable_extensions: false)
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
 
       get :index, params: { course_id: course.id }
 
