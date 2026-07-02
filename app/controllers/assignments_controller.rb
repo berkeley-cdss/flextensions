@@ -2,7 +2,7 @@ class AssignmentsController < ApplicationController
   def toggle_enabled
     @assignment = Assignment.find(params[:id])
     course = @assignment.course_to_lms.course
-    @role = params[:role] || course&.user_role(@user)
+    @role = course&.user_role(current_user)
 
     unless @role == 'instructor'
       Rails.logger.error "Role #{@role} does not have permission to toggle assignment enabled status"
