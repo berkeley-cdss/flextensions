@@ -99,7 +99,7 @@ RSpec.describe RequestsController, type: :controller do
         }
       }
       expect(response).to redirect_to(course_request_path(course, Request.last))
-      expect(flash[:notice]).to match(/submitted/)
+      expect(flash[:notice]).to include('submitted')
     end
 
     context 'with auto-approval enabled' do
@@ -135,7 +135,7 @@ RSpec.describe RequestsController, type: :controller do
         expect(created_request.status).to eq('approved')
         expect(created_request.auto_approved).to be true
         expect(response).to redirect_to(course_request_path(course, created_request))
-        expect(flash[:notice]).to match(/approved/)
+        expect(flash[:notice]).to include('approved')
       end
 
       it 'submits without auto-approval when extension is too long' do
@@ -153,7 +153,7 @@ RSpec.describe RequestsController, type: :controller do
         expect(created_request.status).not_to eq('approved')
         expect(created_request.auto_approved).to be_falsey
         expect(response).to redirect_to(course_request_path(course, created_request))
-        expect(flash[:notice]).to match(/submitted/)
+        expect(flash[:notice]).to include('submitted')
       end
 
       it 'redirects when auto-approval is disabled' do
@@ -204,7 +204,7 @@ RSpec.describe RequestsController, type: :controller do
 
         created_request = Request.order(:created_at).last
         expect(response).to redirect_to(course_request_path(course, created_request))
-        expect(flash[:notice]).to match(/submitted/)
+        expect(flash[:notice]).to include('submitted')
       end
     end
 
@@ -273,7 +273,7 @@ RSpec.describe RequestsController, type: :controller do
         }
       }
       expect(response).to redirect_to(course_request_path(course, request))
-      expect(flash[:notice]).to match(/updated/)
+      expect(flash[:notice]).to include('updated')
     end
   end
 
@@ -628,7 +628,7 @@ RSpec.describe RequestsController, type: :controller do
 
       # Should redirect and not create a new request
       expect(response).to redirect_to(course_requests_path(course))
-      expect(flash[:alert]).to match(/already have a pending request/)
+      expect(flash[:alert]).to include('already have a pending request')
     end
   end
 
@@ -696,7 +696,7 @@ RSpec.describe RequestsController, type: :controller do
 
       # Should redirect with appropriate message
       expect(response).to redirect_to(course_request_path(course, request_record))
-      expect(flash[:notice]).to match(/updated and has been approved/)
+      expect(flash[:notice]).to include('updated and has been approved')
     end
 
     it 'does not auto-approve if conditions are not met' do
@@ -716,8 +716,8 @@ RSpec.describe RequestsController, type: :controller do
 
       # Should redirect with standard update message
       expect(response).to redirect_to(course_request_path(course, request_record))
-      expect(flash[:notice]).to match(/successfully updated/)
-      expect(flash[:notice]).not_to match(/has been approved/)
+      expect(flash[:notice]).to include('successfully updated')
+      expect(flash[:notice]).not_to include('has been approved')
     end
   end
 end
