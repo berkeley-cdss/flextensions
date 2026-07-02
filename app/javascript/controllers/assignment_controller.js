@@ -9,10 +9,6 @@ export default class extends Controller {
   static values = { courseId: Number }
 
   connect() {
-    this.checkboxTargets.forEach((checkbox) => {
-      checkbox.addEventListener("change", (event) => this.toggleAssignment(event, checkbox))
-    })
-
     if (!DataTable.isDataTable('#assignments-table')) {
 			new DataTable('#assignments-table', {
 				paging: true,
@@ -20,11 +16,14 @@ export default class extends Controller {
 				ordering: true,
 				info: true,
 				responsive: true,
+				pageLength: 50,
+				lengthMenu: [[-1, 25, 50, 100, 500], ["All", 25, 50, 100, 500]],
 			});
 		}
   }
 
-  async toggleAssignment(event, checkbox) {
+  async toggleAssignment(event) {
+    const checkbox = event.currentTarget;
     const assignmentId = checkbox.dataset.assignmentId;
     const url = checkbox.dataset.url;
     const enabled = checkbox.checked;
