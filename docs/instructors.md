@@ -105,7 +105,7 @@ Control when and how requests are automatically approved:
   Automatically approves requests made within the specified number of days before the assignment due date. Leave blank to disable.
 
 - **Auto approve extended requests within days**
-  Applies a similar rule specifically to students with a DSP accommodation flag.
+  From the Enrollments page, you can mark a student to allow for 'Extended Requests'. When enabled, this setting allows a limited number of students to have requests automatically approved over a longer window. This is useful for students with known extenuating circumstances or accommodations. 
 
 - **Maximum requests to auto-approve**
   Sets a per-student limit on auto-approved requests. Use `0` for no limit.
