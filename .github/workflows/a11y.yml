@@ -28,7 +28,7 @@ jobs:
     steps:
     - name: Install packages
       run: sudo apt-get update && sudo apt-get install --no-install-recommends -y google-chrome-stable
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1
       with:
@@ -43,9 +43,14 @@ jobs:
       run: bundle exec rspec spec/ --tag a11y
       env:
         CHROME_DATA_DIR: /tmp/chrome-data-rspec
-    - name: Upload Screenshot
-      if: always()
-      uses: actions/upload-artifact@v2
+    # The specs call page.save_screenshot(name) before each axe assertion, so
+    # Capybara writes one screenshot per page/theme/role to its default save
+    # path (tmp/capybara) — including for the pages that fail. Upload the whole
+    # directory on failure so the failing screenshots are available to inspect.
+    - name: Upload a11y failure screenshots
+      if: failure()
+      uses: actions/upload-artifact@v4
       with:
-        name: screenshot
-        path: /tmp/chrome-data-rspec/screenshots
+        name: a11y-failure-screenshots
+        path: tmp/capybara/
+        if-no-files-found: ignore
