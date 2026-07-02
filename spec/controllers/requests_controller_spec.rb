@@ -292,6 +292,30 @@ RSpec.describe RequestsController, type: :controller do
       expect(response).to redirect_to(course_request_path(course, request))
       expect(flash[:notice]).to include('updated')
     end
+
+    it 'does not reassign the request to a different assignment' do
+      other_assignment = Assignment.create!(
+        name: 'A2',
+        course_to_lms_id: course_to_lms.id,
+        due_date: 5.days.from_now,
+        external_assignment_id: 'x2',
+        enabled: true
+      )
+
+      patch :update, params: {
+        course_id: course.id,
+        id: request.id,
+        request: {
+          assignment_id: other_assignment.id,
+          reason: 'Updated reason',
+          requested_due_date: Date.tomorrow.to_s,
+          due_time: '12:00'
+        }
+      }
+
+      expect(response).to redirect_to(course_request_path(course, request))
+      expect(request.reload.assignment_id).to eq(assignment.id)
+    end
   end
 
   describe 'POST #cancel' do
@@ -392,7 +416,7 @@ RSpec.describe RequestsController, type: :controller do
       post :approve, params: { course_id: course.id, id: request.id }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/failed/i)
     end
@@ -435,7 +459,7 @@ RSpec.describe RequestsController, type: :controller do
       post :reject, params: { course_id: course.id, id: request.id }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/failed/i)
     end
@@ -501,7 +525,7 @@ RSpec.describe RequestsController, type: :controller do
       post :mass_approve, params: { course_id: course.id, request_ids: [] }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/select at least one/i)
     end
@@ -559,7 +583,7 @@ RSpec.describe RequestsController, type: :controller do
       }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/no pending requests/i)
     end

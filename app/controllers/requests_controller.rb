@@ -110,7 +110,7 @@ class RequestsController < ApplicationController
 
   def update
     Request.merge_date_and_time!(params[:request])
-    @request.assign_attributes(update_request_params)
+    @request.assign_attributes(request_params)
     return unless ensure_assignment_in_course
 
     if @request.save
@@ -227,14 +227,12 @@ class RequestsController < ApplicationController
     @form_settings = result[:form_settings]
   end
 
+  # The assignment is chosen at creation and is not editable afterwards, so the
+  # update action is not permitted to write assignment_id; other actions may.
   def request_params
-    params.require(:request).permit(:assignment_id, :reason, :documentation, :custom_q1, :custom_q2, :requested_due_date)
-  end
-
-  # The assignment is chosen at creation and is not editable afterwards, so it
-  # is dropped from the params an update is allowed to write.
-  def update_request_params
-    request_params.except(:assignment_id)
+    permitted = [ :reason, :documentation, :custom_q1, :custom_q2, :requested_due_date ]
+    permitted.unshift(:assignment_id) unless action_name == 'update'
+    params.expect(request: permitted)
   end
 
   # Every request must reference an assignment in this course. A new request
