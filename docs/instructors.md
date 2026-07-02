@@ -83,7 +83,7 @@ The **Enrollments** tab shows all instructors and students currently associated 
 ## Syncing Enrollments
 
 1. Navigate to the **Enrollments** tab.
-2. Click **Sync Enrollments** to pull the latest enrollment data from Canvas.
+2. Click **Sync Enrollments** (below the enrollments table) to pull the update enrollment data from Canvas.
 
 The list will refresh with updated data, including new students and instructors, and will remove users no longer in the course.
 
