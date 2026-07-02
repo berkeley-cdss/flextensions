@@ -6,9 +6,10 @@
       
       <%= render "shared/extension_status_warning", course: @course %>
       
-      <table class="table table-bordered table-striped datatable" id="enrollments-table" data-controller="enrollments">
-        <thead>
-          <tr class="table-info">
+      <div class="table-responsive">
+      <table class="table table-bordered table-striped datatable flextensions-table" id="enrollments-table" data-controller="enrollments">
+        <thead class="table-blue-medium text-white">
+          <tr>
             <th style="min-width: 200px;">Name</th>
             <th class="text-center">Student ID</th>
             <th class="text-center">Email</th>
@@ -76,17 +77,20 @@
           <% end %>
         </tbody>
       </table>
+      </div>
 
-      <% if @is_course_admin %>
-        <div class="text-center mt-4">
-          <button class="btn btn-info"
-                  data-controller="enrollments"
-                  data-action="click->enrollments#sync"
-                  data-enrollments-course-id-value="<%= @course.id %>">
-            Sync Enrollments
-          </button>
-        </div>
-      <% end %>
+      <div class="text-start mt-4">
+        <button class="btn btn-outline-primary"
+                data-controller="enrollments"
+                data-action="click->enrollments#sync"
+                data-enrollments-course-id-value="<%= @course.id %>">
+          Sync Enrollments
+        </button>
+        <p class="text-muted mt-2 mb-0">
+          Enrollments last synced at
+          <%= @enrollments_last_synced_at ? @enrollments_last_synced_at.strftime('%a, %b %-d at %-I:%M%P') : 'never' %>
+        </p>
+      </div>
     </div>
   </div>
 </div>

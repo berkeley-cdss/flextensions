@@ -93,6 +93,33 @@ RSpec.describe CoursesController, type: :controller do
       end
     end
 
+    context 'when the user is an instructor' do
+      let!(:course_to_lms_record) { CourseToLms.create!(course: course, external_course_id: '456', lms_id: 1) }
+
+      before do
+        UserToCourse.create!(user: user, course: course, role: 'teacher')
+      end
+
+      it 'renders the instructor show template' do
+        get :show, params: { id: course.id }
+        expect(response).to render_template('courses/instructor_show')
+      end
+
+      it 'assigns @assignments_last_synced_at from the recent assignment sync' do
+        synced_at = Time.zone.parse('2026-06-20 10:00:00')
+        course_to_lms_record.update!(recent_assignment_sync: { 'synced_at' => synced_at.iso8601 })
+
+        get :show, params: { id: course.id }
+
+        expect(assigns(:assignments_last_synced_at)).to be_within(1.second).of(synced_at)
+      end
+
+      it 'leaves @assignments_last_synced_at nil when assignments have never been synced' do
+        get :show, params: { id: course.id }
+        expect(assigns(:assignments_last_synced_at)).to be_nil
+      end
+    end
+
     context 'when course does not exist' do
       it 'redirects to courses_path with alert' do
         get :show, params: { id: '9999' }
@@ -203,16 +230,18 @@ RSpec.describe CoursesController, type: :controller do
       end
     end
 
-    context 'when user is a TA (not course admin)' do
+    context 'when user is a TA (staff but not course admin)' do
       before do
         UserToCourse.create!(user: user, course: course, role: 'ta')
       end
 
-      it 'returns forbidden' do
+      it 'syncs enrollments and returns OK' do
+        allow_any_instance_of(Course).to receive(:sync_all_enrollments_from_canvas)
+
         post :sync_enrollments, params: { id: course.id }
 
-        expect(response).to have_http_status(:forbidden)
-        expect(response.parsed_body).to eq({ 'error' => 'You do not have permission.' })
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to eq({ 'message' => 'Users synced successfully.' })
       end
     end
 
@@ -331,6 +360,32 @@ RSpec.describe CoursesController, type: :controller do
         get :new, params: { semester: 'Spring 2026' }
 
         expect(assigns(:selected_semester)).to eq('Spring 2026')
+      end
+
+      context 'when a term name is blank' do
+        let(:canvas_courses) do
+          [
+            {
+              'id' => '201',
+              'name' => 'Summer Course',
+              'course_code' => 'SC201',
+              'enrollments' => [ { 'type' => 'teacher' } ],
+              'term' => { 'name' => nil, 'start_at' => '2026-05-26T07:00:00Z' }
+            }
+          ]
+        end
+
+        it 'derives the semester from the term start date' do
+          get :new
+
+          expect(assigns(:semesters)).to contain_exactly('Summer 2026')
+        end
+
+        it 'filters by the derived semester' do
+          get :new, params: { semester: 'Summer 2026' }
+
+          expect(assigns(:courses_teacher).pluck('name')).to eq([ 'Summer Course' ])
+        end
       end
     end
   end

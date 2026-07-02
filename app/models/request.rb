@@ -116,6 +116,7 @@ class Request < ApplicationRecord
 
   def eligible_for_auto_approval?
     return false unless auto_approval_eligible_for_course?
+    return false unless meets_min_hours_before_deadline?
 
     enrollment = UserToCourse.find_by(user: user, course: course)
     return false if enrollment.nil?
@@ -133,6 +134,23 @@ class Request < ApplicationRecord
 
     auto_approved_count = Request.auto_approved_for_user_in_course(user, course).count
     auto_approved_count < max_approvals
+  end
+
+  # When enabled, a request is only eligible for auto-approval if it is made at
+  # least the configured number of hours before the assignment's deadline. With
+  # a value of 0 (the default), this simply requires the deadline to not yet
+  # have passed.
+  #
+  # Only called after auto_approval_eligible_for_course?, so course_settings is
+  # guaranteed present; an assignment always has a due_date. We intentionally do
+  # not guard those "impossible" cases with a permissive default -- letting them
+  # raise surfaces the bug rather than silently auto-approving.
+  def meets_min_hours_before_deadline?
+    settings = course.course_settings
+    return true unless settings.enable_min_hours_before_deadline
+
+    hours_until_deadline = (assignment.due_date - Time.current) / 1.hour
+    hours_until_deadline >= settings.min_hours_before_deadline.to_i
   end
 
   def auto_approve(lms_facade_from_user)

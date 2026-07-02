@@ -64,6 +64,8 @@ class CourseSettingsController < ApplicationController
       :auto_approve_days,
       :auto_approve_extended_request_days,
       :max_auto_approve,
+      :enable_min_hours_before_deadline,
+      :min_hours_before_deadline,
       :enable_gradescope,
       :gradescope_course_url,
       :extend_late_due_date,

@@ -270,6 +270,57 @@ RSpec.describe Request, type: :model do
       end
     end
 
+    context 'minimum hours before deadline' do
+      let(:near_assignment) do
+        Assignment.create!(
+          name: 'Near Assignment',
+          course_to_lms_id: course.course_to_lms(1).id,
+          external_assignment_id: 'ext-near',
+          enabled: true,
+          due_date: 1.hour.from_now
+        )
+      end
+      let(:near_request) do
+        described_class.create!(
+          user: user,
+          course: course,
+          assignment: near_assignment,
+          reason: 'Need more time',
+          requested_due_date: near_assignment.due_date + 2.days
+        )
+      end
+
+      before { course_settings } # ensure settings exist
+
+      it 'auto-approves when enabled with 0 hours and the deadline has not passed' do
+        course_settings.update(enable_min_hours_before_deadline: true, min_hours_before_deadline: 0)
+        expect(request.eligible_for_auto_approval?).to be true
+      end
+
+      it 'does not auto-approve when fewer than the required hours remain before the deadline' do
+        course_settings.update(enable_min_hours_before_deadline: true, min_hours_before_deadline: 24)
+        expect(near_request.eligible_for_auto_approval?).to be false
+      end
+
+      it 'auto-approves when more than the required hours remain before the deadline' do
+        course_settings.update(enable_min_hours_before_deadline: true, min_hours_before_deadline: 24)
+        # default assignment is due in 2 days (48 hours)
+        expect(request.eligible_for_auto_approval?).to be true
+      end
+
+      it 'ignores the deadline window when the setting is disabled' do
+        course_settings.update(enable_min_hours_before_deadline: false, min_hours_before_deadline: 24)
+        expect(near_request.eligible_for_auto_approval?).to be true
+      end
+
+      it 'does not auto-approve once the deadline has passed even with 0 hours' do
+        course_settings.update(enable_min_hours_before_deadline: true, min_hours_before_deadline: 0)
+        near_assignment.update!(due_date: 1.hour.ago)
+        near_request.update!(requested_due_date: 2.days.from_now)
+        expect(near_request.eligible_for_auto_approval?).to be false
+      end
+    end
+
     context 'when user has reached max auto approvals' do
       before do
         course_settings.update(max_auto_approve: 1)
