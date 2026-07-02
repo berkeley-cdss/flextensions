@@ -14,7 +14,6 @@ class RequestsController < ApplicationController
   before_action :check_instructor_permission, only: %i[approve reject mass_approve mass_reject]
 
   def index
-    @side_nav = 'requests'
     if @role == 'student'
       @requests = @course.requests.for_user(@user)
     elsif params[:show_all] == 'true'
@@ -36,7 +35,6 @@ class RequestsController < ApplicationController
   end
 
   def new
-    @side_nav = 'form'
     # course_to_lms = @course.course_to_lms(1)
     course_to_lmss = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
@@ -55,7 +53,6 @@ class RequestsController < ApplicationController
   end
 
   def new_for_student
-    @side_nav = 'form'
     return redirect_to course_requests_path(@course), alert: 'You do not have permission to access this page.' unless @role == 'instructor'
 
     course_to_lmss = @course.all_linked_lmss.pluck(:id)
@@ -191,7 +188,6 @@ class RequestsController < ApplicationController
   private
 
   def set_request
-    @side_nav = 'requests'
     @request = @course.requests.includes(:assignment).find_by(id: params[:id])
     redirect_to course_path(@course), alert: 'Request not found.' unless @request
   end

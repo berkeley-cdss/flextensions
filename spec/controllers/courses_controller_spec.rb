@@ -134,6 +134,80 @@ RSpec.describe CoursesController, type: :controller do
       expect(response).to redirect_to(course_path(course))
       expect(flash[:alert]).to eq('You do not have access to this page.')
     end
+
+    context 'as an instructor' do
+      let(:instructor) { User.create!(email: 'teacher@example.com', canvas_uid: '999', name: 'Teacher') }
+
+      before do
+        session[:user_id] = instructor.canvas_uid
+        instructor.lms_credentials.create!(
+          lms_name: 'canvas', token: 't', refresh_token: 'r', expire_time: 1.hour.from_now
+        )
+        UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      end
+
+      it 'renders the Course Details page' do
+        get :edit, params: { id: course.id }
+
+        expect(response).to render_template(:edit)
+      end
+    end
+  end
+
+  describe 'PATCH #update' do
+    let(:instructor) { User.create!(email: 'teacher@example.com', canvas_uid: '999', name: 'Teacher') }
+
+    before do
+      session[:user_id] = instructor.canvas_uid
+      instructor.lms_credentials.create!(
+        lms_name: 'canvas', token: 't', refresh_token: 'r', expire_time: 1.hour.from_now
+      )
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+    end
+
+    it 'updates the name, code and semester from the dropdowns' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'New Name', course_code: 'NEW1', semester_season: 'Fall', semester_year: '2025' }
+      }
+
+      expect(response).to redirect_to(edit_course_path(course))
+      expect(flash[:notice]).to eq('Course details updated successfully.')
+      course.reload
+      expect(course.course_name).to eq('New Name')
+      expect(course.course_code).to eq('NEW1')
+      expect(course.semester).to eq('Fall 2025')
+    end
+
+    it 'leaves the semester unchanged when the dropdowns are blank' do
+      course.update!(semester: 'weird-format')
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Kept Name', semester_season: '', semester_year: '' }
+      }
+
+      course.reload
+      expect(course.course_name).to eq('Kept Name')
+      expect(course.semester).to eq('weird-format')
+    end
+
+    it 'redirects non-instructor users' do
+      session[:user_id] = user.canvas_uid
+
+      patch :update, params: { id: course.id, course: { course_name: 'Nope' } }
+
+      expect(response).to redirect_to(course_path(course))
+      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(course.reload.course_name).to eq('Test Course')
+    end
+
+    it 're-renders with an alert when validation fails' do
+      patch :update, params: { id: course.id, course: { course_name: '' } }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(flash[:alert]).to include('Failed to update course details')
+    end
   end
 
   describe 'POST #create' do

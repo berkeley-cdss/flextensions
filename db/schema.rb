@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
+ActiveRecord::Schema[7.2].define(version: 2026_06_24_000001) do
   create_schema "hypershield"
 
   # These are extensions that must be enabled in order to support this database
@@ -130,6 +130,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
     t.string "course_code"
     t.string "readonly_api_token"
     t.string "semester"
+    t.boolean "demo_course", default: false, null: false
     t.index ["canvas_id"], name: "index_courses_on_canvas_id", unique: true
     t.index ["readonly_api_token"], name: "index_courses_on_readonly_api_token", unique: true
   end
