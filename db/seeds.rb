@@ -40,12 +40,12 @@ if Rails.env.development?
   end
 
   # Enroll teacher as instructor
-  UserToCourse.find_or_create_by!(user_id: teacher_user.id, course_id: test_course.id) do |utc|
+  Enrollment.find_or_create_by!(user_id: teacher_user.id, course_id: test_course.id) do |utc|
     utc.role = 'teacher'
   end
 
   # Enroll student as student
-  UserToCourse.find_or_create_by!(user_id: student_user.id, course_id: test_course.id) do |utc|
+  Enrollment.find_or_create_by!(user_id: student_user.id, course_id: test_course.id) do |utc|
     utc.role = 'student'
   end
 

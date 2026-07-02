@@ -34,9 +34,9 @@ class User < ApplicationRecord
   # Relationship with Extension
   has_many :extensions
 
-  # Relationship with Course (and UserToCourse)
-  has_many :user_to_courses
-  has_many :courses, through: :user_to_courses
+  # Relationship with Course (and Enrollment)
+  has_many :enrollments
+  has_many :courses, through: :enrollments
 
   # TODO: We should probably use lms_id over lms_name
   def canvas_credentials

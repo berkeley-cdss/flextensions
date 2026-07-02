@@ -48,7 +48,7 @@ Rails.application.routes.draw do
         get :export, defaults: { format: :csv }
       end
     end
-    resources :user_to_courses, only: [] do
+    resources :enrollments, only: [] do
       member do
         patch :toggle_allow_extended_requests
       end
