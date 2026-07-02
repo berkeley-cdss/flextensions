@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class ChangeSanitizedMessageToText < ActiveRecord::Migration[7.2]
-  # OVERRIDE (Rails 7.2 / vendored-faultline install):
+  # OVERRIDE:
   #
   # On a fresh install this migration is a no-op AND impossible to run on
   # PostgreSQL. The initial CreateFaultlineErrorGroups migration already creates
