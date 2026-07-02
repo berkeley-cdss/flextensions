@@ -10,9 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
-  create_schema "hypershield"
-
+ActiveRecord::Schema[7.2].define(version: 2026_07_02_035835) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -147,6 +145,92 @@ ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
     t.index ["last_processed_by_id"], name: "index_extensions_on_last_processed_by_id"
   end
 
+  create_table "faultline_error_contexts", force: :cascade do |t|
+    t.bigint "error_occurrence_id", null: false
+    t.string "key", null: false
+    t.text "value"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["error_occurrence_id", "key"], name: "index_faultline_error_contexts_on_error_occurrence_id_and_key"
+    t.index ["error_occurrence_id"], name: "index_faultline_error_contexts_on_error_occurrence_id"
+  end
+
+  create_table "faultline_error_groups", force: :cascade do |t|
+    t.string "fingerprint", null: false
+    t.string "exception_class", null: false
+    t.text "sanitized_message", null: false
+    t.string "file_path"
+    t.integer "line_number"
+    t.string "method_name"
+    t.integer "occurrences_count", default: 0
+    t.datetime "first_seen_at"
+    t.datetime "last_seen_at"
+    t.string "status", default: "unresolved"
+    t.datetime "resolved_at"
+    t.datetime "last_notified_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.virtual "searchable", type: :tsvector, as: "to_tsvector('simple'::regconfig, (((((COALESCE(exception_class, ''::character varying))::text || ' '::text) || COALESCE(sanitized_message, ''::text)) || ' '::text) || (COALESCE(file_path, ''::character varying))::text))", stored: true
+    t.index ["exception_class"], name: "index_faultline_error_groups_on_exception_class"
+    t.index ["fingerprint"], name: "index_faultline_error_groups_on_fingerprint", unique: true
+    t.index ["last_seen_at"], name: "index_faultline_error_groups_on_last_seen_at"
+    t.index ["searchable"], name: "index_faultline_error_groups_on_searchable", using: :gin
+    t.index ["status"], name: "index_faultline_error_groups_on_status"
+  end
+
+  create_table "faultline_error_occurrences", force: :cascade do |t|
+    t.bigint "error_group_id", null: false
+    t.string "exception_class", null: false
+    t.text "message", null: false
+    t.text "backtrace"
+    t.string "request_method"
+    t.string "request_url"
+    t.text "request_params"
+    t.text "request_headers"
+    t.string "user_agent"
+    t.string "ip_address"
+    t.bigint "user_id"
+    t.string "user_type"
+    t.string "session_id"
+    t.string "environment"
+    t.string "hostname"
+    t.string "process_id"
+    t.json "local_variables"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_faultline_error_occurrences_on_created_at"
+    t.index ["error_group_id", "created_at"], name: "idx_on_error_group_id_created_at_98b32c40ac"
+    t.index ["error_group_id"], name: "index_faultline_error_occurrences_on_error_group_id"
+    t.index ["user_type", "user_id"], name: "index_faultline_error_occurrences_on_user_type_and_user_id"
+  end
+
+  create_table "faultline_request_profiles", force: :cascade do |t|
+    t.bigint "request_trace_id", null: false
+    t.text "profile_data", null: false
+    t.string "mode", default: "cpu"
+    t.integer "samples", default: 0
+    t.float "interval_ms"
+    t.datetime "created_at", null: false
+    t.index ["request_trace_id"], name: "index_faultline_request_profiles_on_request_trace_id"
+  end
+
+  create_table "faultline_request_traces", force: :cascade do |t|
+    t.string "endpoint", null: false
+    t.string "http_method", null: false
+    t.string "path"
+    t.integer "status"
+    t.float "duration_ms"
+    t.float "db_runtime_ms"
+    t.float "view_runtime_ms"
+    t.integer "db_query_count", default: 0
+    t.datetime "created_at", null: false
+    t.json "spans"
+    t.boolean "has_profile", default: false
+    t.index ["created_at"], name: "index_faultline_request_traces_on_created_at"
+    t.index ["endpoint", "created_at"], name: "index_faultline_request_traces_on_endpoint_and_created_at"
+    t.index ["endpoint"], name: "index_faultline_request_traces_on_endpoint"
+  end
+
   create_table "form_settings", force: :cascade do |t|
     t.bigint "course_id", null: false
     t.text "reason_desc"
@@ -237,6 +321,9 @@ ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
   add_foreign_key "course_to_lmss", "lmss"
   add_foreign_key "extensions", "assignments"
   add_foreign_key "extensions", "users", column: "last_processed_by_id"
+  add_foreign_key "faultline_error_contexts", "faultline_error_occurrences", column: "error_occurrence_id"
+  add_foreign_key "faultline_error_occurrences", "faultline_error_groups", column: "error_group_id"
+  add_foreign_key "faultline_request_profiles", "faultline_request_traces", column: "request_trace_id", on_delete: :cascade
   add_foreign_key "form_settings", "courses"
   add_foreign_key "lms_credentials", "users"
   add_foreign_key "requests", "assignments"
