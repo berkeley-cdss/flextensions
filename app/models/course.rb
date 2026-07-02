@@ -127,6 +127,12 @@ class Course < ApplicationRecord
     nil
   end
 
+  # A course is visible to its students only once its settings exist and have
+  # extensions enabled.
+  def visible_to_students?
+    course_settings.present? && course_settings.enable_extensions
+  end
+
   def course_admin?(user)
     enrollments.where(user_id: user.id).any?(&:course_admin?)
   end

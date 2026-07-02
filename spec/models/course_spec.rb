@@ -64,6 +64,24 @@ RSpec.describe Course, type: :model do
     end
   end
 
+  describe '#visible_to_students?' do
+    let(:course) { described_class.create!(canvas_id: 'canvas_vis', course_name: 'Test', course_code: 'TEST101') }
+
+    it 'is false when the course has no settings' do
+      expect(course.visible_to_students?).to be false
+    end
+
+    it 'is false when settings exist but extensions are disabled' do
+      CourseSettings.create!(course: course, enable_extensions: false)
+      expect(course.visible_to_students?).to be false
+    end
+
+    it 'is true when settings exist and extensions are enabled' do
+      CourseSettings.create!(course: course, enable_extensions: true)
+      expect(course.visible_to_students?).to be true
+    end
+  end
+
   describe '.fetch_courses' do
     it 'returns parsed JSON if response is successful' do
       stub_request(:get, %r{api/v1/courses})

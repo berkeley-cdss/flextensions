@@ -31,6 +31,9 @@ class Enrollment < ApplicationRecord
   ROLE_LABELS = {
     LEAD_TA_ROLE => 'Lead TA'
   }.freeze
+  # Role ranking from lowest to highest, used to pick a single role when a
+  # user holds more than one in the same course.
+  ROLE_PRIORITY = [ STUDENT_ROLE, TA_ROLE, LEAD_TA_ROLE, TEACHER_ROLE ].freeze
 
   # Associations
   belongs_to :user
@@ -57,6 +60,21 @@ class Enrollment < ApplicationRecord
 
   def display_role
     Enrollment.display_role(role)
+  end
+
+  # Rank of this enrollment's role; higher wins. Unknown roles rank lowest.
+  def role_priority
+    ROLE_PRIORITY.index(role) || -1
+  end
+
+  # Collapses a set of enrollments (typically one user's enrollments across
+  # courses) to at most one per course, keeping the highest-ranked role. This
+  # prevents a user who holds multiple roles in the same course from appearing
+  # more than once in a course list.
+  def self.keep_highest_role
+    all.group_by(&:course_id).map do |_course_id, enrollments|
+      enrollments.max_by(&:role_priority)
+    end
   end
 
   def self.roles

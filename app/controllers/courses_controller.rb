@@ -5,20 +5,15 @@ class CoursesController < ApplicationController
   before_action :determine_user_role
 
   def index
-    teacher_courses = Enrollment.includes(:course).where(user: @user, role: Enrollment.staff_roles)
-    @teacher_courses_by_semester = group_by_semester(teacher_courses)
+    staff_enrollments = Enrollment.includes(:course)
+                                  .where(user: @user, role: Enrollment.staff_roles)
+                                  .keep_highest_role
+    @staff_enrollments_by_semester = group_by_semester(staff_enrollments)
 
     # Only show courses to students if extensions are enabled at the course level
-    student_courses = Enrollment.includes(course: :course_settings).where(user: @user, role: 'student')
-    visible_student_courses = student_courses.select do |utc|
-      course_settings = utc.course.course_settings
-      course_settings.nil? || course_settings.enable_extensions
-    end
-    @student_courses_by_semester = group_by_semester(visible_student_courses)
-
-    # Keep flat lists for conditional checks in the view
-    @teacher_courses = teacher_courses
-    @student_courses = visible_student_courses
+    student_enrollments = Enrollment.includes(course: :course_settings).where(user: @user, role: Enrollment::STUDENT_ROLE)
+    visible_student_enrollments = student_enrollments.select { |enrollment| enrollment.course.visible_to_students? }
+    @student_enrollments_by_semester = group_by_semester(visible_student_enrollments)
   end
 
   def show
@@ -140,7 +135,7 @@ class CoursesController < ApplicationController
   # Groups Enrollment records by their course's semester, sorted most-recent-first.
   # Returns an array of [semester_name, [enrollments]] pairs.
   def group_by_semester(enrollments)
-    grouped = enrollments.group_by { |utc| utc.course.semester }
+    grouped = enrollments.group_by { |enrollment| enrollment.course.semester }
     sorted_semesters = Course.sort_semesters(grouped.keys)
     sorted_semesters.map { |semester| [ semester, grouped[semester] ] }
   end

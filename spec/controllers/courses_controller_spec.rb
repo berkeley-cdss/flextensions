@@ -34,7 +34,8 @@ RSpec.describe CoursesController, type: :controller do
 
       get :index
 
-      expect(assigns(:teacher_courses).map(&:role)).to include('leadta')
+      staff_enrollments = assigns(:staff_enrollments_by_semester).flat_map { |_semester, enrollments| enrollments }
+      expect(staff_enrollments.map(&:role)).to include('leadta')
     end
 
     context 'semester grouping' do
@@ -49,7 +50,7 @@ RSpec.describe CoursesController, type: :controller do
       it 'groups teacher courses by semester, most-recent-first' do
         get :index
 
-        grouped = assigns(:teacher_courses_by_semester)
+        grouped = assigns(:staff_enrollments_by_semester)
         semesters = grouped.map(&:first)
         expect(semesters).to eq([ 'Spring 2026', 'Fall 2025' ])
       end
@@ -67,7 +68,7 @@ RSpec.describe CoursesController, type: :controller do
 
         get :index
 
-        grouped = assigns(:student_courses_by_semester)
+        grouped = assigns(:student_enrollments_by_semester)
         semesters = grouped.map(&:first)
         expect(semesters).to eq([ 'Spring 2026', 'Fall 2025' ])
       end
