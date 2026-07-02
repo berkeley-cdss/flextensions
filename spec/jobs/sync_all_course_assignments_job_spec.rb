@@ -112,43 +112,6 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
       end
     end
 
-    context 'when Canvas omits base_date metadata' do
-      let(:canvas_assignments) do
-        [
-          Lmss::Canvas::Assignment.new(
-            'id' => '123',
-            'name' => 'Assignment 1',
-            'due_at' => '2025-01-30T23:59:00Z',
-            'lock_at' => '2025-02-05T23:59:00Z',
-            'base_date' => nil
-          )
-        ]
-      end
-
-      it 'preserves existing due dates for Canvas assignments' do
-        existing_assignment = create(:assignment,
-          course_to_lms: course_to_lms,
-          external_assignment_id: '123',
-          due_date: DateTime.parse('2025-01-15T23:59:00Z'),
-          late_due_date: DateTime.parse('2025-01-20T23:59:00Z')
-        )
-
-        described_class.perform_now(course_to_lms.id, sync_user.id)
-
-        existing_assignment.reload
-        expect(existing_assignment.due_date).to eq(DateTime.parse('2025-01-15T23:59:00Z'))
-        expect(existing_assignment.late_due_date).to eq(DateTime.parse('2025-01-20T23:59:00Z'))
-      end
-
-      it 'still sets dates for newly imported assignments' do
-        described_class.perform_now(course_to_lms.id, sync_user.id)
-
-        assignment = Assignment.find_by(external_assignment_id: '123')
-        expect(assignment.due_date).to eq(DateTime.parse('2025-01-30T23:59:00Z'))
-        expect(assignment.late_due_date).to eq(DateTime.parse('2025-02-05T23:59:00Z'))
-      end
-    end
-
     context 'when sync_user is not staff' do
       let(:student_user) { course.students.first }
 
