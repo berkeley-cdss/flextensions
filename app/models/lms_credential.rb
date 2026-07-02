@@ -33,6 +33,4 @@ class LmsCredential < ApplicationRecord
 
   # Encryption for tokens
   encrypts :token, :refresh_token
-
-  # LMS must exist
 end
