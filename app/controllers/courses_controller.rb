@@ -35,6 +35,7 @@ class CoursesController < ApplicationController
       @assignments = @course.enabled_assignments
     else
       @assignments = @course.assignments
+      @assignments_last_synced_at = assignments_last_synced_at
     end
     render_role_based_view
   end
@@ -51,6 +52,8 @@ class CoursesController < ApplicationController
     # TODO: Why do some courses have empty enrollments?
     existing_canvas_ids = @user.courses.pluck(:canvas_id)
     @courses_teacher = filter_courses(@courses, UserToCourse.staff_roles, existing_canvas_ids)
+    # Track if any teacher courses, so we still show the semester filter even if the selected semester filters out all courses.
+    @has_any_teacher_courses = @courses_teacher.any?
     @courses_student = filter_courses(@courses, [ UserToCourse::STUDENT_ROLE ], existing_canvas_ids)
 
     if @selected_semester.present?
@@ -125,6 +128,16 @@ class CoursesController < ApplicationController
     nil
   end
 
+  # Returns the time assignments were last synced from the LMS, or nil if never synced.
+  def assignments_last_synced_at
+    synced_at = @course.course_to_lms&.recent_assignment_sync&.dig('synced_at')
+    return nil if synced_at.blank?
+
+    Time.zone.parse(synced_at.to_s)
+  rescue ArgumentError, TypeError
+    nil
+  end
+
   def set_course
     @course = Course.find_by(id: params[:id])
     redirect_to courses_path, alert: 'Course not found.' unless @course
@@ -149,6 +162,8 @@ class CoursesController < ApplicationController
   end
 
   # TODO: This should be moved to the Canvas Facade
+  # TODO: Canvas enrollments can have multiple roles,
+  # we SHOULD only look at the first one that matches our known roles.
   def filter_courses(courses, roles, exclude_ids = [])
     missing_enrollments = courses.select { |course| course['enrollments'].blank? }
     Rails.logger.warn("Canvas API by #{current_user.id}: Courses with missing enrollments: #{missing_enrollments.pluck('id').join(', ')}") unless missing_enrollments.empty?
