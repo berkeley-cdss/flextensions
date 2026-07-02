@@ -11,7 +11,7 @@ class RequestsController < ApplicationController
   before_action :check_extensions_enabled_for_students, except: [ :export ]
   before_action :set_request, only: %i[show edit update cancel approve reject]
   before_action :ensure_request_is_pending, only: %i[update approve reject]
-  before_action :require_course_staff, only: %i[approve reject mass_approve mass_reject]
+  before_action :require_course_staff, only: %i[create_for_student approve reject mass_approve mass_reject]
 
   def index
     @side_nav = 'requests'
@@ -36,33 +36,15 @@ class RequestsController < ApplicationController
 
   def new
     @side_nav = 'form'
-    # course_to_lms = @course.course_to_lms(1)
-    course_to_lmss = @course.all_linked_lmss.pluck(:id)
-    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
+    return redirect_to course_path(@course), alert: 'You do not have access to this page.' unless enrolled_in_course?
 
-    if @course.course_staff?(@user)
-      prepare_instructor_new_request(course_to_lmss)
-      render :new_for_student and return
-    elsif @course.course_student?(@user)
-      redirected = prepare_student_new_request(course_to_lmss)
-      return if redirected
+    course_to_lms_ids = @course.all_linked_lmss.pluck(:id)
+    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lms_ids.any?
 
-      render :new and return
-    else
-      redirect_to course_path(@course.id), alert: 'You do not have access to this page.'
-    end
-  end
+    return new_for_student(course_to_lms_ids) if @course.course_staff?(@user)
 
-  def new_for_student
-    @side_nav = 'form'
-    return redirect_to course_requests_path(@course), alert: 'You do not have permission to access this page.' unless @course.course_staff?(@user)
-
-    course_to_lmss = @course.all_linked_lmss.pluck(:id)
-    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
-
-    @assignments = Assignment.enabled_for_course(course_to_lmss).order(:name)
-    @students = User.joins(:user_to_courses).where(user_to_courses: { course_id: @course.id, role: 'student' }).order(:name)
-    @request = @course.requests.new
+    redirected = prepare_student_new_request(course_to_lms_ids)
+    render :new unless redirected
   end
 
   def edit
@@ -89,8 +71,6 @@ class RequestsController < ApplicationController
   end
 
   def create_for_student
-    return redirect_to course_requests_path(@course), alert: 'You do not have permission to perform this action.' unless @course.course_staff?(@user)
-
     student = User.find_by(id: params[:request][:user_id])
     return redirect_to new_course_request_path(@course), alert: 'Student is not enrolled in this course.' unless student_enrolled_in_course?(student)
 
@@ -280,6 +260,20 @@ class RequestsController < ApplicationController
     return if @course.extensions_enabled?
 
     redirect_to courses_path, alert: 'Extensions are not enabled for this course.'
+  end
+
+  # A user must be enrolled (as staff or a student) to reach the request forms.
+  def enrolled_in_course?
+    @course.course_staff?(@user) || @course.course_student?(@user)
+  end
+
+  # Prepares and renders the form staff use to submit a request on behalf of a
+  # student. Not a routed action -- it is reached only from #new once the
+  # caller has been confirmed as course staff and the course has a linked LMS.
+  def new_for_student(course_to_lms_ids)
+    @side_nav = 'form'
+    prepare_instructor_new_request(course_to_lms_ids)
+    render :new_for_student
   end
 
   def prepare_instructor_new_request(course_to_lms_ids)

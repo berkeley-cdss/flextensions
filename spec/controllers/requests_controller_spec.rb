@@ -969,6 +969,16 @@ RSpec.describe RequestsController, type: :controller do
       expect(response).to redirect_to(course_path(course))
       expect(flash[:alert]).to include('do not have permission')
     end
+
+    it 'forbids a student from filing a request on behalf of another student' do
+      post :create_for_student, params: {
+        course_id: course.id,
+        request: { user_id: user.id, assignment_id: assignment.id, reason: 'x', requested_due_date: Date.tomorrow.to_s, due_time: '10:00' }
+      }
+
+      expect(response).to redirect_to(course_path(course))
+      expect(flash[:alert]).to include('do not have permission')
+    end
   end
 
   describe 'access control' do

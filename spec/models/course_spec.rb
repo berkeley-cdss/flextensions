@@ -67,8 +67,8 @@ RSpec.describe Course, type: :model do
   describe '#extensions_enabled?' do
     let(:course) { described_class.create!(canvas_id: 'canvas_ext', course_name: 'Test', course_code: 'TEST101') }
 
-    it 'is true when the course has no settings' do
-      expect(course.extensions_enabled?).to be(true)
+    it 'is false when the course has no settings (fails closed)' do
+      expect(course.extensions_enabled?).to be(false)
     end
 
     it 'is true when the settings enable extensions' do
