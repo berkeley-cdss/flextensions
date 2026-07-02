@@ -55,10 +55,15 @@ class CourseSettings < ApplicationRecord
 
   belongs_to :course
 
-  before_validation -> { self.pending_notification_frequency = nil if pending_notification_frequency.blank? }
-  before_validation -> { self.pending_notification_email = nil if pending_notification_email.blank? }
+  # Empty <select> and blank <input> submissions become "" — coerce to nil so
+  # `allow_nil` behaves as expected and unset rows compare equal.
+  normalizes :pending_notification_frequency, :pending_notification_email, with: ->(v) { v.presence }
+
   before_save :ensure_system_user_for_auto_approval
+  # Clear a stored email when notifications are turned off, so re-enabling
+  # doesn't silently reuse a stale address.
   before_save -> { self.pending_notification_email = nil if pending_notification_frequency.nil? }
+
   validate :gradescope_url_is_valid, if: :enable_gradescope?
   validates :pending_notification_frequency, inclusion: { in: VALID_NOTIFICATION_FREQUENCIES }, allow_nil: true
   validates :pending_notification_email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP },
@@ -67,7 +72,7 @@ class CourseSettings < ApplicationRecord
 
   scope :with_pending_notifications, ->(frequency) {
     where(pending_notification_frequency: frequency)
-    .where.not(pending_notification_email: [ nil, '' ])
+    .where.not(pending_notification_email: nil)
   }
 
   def automatic_approval_enabled?
