@@ -64,6 +64,17 @@ class CourseSettings < ApplicationRecord
     auto_approve_days.positive? || auto_approve_extended_request_days.positive?
   end
 
+  # True when this save just turned on the Slack webhook, so callers know to
+  # send a confirmation ping.
+  def slack_webhook_just_enabled?
+    enable_slack_webhook_url && slack_webhook_url.present? && saved_change_to_slack_webhook_url?
+  end
+
+  def slack_enabled_message
+    ":wave: Slack notifications have been enabled for *#{course.course_name}* " \
+      "(#{course.course_code}). You will now receive updates here!"
+  end
+
   def ensure_system_user_for_auto_approval
     # Create the system user if auto-approval is being enabled
     return unless enable_extensions && auto_approve_days.to_i.positive?

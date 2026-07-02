@@ -1,10 +1,10 @@
 require 'rails_helper'
 
 RSpec.describe ApplicationHelper, type: :helper do
-  describe '#sidebar_section' do
+  describe '#current_nav_page' do
     def section_for(controller, action)
       allow(helper).to receive_messages(controller_name: controller, action_name: action)
-      helper.sidebar_section
+      helper.current_nav_page
     end
 
     it 'maps course and settings pages to their sidebar keys' do
@@ -27,6 +27,25 @@ RSpec.describe ApplicationHelper, type: :helper do
 
     it 'returns nil for pages without a sidebar entry' do
       expect(section_for('home', 'index')).to be_nil
+    end
+  end
+
+  describe '#sidebar_nav_item' do
+    before { allow(helper).to receive_messages(controller_name: 'courses', action_name: 'show') }
+
+    it 'renders an active link for the current page' do
+      html = helper.sidebar_nav_item(path: '/x', icon: 'fas fa-tasks', nav: 'show', text: 'Assignments')
+
+      expect(html).to include('nav-link d-flex align-items-center active')
+      expect(html).to include('fas fa-tasks')
+      expect(html).to include('Assignments')
+    end
+
+    it 'renders an inactive link for other pages' do
+      html = helper.sidebar_nav_item(path: '/x', icon: 'fas fa-users', nav: 'enrollments', text: 'Enrollments')
+
+      expect(html).to include('link-body-emphasis')
+      expect(html).not_to include('active')
     end
   end
 end

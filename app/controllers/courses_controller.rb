@@ -159,25 +159,15 @@ class CoursesController < ApplicationController
   # Redirects after a successful save, sending a Slack ping when the webhook
   # was just enabled.
   def after_course_details_saved
-    unless slack_webhook_just_enabled?
+    unless @course_settings.slack_webhook_just_enabled?
       return redirect_to edit_course_path(@course), notice: 'Course details updated successfully.'
     end
 
-    if SlackNotifier.notify(slack_enabled_message, @course_settings.slack_webhook_url)
+    if SlackNotifier.notify(@course_settings.slack_enabled_message, @course_settings.slack_webhook_url)
       redirect_to edit_course_path(@course), notice: 'Course details updated successfully. Check your Slack channel for notifications.'
     else
       redirect_to edit_course_path(@course), alert: 'Failed to send Slack notification. Please check the webhook URL.'
     end
-  end
-
-  def slack_webhook_just_enabled?
-    @course_settings.enable_slack_webhook_url &&
-      @course_settings.slack_webhook_url.present? &&
-      @course_settings.saved_change_to_slack_webhook_url?
-  end
-
-  def slack_enabled_message
-    ":wave: Slack notifications have been enabled for *#{@course.course_name}* (#{@course.course_code}). You will now receive updates here!"
   end
 
   # Combines the season + year dropdowns into a "Season Year" string, or nil
