@@ -97,7 +97,7 @@ RSpec.describe CoursesController, type: :controller do
       let!(:course_to_lms_record) { CourseToLms.create!(course: course, external_course_id: '456', lms_id: 1) }
 
       before do
-        UserToCourse.create!(user: user, course: course, role: 'teacher')
+        Enrollment.create!(user: user, course: course, role: 'teacher')
       end
 
       it 'renders the instructor show template' do
