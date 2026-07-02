@@ -27,13 +27,12 @@ class EmailService
     def send_email(to:, from:, reply_to:, subject_template:, body_template:, mapping:, deliver_later: false)
       rendered = render_templates(subject_template, body_template, mapping)
 
-      mail = ActionMailer::Base.mail(
+      mail = TemplatedMailer.templated_email(
         to: to,
         from: from,
         reply_to: reply_to,
         subject: rendered[:subject],
-        body: rendered[:body].gsub("\n", "<br>\n"),
-        content_type: 'text/html'
+        body: rendered[:body].gsub("\n", "<br>\n")
       )
 
       deliver_later ? mail.deliver_later : mail.deliver_now
