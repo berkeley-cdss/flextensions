@@ -813,7 +813,7 @@ RSpec.describe RequestsController, type: :controller do
         Request.create!(user: other_student, course: course, assignment: assignment, reason: 'Theirs', requested_due_date: 3.days.from_now)
       end
 
-      before { UserToCourse.create!(user: other_student, course: course, role: 'student') }
+      before { Enrollment.create!(user: other_student, course: course, role: 'student') }
 
       it 'is not viewable via #show' do
         get :show, params: { course_id: course.id, id: others_request.id }
@@ -849,7 +849,7 @@ RSpec.describe RequestsController, type: :controller do
 
       before do
         session[:user_id] = instructor.canvas_uid
-        UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
       end
 
       it 'rejects filing on behalf of a student who is not enrolled in the course' do
@@ -886,7 +886,7 @@ RSpec.describe RequestsController, type: :controller do
       end
 
       it 'creates a request for an enrolled student' do
-        UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
+        Enrollment.create!(user: enrolled_student, course: course, role: 'student')
 
         post :create_for_student, params: {
           course_id: course.id,
@@ -903,7 +903,7 @@ RSpec.describe RequestsController, type: :controller do
       end
 
       it 'treats an assignment from another course as an invalid request' do
-        UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
+        Enrollment.create!(user: enrolled_student, course: course, role: 'student')
 
         post :create_for_student, params: {
           course_id: course.id,
