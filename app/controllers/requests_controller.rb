@@ -199,7 +199,7 @@ class RequestsController < ApplicationController
   # Staff may act on any request in the course; everyone else is limited to
   # the requests they own.
   def requests_visible_to_user
-    @role == 'instructor' ? @course.requests : @course.requests.for_user(@user)
+    @course.course_staff?(@user) ? @course.requests : @course.requests.for_user(@user)
   end
 
   def check_instructor_permission
@@ -209,7 +209,7 @@ class RequestsController < ApplicationController
 
   def handle_request_error
     flash.now[:alert] = 'There was a problem submitting your request.'
-    @assignments = Assignment.where(course_to_lms_id: @course.course_to_lms(1).id, enabled: true).order(:name)
+    @assignments = Assignment.enabled_for_course(@course.all_linked_lmss.pluck(:id)).order(:name)
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]
     render :new
   end
@@ -253,7 +253,7 @@ class RequestsController < ApplicationController
   def assignment_in_course?(assignment_id)
     return false if assignment_id.blank?
 
-    Assignment.joins(:course_to_lms).exists?(id: assignment_id, course_to_lms: { course_id: @course.id })
+    @course.assignments.exists?(id: assignment_id)
   end
 
   # Confirms the target student is actually enrolled in this course before an
@@ -262,7 +262,7 @@ class RequestsController < ApplicationController
   def student_enrolled_in_course?(student)
     return false unless student
 
-    UserToCourse.exists?(user_id: student.id, course_id: @course.id, role: UserToCourse::STUDENT_ROLE)
+    @course.course_student?(student)
   end
 
   def authenticate_user
@@ -323,7 +323,7 @@ class RequestsController < ApplicationController
   end
 
   def render_new_for_student_error
-    prepare_instructor_new_request(@course.course_to_lms(1).id)
+    prepare_instructor_new_request(@course.all_linked_lmss.pluck(:id))
     flash.now[:alert] = 'There was a problem submitting the request.'
     render :new_for_student
   end

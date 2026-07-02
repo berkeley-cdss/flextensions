@@ -222,6 +222,23 @@ RSpec.describe RequestsController, type: :controller do
       expect(response).to render_template(:new)
       expect(flash[:alert]).to eq('There was a problem submitting your request.')
     end
+
+    it 're-renders with enabled assignments from every linked LMS, not just Canvas' do
+      Lms.find_or_create_by(id: 2, lms_name: 'Gradescope')
+      gradescope_lms = CourseToLms.create!(course: course, lms_id: 2)
+      gradescope_assignment = Assignment.create!(
+        name: 'GS1', external_assignment_id: 'gs1', course_to_lms_id: gradescope_lms.id,
+        due_date: 2.days.from_now, enabled: true
+      )
+
+      post :create, params: {
+        course_id: course.id,
+        request: { assignment_id: '', reason: '', requested_due_date: '' }
+      }
+
+      expect(response).to render_template(:new)
+      expect(assigns(:assignments)).to include(gradescope_assignment)
+    end
   end
 
   describe 'GET #edit' do
