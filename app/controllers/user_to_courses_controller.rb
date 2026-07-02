@@ -1,7 +1,8 @@
 class UserToCoursesController < ApplicationController
-  before_action :authenticate_user!
+  # `authenticated!` from ApplicationController runs before this filter, so
+  # `current_user` is populated by the time we get here.
   before_action :set_course
-  before_action :authorize_instructor!
+  before_action :ensure_course_staff!
   before_action :set_enrollment
 
   def toggle_allow_extended_requests
@@ -18,32 +19,20 @@ class UserToCoursesController < ApplicationController
 
   private
 
-  def authenticate_user!
-    user_id = session[:user_id]
-    @current_user = User.find_by(canvas_uid: user_id) if user_id
-    redirect_to root_path unless @current_user
-  end
-
-  def set_course
-    @course = Course.find_by(id: params[:course_id])
-    unless @course
-      flash[:alert] = 'Course not found.'
-      redirect_to courses_path
-    end
-  end
-
   def set_enrollment
     @enrollment = UserToCourse.find(params[:id])
   end
 
-  def authorize_instructor!
-    user_to_course = UserToCourse.find_by(user: @current_user, course: @course)
-    unless user_to_course&.course_admin?
-      render json: {
-        success: false,
-        error: 'Forbidden',
-        redirect_to: courses_path
-      }, status: :forbidden
-    end
+  # ApplicationController#ensure_instructor_role would redirect with a flash,
+  # which breaks the JSON fetch from the course-settings UI. Respond with 403
+  # JSON so the client can surface the failure inline.
+  def ensure_course_staff!
+    return if @course&.course_staff?(current_user)
+
+    render json: {
+      success: false,
+      error: 'Forbidden',
+      redirect_to: courses_path
+    }, status: :forbidden
   end
 end
