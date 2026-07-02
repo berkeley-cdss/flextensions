@@ -9,8 +9,8 @@ class RequestsController < ApplicationController
   before_action :authenticate_course, except: [ :export ]
   before_action :set_pending_request_count, except: [ :export ]
   before_action :check_extensions_enabled_for_students, except: [ :export ]
+  before_action :set_request, only: %i[show edit update cancel approve reject]
   before_action :ensure_request_is_pending, only: %i[update approve reject]
-  before_action :set_request, only: %i[show edit cancel]
   before_action :check_instructor_permission, only: %i[approve reject mass_approve mass_reject]
 
   def index
@@ -74,10 +74,9 @@ class RequestsController < ApplicationController
   def create
     Request.merge_date_and_time!(params[:request])
     @request = @course.requests.new(request_params.merge(user: @user))
+    return unless ensure_assignment_in_course
 
-    # Check if the assignment already has a pending request, but only if assignment_id exists
-    if request_params[:assignment_id].present? &&
-       Assignment.find_by(id: request_params[:assignment_id])&.has_pending_request_for_user?(@user, @course)
+    if @request.assignment.has_pending_request_for_user?(@user, @course)
       redirect_to course_requests_path(@course), alert: 'You already have a pending request for this assignment.'
       return
     end
@@ -94,29 +93,27 @@ class RequestsController < ApplicationController
     return redirect_to course_requests_path(@course), alert: 'You do not have permission to perform this action.' unless @role == 'instructor'
 
     student = User.find_by(id: params[:request][:user_id])
-    return redirect_to new_course_request_path(@course), alert: 'Student not found.' unless student
-
-    assignment_id = params[:request][:assignment_id]
-    reject_other_student_requests(student, assignment_id) if assignment_id.present?
+    return redirect_to new_course_request_path(@course), alert: 'Student is not enrolled in this course.' unless student_enrolled_in_course?(student)
 
     Request.merge_date_and_time!(params[:request])
     @request = @course.requests.new(request_params.merge(user: student))
+    return render_new_for_student_error unless assignment_in_course?(@request.assignment_id)
+
+    reject_other_student_requests(student, @request.assignment_id)
+
     if @request.save
       handle_successful_student_request(student)
     else
-      prepare_instructor_new_request(@course.course_to_lms(1).id)
-      flash.now[:alert] = 'There was a problem submitting the request.'
-      render :new_for_student
+      render_new_for_student_error
     end
   end
 
   def update
-    @request = @course.requests.find_by(id: params[:id])
-    return redirect_to course_path(@course), alert: 'Request not found.' unless @request
-
     Request.merge_date_and_time!(params[:request])
+    @request.assign_attributes(update_request_params)
+    return unless ensure_assignment_in_course
 
-    if @request.update(request_params)
+    if @request.save
       result = @request.process_update(@user)
       redirect_to result[:redirect_to], notice: result[:notice]
     else
@@ -190,10 +187,19 @@ class RequestsController < ApplicationController
 
   private
 
+  # Loads the request for member actions. Scoped so students can only reach
+  # their own requests; anything outside the caller's scope is reported as
+  # "not found" rather than leaking that it exists.
   def set_request
     @side_nav = 'requests'
-    @request = @course.requests.includes(:assignment).find_by(id: params[:id])
+    @request = requests_visible_to_user.includes(:assignment).find_by(id: params[:id])
     redirect_to course_path(@course), alert: 'Request not found.' unless @request
+  end
+
+  # Staff may act on any request in the course; everyone else is limited to
+  # the requests they own.
+  def requests_visible_to_user
+    @course.course_staff?(@user) ? @course.requests : @course.requests.for_user(@user)
   end
 
   def check_instructor_permission
@@ -203,7 +209,7 @@ class RequestsController < ApplicationController
 
   def handle_request_error
     flash.now[:alert] = 'There was a problem submitting your request.'
-    @assignments = Assignment.where(course_to_lms_id: @course.course_to_lms(1).id, enabled: true).order(:name)
+    @assignments = Assignment.enabled_for_course(@course.all_linked_lmss.pluck(:id)).order(:name)
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]
     render :new
   end
@@ -222,7 +228,41 @@ class RequestsController < ApplicationController
   end
 
   def request_params
-    params.expect(request: [ :assignment_id, :reason, :documentation, :custom_q1, :custom_q2, :requested_due_date, :user_id ])
+    params.expect(request: [ :assignment_id, :reason, :documentation, :custom_q1, :custom_q2, :requested_due_date ])
+  end
+
+  # The assignment is chosen at creation and is not editable afterwards, so it
+  # is dropped from the params an update is allowed to write.
+  def update_request_params
+    request_params.except(:assignment_id)
+  end
+
+  # Every request must reference an assignment in this course. A new request
+  # that omits or points outside the course is an invalid submission and is
+  # re-rendered with an error; an existing request keeps its (non-editable)
+  # assignment, so a failure here means a tampered id and is treated as a 404.
+  def ensure_assignment_in_course
+    return true if assignment_in_course?(@request.assignment_id)
+
+    @request.new_record? ? handle_request_error : head(:not_found)
+    false
+  end
+
+  # Confirms the assignment belongs to one of this course's linked LMSs,
+  # preventing a request from referencing an assignment in another course.
+  def assignment_in_course?(assignment_id)
+    return false if assignment_id.blank?
+
+    @course.assignments.exists?(id: assignment_id)
+  end
+
+  # Confirms the target student is actually enrolled in this course before an
+  # instructor can file a request on their behalf. A missing student (bad or
+  # absent user_id) is simply not enrolled.
+  def student_enrolled_in_course?(student)
+    return false unless student
+
+    @course.course_student?(student)
   end
 
   def authenticate_user
@@ -241,8 +281,8 @@ class RequestsController < ApplicationController
     redirect_to result[:redirect_to], alert: result[:alert] if result != true
   end
 
+  # Runs after set_request, so @request is already loaded and scoped.
   def ensure_request_is_pending
-    @request = @course.requests.find_by(id: params[:id])
     result = RequestService.ensure_request_is_pending(@request, course_path(@course))
     redirect_to result[:redirect_to], alert: result[:alert] if result != true
   end
@@ -280,6 +320,12 @@ class RequestsController < ApplicationController
   def handle_successful_student_request(student)
     result = @request.process_created_request(@user)
     redirect_to result[:redirect_to], notice: "Request created for #{student.name}. #{result[:notice]}"
+  end
+
+  def render_new_for_student_error
+    prepare_instructor_new_request(@course.all_linked_lmss.pluck(:id))
+    flash.now[:alert] = 'There was a problem submitting the request.'
+    render :new_for_student
   end
 
   def process_mass_action(action)
