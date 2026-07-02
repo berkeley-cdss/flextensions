@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
+ActiveRecord::Schema[7.2].define(version: 2026_07_01_000001) do
   create_schema "hypershield"
 
   # These are extensions that must be enabled in order to support this database
@@ -134,6 +134,18 @@ ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
     t.index ["readonly_api_token"], name: "index_courses_on_readonly_api_token", unique: true
   end
 
+  create_table "enrollments", force: :cascade do |t|
+    t.bigint "user_id"
+    t.bigint "course_id"
+    t.string "role"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.boolean "removed", default: false, null: false
+    t.boolean "allow_extended_requests", default: false, null: false
+    t.index ["course_id"], name: "index_enrollments_on_course_id"
+    t.index ["user_id"], name: "index_enrollments_on_user_id"
+  end
+
   create_table "extensions", force: :cascade do |t|
     t.bigint "assignment_id"
     t.string "student_email"
@@ -207,18 +219,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
     t.index ["user_id"], name: "index_requests_on_user_id"
   end
 
-  create_table "user_to_courses", force: :cascade do |t|
-    t.bigint "user_id"
-    t.bigint "course_id"
-    t.string "role"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.boolean "removed", default: false, null: false
-    t.boolean "allow_extended_requests", default: false, null: false
-    t.index ["course_id"], name: "index_user_to_courses_on_course_id"
-    t.index ["user_id"], name: "index_user_to_courses_on_user_id"
-  end
-
   create_table "users", force: :cascade do |t|
     t.string "email"
     t.datetime "created_at", null: false
@@ -235,6 +235,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
   add_foreign_key "course_settings", "courses"
   add_foreign_key "course_to_lmss", "courses"
   add_foreign_key "course_to_lmss", "lmss"
+  add_foreign_key "enrollments", "courses"
+  add_foreign_key "enrollments", "users"
   add_foreign_key "extensions", "assignments"
   add_foreign_key "extensions", "users", column: "last_processed_by_id"
   add_foreign_key "form_settings", "courses"
@@ -243,6 +245,4 @@ ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
   add_foreign_key "requests", "courses"
   add_foreign_key "requests", "users"
   add_foreign_key "requests", "users", column: "last_processed_by_user_id"
-  add_foreign_key "user_to_courses", "courses"
-  add_foreign_key "user_to_courses", "users"
 end

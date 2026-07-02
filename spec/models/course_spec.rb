@@ -47,7 +47,7 @@ RSpec.describe Course, type: :model do
         refresh_token: 'refresh_token',
         expire_time: 1.hour.from_now
       )
-      UserToCourse.create!(user: user, course: course, role: 'ta')
+      Enrollment.create!(user: user, course: course, role: 'ta')
 
       staff_user = course.staff_user_for_auto_approval
       expect(staff_user).to eq(user)
@@ -58,7 +58,7 @@ RSpec.describe Course, type: :model do
     it 'treats leadta enrollments as instructors' do
       course = described_class.create!(canvas_id: 'canvas_leadta', course_name: 'Test', course_code: 'TEST101')
       user = User.create!(email: 'leadta@example.com', canvas_uid: 'leadta_123')
-      UserToCourse.create!(user: user, course: course, role: 'leadta')
+      Enrollment.create!(user: user, course: course, role: 'leadta')
 
       expect(course.user_role(user)).to eq('instructor')
     end
@@ -208,11 +208,11 @@ end
       allow(user).to receive(:ensure_fresh_canvas_token!).and_return('fake_token')
     end
 
-    it 'creates user and user_to_course record' do
+    it 'creates user and enrollment record' do
       expect do
         course.sync_users_from_canvas(user.id, 'student')
       end.to change(User, :count).by(CANVAS_USERS.size).and(
-        change(UserToCourse, :count).by(CANVAS_USERS.size)
+        change(Enrollment, :count).by(CANVAS_USERS.size)
       )
     end
   end

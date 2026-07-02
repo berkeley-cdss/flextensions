@@ -104,7 +104,7 @@ class SessionController < ApplicationController
 
     # Ensure enrollment in the test course (as student so they can request extensions)
     if test_course
-      UserToCourse.find_or_create_by!(user_id: user.id, course_id: test_course.id) do |utc|
+      Enrollment.find_or_create_by!(user_id: user.id, course_id: test_course.id) do |utc|
         utc.role = 'student'
       end
     end

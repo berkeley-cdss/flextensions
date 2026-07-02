@@ -42,16 +42,16 @@ class SyncUsersFromCanvasJob < ApplicationJob
     users_updated = 0
 
     # Handle removals - only for the current role
-    existing_role_enrollments = UserToCourse.joins(:user)
+    existing_role_enrollments = Enrollment.joins(:user)
                                            .where(course_id: course.id, role: role)
-                                           .select('user_to_courses.*, users.canvas_uid')
+                                           .select('enrollments.*, users.canvas_uid')
 
     enrollments_to_remove = existing_role_enrollments.reject do |utc|
       current_canvas_user_ids.include?(utc.canvas_uid)
     end
 
     if enrollments_to_remove.any?
-      UserToCourse.where(id: enrollments_to_remove.map(&:id)).destroy_all
+      Enrollment.where(id: enrollments_to_remove.map(&:id)).destroy_all
       users_removed = enrollments_to_remove.size
     end
 
@@ -91,7 +91,7 @@ class SyncUsersFromCanvasJob < ApplicationJob
 
     # Get existing enrollments to avoid duplicates
     existing_user_ids = users_by_canvas_uid.values.map(&:id)
-    existing_enrollments = UserToCourse.where(
+    existing_enrollments = Enrollment.where(
       user_id: existing_user_ids,
       course_id: course.id,
       role: role
@@ -115,7 +115,7 @@ class SyncUsersFromCanvasJob < ApplicationJob
 
     if enrollments_to_create.any?
       begin
-        UserToCourse.insert_all(enrollments_to_create)
+        Enrollment.insert_all(enrollments_to_create)
       rescue => e
         Rails.logger.debug { "DEBUG: Insert failed: #{e.message}" }
         Rails.logger.debug { "DEBUG: #{e.backtrace.first(3)}" }
