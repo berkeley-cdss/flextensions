@@ -109,10 +109,6 @@ class Course < ApplicationRecord
     course_to_lms(1).present?
   end
 
-  def assignments
-    Assignment.where(course_to_lms: course_to_lmss).order(:name)
-  end
-
   def enabled_assignments
     assignments.where(enabled: true)
   end
@@ -156,7 +152,7 @@ class Course < ApplicationRecord
 
   # TODO: Add specs for these 4 simple methods
   def assignments
-    Assignment.joins(:course_to_lms).where(course_to_lms: { course_id: id })
+    Assignment.where(course_id: id)
   end
 
   def students

@@ -9,11 +9,17 @@
 #  name                   :string
 #  created_at             :datetime         not null
 #  updated_at             :datetime         not null
+#  course_id              :bigint           not null
 #  course_to_lms_id       :bigint           not null
 #  external_assignment_id :string
 #
+# Indexes
+#
+#  index_assignments_on_course_id  (course_id)
+#
 # Foreign Keys
 #
+#  fk_rails_...  (course_id => courses.id)
 #  fk_rails_...  (course_to_lms_id => course_to_lmss.id)
 #
 require 'rails_helper'

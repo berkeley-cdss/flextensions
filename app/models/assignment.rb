@@ -10,16 +10,28 @@
 #  name                   :string
 #  created_at             :datetime         not null
 #  updated_at             :datetime         not null
+#  course_id              :bigint           not null
 #  course_to_lms_id       :bigint           not null
 #  external_assignment_id :string
 #
+# Indexes
+#
+#  index_assignments_on_course_id  (course_id)
+#
 # Foreign Keys
 #
+#  fk_rails_...  (course_id => courses.id)
 #  fk_rails_...  (course_to_lms_id => course_to_lmss.id)
 #
 class Assignment < ApplicationRecord
   belongs_to :course_to_lms
+  belongs_to :course
   has_many :requests, dependent: :destroy
+
+  # course_id is a denormalized copy of course_to_lms.course_id that lets us look
+  # up a course's assignments without joining through course_to_lmss. Populate it
+  # automatically so every creation path (sync job, API, seeds) stays in sync.
+  before_validation :assign_course_from_lms
 
   validates :name, presence: true
   validates :external_assignment_id, presence: true
@@ -53,5 +65,12 @@ class Assignment < ApplicationRecord
     when GRADESCOPE_LMS_ID
       "#{base_lms_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
     end
+  end
+
+  private
+
+  # Mirror the course from the LMS link so course_id is always populated.
+  def assign_course_from_lms
+    self.course ||= course_to_lms&.course
   end
 end
