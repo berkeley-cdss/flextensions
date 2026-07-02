@@ -37,6 +37,7 @@ RSpec.describe ApplicationHelper, type: :helper do
       html = helper.sidebar_nav_item(path: '/x', icon: 'fas fa-tasks', nav: 'show', text: 'Assignments')
 
       expect(html).to include('nav-link d-flex align-items-center active')
+      expect(html).to include('aria-current="page"')
       expect(html).to include('fas fa-tasks')
       expect(html).to include('Assignments')
     end
@@ -46,6 +47,7 @@ RSpec.describe ApplicationHelper, type: :helper do
 
       expect(html).to include('link-body-emphasis')
       expect(html).not_to include('active')
+      expect(html).not_to include('aria-current')
     end
   end
 end

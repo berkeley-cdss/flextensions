@@ -94,24 +94,6 @@ RSpec.describe CourseSettingsController, type: :controller do
         expect(flash[:alert]).to include('Failed to update course settings:')
       end
 
-      it 'resets email templates and redirects' do
-        CourseSettings.create!(
-          course: course,
-          enable_extensions: true,
-          email_subject: 'Custom Subject',
-          email_template: 'Custom Template'
-        )
-
-        patch :update, params: {
-          course_id: course.id,
-          reset_email_template: true,
-          page: 'emails'
-        }
-
-        expect(response).to redirect_to(emails_course_settings_path(course.id))
-        expect(flash[:notice]).to eq('Email templates reset to defaults.')
-        # We won't test the exact content since that requires knowledge of the constants
-      end
     end
 
     describe 'GET #approvals' do
@@ -239,16 +221,6 @@ RSpec.describe CourseSettingsController, type: :controller do
       expect(course.reload.course_settings.auto_approve_days).to eq(1)
     end
 
-    it 'denies access to reset email templates' do
-      patch :update, params: {
-        course_id: course.id,
-        reset_email_template: true,
-        page: 'emails'
-      }
-
-      expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('You do not have access to this page.')
-    end
   end
 
   describe 'authentication issues' do

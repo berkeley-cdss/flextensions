@@ -1,6 +1,4 @@
 module ApplicationHelper
-  # Identifies which sidebar entry is active for the current request, derived
-  # from the controller and action rather than a per-action @side_nav ivar.
   def current_nav_page
     case "#{controller_name}##{action_name}"
     when 'courses#show'
@@ -30,7 +28,9 @@ module ApplicationHelper
     label = block ? capture(&block) : text
 
     tag.li class: 'nav-item p-2' do
-      link_to path, class: "nav-link d-flex align-items-center #{active ? 'active' : 'link-body-emphasis'}" do
+      link_to path,
+              class: "nav-link d-flex align-items-center #{active ? 'active' : 'link-body-emphasis'}",
+              aria: { current: active ? 'page' : nil } do
         safe_join([
           tag.div(tag.i('', class: "#{icon} fa-fw me-3"), class: 'sidebar-icon-container ms-3'),
           tag.span(label, class: 'nav-text ms-2')

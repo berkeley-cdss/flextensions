@@ -13,10 +13,7 @@ class CourseSettingsController < ApplicationController
   end
 
   def update
-    if params[:reset_email_template].present?
-      reset_email_templates
-      redirect_back_or_to emails_course_settings_path(@course), notice: 'Email templates reset to defaults.'
-    elsif @course_settings.update(course_settings_params)
+    if @course_settings.update(course_settings_params)
       redirect_back_or_to approvals_course_settings_path(@course), notice: 'Course settings updated successfully.'
     else
       flash[:alert] = "Failed to update course settings: #{@course_settings.errors.full_messages.to_sentence}"
@@ -28,13 +25,6 @@ class CourseSettingsController < ApplicationController
 
   def set_course_settings
     @course_settings = @course.course_settings || @course.build_course_settings
-  end
-
-  def reset_email_templates
-    @course_settings.update(
-      email_subject: CourseSettings::DEFAULT_EMAIL_SUBJECT,
-      email_template: CourseSettings::DEFAULT_EMAIL_TEMPLATE
-    )
   end
 
   def course_settings_params
