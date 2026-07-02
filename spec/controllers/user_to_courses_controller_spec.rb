@@ -58,7 +58,7 @@ RSpec.describe UserToCoursesController, type: :controller do
           allow_extended_requests: true
         }
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         expect(response.parsed_body['redirect_to']).to be_present
       end
     end
