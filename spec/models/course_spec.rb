@@ -64,6 +64,26 @@ RSpec.describe Course, type: :model do
     end
   end
 
+  describe '#extensions_enabled?' do
+    let(:course) { described_class.create!(canvas_id: 'canvas_ext', course_name: 'Test', course_code: 'TEST101') }
+
+    it 'is false when the course has no settings (fails closed)' do
+      expect(course.extensions_enabled?).to be(false)
+    end
+
+    it 'is true when the settings enable extensions' do
+      CourseSettings.create!(course: course, enable_extensions: true)
+
+      expect(course.extensions_enabled?).to be(true)
+    end
+
+    it 'is false when the settings disable extensions' do
+      CourseSettings.create!(course: course, enable_extensions: false)
+
+      expect(course.extensions_enabled?).to be(false)
+    end
+  end
+
   describe '.fetch_courses' do
     it 'returns parsed JSON if response is successful' do
       stub_request(:get, %r{api/v1/courses})

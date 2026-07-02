@@ -751,6 +751,51 @@ RSpec.describe Request, type: :model do
     end
   end
 
+  describe '#pending?' do
+    it 'is true for a pending request' do
+      expect(request.pending?).to be(true)
+    end
+
+    it 'is false once the request is approved or denied' do
+      request.update!(status: 'denied')
+      expect(request.pending?).to be(false)
+    end
+  end
+
+  describe '.pending' do
+    it 'returns only requests in the pending status' do
+      pending = request
+      denied = described_class.create!(user: user, course: course, assignment: assignment,
+                                       reason: 'x', requested_due_date: 4.days.from_now, status: 'denied')
+
+      expect(described_class.pending).to include(pending)
+      expect(described_class.pending).not_to include(denied)
+    end
+  end
+
+  describe '#approve_by' do
+    let(:lms_facade) { class_double(CanvasFacade) }
+    let(:user_facade) { instance_double(CanvasFacade) }
+
+    it 'provisions through the assignment LMS facade on behalf of the acting user' do
+      allow(assignment).to receive(:lms_facade).and_return(lms_facade)
+      allow(request).to receive(:assignment).and_return(assignment)
+      allow(lms_facade).to receive(:from_user).with(instructor).and_return(user_facade)
+      allow(request).to receive(:approve).with(user_facade, instructor).and_return(true)
+
+      expect(request.approve_by(instructor)).to be(true)
+      expect(lms_facade).to have_received(:from_user).with(instructor)
+    end
+
+    it 'returns false without approving when the assignment has no LMS facade' do
+      allow(assignment).to receive(:lms_facade).and_return(nil)
+      allow(request).to receive(:assignment).and_return(assignment)
+
+      expect(request).not_to receive(:approve)
+      expect(request.approve_by(instructor)).to be(false)
+    end
+  end
+
   describe '#date_calculator' do
     it 'returns an AssignmentDateCalculator instance' do
       expect(request.date_calculator).to be_a(AssignmentDateCalculator)
