@@ -181,6 +181,59 @@ RSpec.describe CoursesController, type: :controller do
       expect(response).to have_http_status(:unprocessable_content)
       expect(flash[:alert]).to include('Failed to update course details')
     end
+
+    it 'saves the course-settings fields shown on Course Details' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: {
+          enable_extensions: 'true',
+          enable_gradescope: 'true',
+          gradescope_course_url: 'https://www.gradescope.com/courses/123456',
+          enable_emails: 'true',
+          reply_email: 'staff@example.com'
+        }
+      }
+
+      expect(response).to redirect_to(edit_course_path(course))
+      settings = course.reload.course_settings
+      expect(settings.enable_extensions).to be true
+      expect(settings.enable_gradescope).to be true
+      expect(settings.gradescope_course_url).to eq('https://www.gradescope.com/courses/123456')
+      expect(settings.enable_emails).to be true
+      expect(settings.reply_email).to eq('staff@example.com')
+    end
+
+    it 'sends a Slack ping when the webhook is newly enabled' do
+      expect(SlackNotifier).to receive(:notify).and_return(true)
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: {
+          enable_slack_webhook_url: 'true',
+          slack_webhook_url: 'https://hooks.slack.com/services/T/B/x'
+        }
+      }
+
+      expect(response).to redirect_to(edit_course_path(course))
+      expect(flash[:notice]).to match(/Check your Slack channel/)
+    end
+
+    it 'warns when the Slack ping fails' do
+      allow(SlackNotifier).to receive(:notify).and_return(false)
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: {
+          enable_slack_webhook_url: 'true',
+          slack_webhook_url: 'https://hooks.slack.com/services/T/B/x'
+        }
+      }
+
+      expect(flash[:alert]).to include('Failed to send Slack notification')
+    end
   end
 
   describe 'POST #create' do

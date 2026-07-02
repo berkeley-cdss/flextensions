@@ -50,7 +50,7 @@
 					<span class="nav-text ms-2">Course Settings</span>
 					<i class="fas fa-chevron-down fa-xs ms-auto"></i>
 				</a>
-				<ul class="nav flex-column collapse ms-4 <%= 'show' if settings_open %>" id="settingsSubmenu">
+				<ul class="nav flex-column collapse <%= 'show' if settings_open %>" id="settingsSubmenu">
 					<%= render 'layouts/components/sidebar_menu_item',
 						path: edit_course_path(@course.id),
 						icon: 'fas fa-circle-info',
@@ -60,7 +60,7 @@
 					<%= render 'layouts/components/sidebar_menu_item',
 						path: approvals_course_settings_path(@course.id),
 						icon: 'fas fa-circle-check',
-						text: 'Approvals',
+						text: 'Automatic Approvals',
 						active: nav == 'approvals' %>
 
 					<%= render 'layouts/components/sidebar_menu_item',

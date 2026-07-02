@@ -62,6 +62,7 @@ class CoursesController < ApplicationController
   end
 
   def edit
+    @course_settings = @course.course_settings || @course.build_course_settings
   end
 
   def create
@@ -73,16 +74,19 @@ class CoursesController < ApplicationController
   end
 
   def update
+    @course_settings = @course.course_settings || @course.build_course_settings
+
     attrs = course_params.to_h
     # Only overwrite the semester when both dropdowns are set; this preserves a
     # value stored in an unexpected format that the picker left blank.
     semester = combined_semester
     attrs[:semester] = semester if semester.present?
 
-    if @course.update(attrs)
-      redirect_to edit_course_path(@course), notice: 'Course details updated successfully.'
+    if @course.update(attrs) && @course_settings.update(course_settings_params)
+      after_course_details_saved
     else
-      flash.now[:alert] = "Failed to update course details: #{@course.errors.full_messages.to_sentence}"
+      errors = (@course.errors.full_messages + @course_settings.errors.full_messages).to_sentence
+      flash.now[:alert] = "Failed to update course details: #{errors}"
       render :edit, status: :unprocessable_content
     end
   end
@@ -137,6 +141,43 @@ class CoursesController < ApplicationController
 
   def course_params
     params.require(:course).permit(:course_name, :course_code)
+  end
+
+  # Course-level settings edited alongside the course itself on Course Details.
+  def course_settings_params
+    params.fetch(:course_settings, {}).permit(
+      :enable_extensions,
+      :enable_gradescope,
+      :gradescope_course_url,
+      :enable_emails,
+      :reply_email,
+      :enable_slack_webhook_url,
+      :slack_webhook_url
+    )
+  end
+
+  # Redirects after a successful save, sending a Slack ping when the webhook
+  # was just enabled.
+  def after_course_details_saved
+    unless slack_webhook_just_enabled?
+      return redirect_to edit_course_path(@course), notice: 'Course details updated successfully.'
+    end
+
+    if SlackNotifier.notify(slack_enabled_message, @course_settings.slack_webhook_url)
+      redirect_to edit_course_path(@course), notice: 'Course details updated successfully. Check your Slack channel for notifications.'
+    else
+      redirect_to edit_course_path(@course), alert: 'Failed to send Slack notification. Please check the webhook URL.'
+    end
+  end
+
+  def slack_webhook_just_enabled?
+    @course_settings.enable_slack_webhook_url &&
+      @course_settings.slack_webhook_url.present? &&
+      @course_settings.saved_change_to_slack_webhook_url?
+  end
+
+  def slack_enabled_message
+    ":wave: Slack notifications have been enabled for *#{@course.course_name}* (#{@course.course_code}). You will now receive updates here!"
   end
 
   # Combines the season + year dropdowns into a "Season Year" string, or nil

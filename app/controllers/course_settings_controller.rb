@@ -27,7 +27,6 @@ class CourseSettingsController < ApplicationController
     @course_settings = @course.course_settings || @course.build_course_settings
   end
 
-  # rubocop:disable Metrics/AbcSize
   def update
     @course_settings = @course.course_settings || @course.build_course_settings
 
@@ -35,28 +34,12 @@ class CourseSettingsController < ApplicationController
       reset_email_templates
       redirect_to emails_course_settings_path(@course), notice: 'Email templates reset to defaults.'
     elsif @course_settings.update(course_settings_params)
-      if @course_settings.enable_slack_webhook_url &&
-         @course_settings.slack_webhook_url.present? &&
-         @course_settings.saved_change_to_slack_webhook_url?
-
-        success = SlackNotifier.notify(
-          ":wave: Slack notifications have been enabled for *#{@course.course_name}* (#{@course.course_code}). You will now receive updates here!",
-          @course_settings.slack_webhook_url
-        )
-        unless success
-          redirect_to settings_redirect_path, alert: 'Failed to send Slack notification. Please check the webhook URL.'
-          return
-        end
-        redirect_to settings_redirect_path, notice: 'Course settings updated successfully. Check your Slack channel for Notifications.'
-        return
-      end
       redirect_to settings_redirect_path, notice: 'Course settings updated successfully.'
     else
       flash[:alert] = "Failed to update course settings: #{@course_settings.errors.full_messages.to_sentence}"
       redirect_to settings_redirect_path
     end
   end
-  # rubocop:enable Metrics/AbcSize
 
   private
 
@@ -74,21 +57,14 @@ class CourseSettingsController < ApplicationController
 
   def course_settings_params
     params.require(:course_settings).permit(
-      :enable_extensions,
       :auto_approve_days,
       :auto_approve_extended_request_days,
       :max_auto_approve,
       :enable_min_hours_before_deadline,
       :min_hours_before_deadline,
-      :enable_gradescope,
-      :gradescope_course_url,
       :extend_late_due_date,
-      :enable_emails,
-      :reply_email,
       :email_subject,
-      :email_template,
-      :enable_slack_webhook_url,
-      :slack_webhook_url
+      :email_template
     )
   end
 

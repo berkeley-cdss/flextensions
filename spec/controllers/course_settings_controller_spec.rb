@@ -28,10 +28,9 @@ RSpec.describe CourseSettingsController, type: :controller do
         patch :update, params: {
           course_id: course.id,
           course_settings: {
-            enable_extensions: 'true',
             auto_approve_days: '3',
             auto_approve_extended_request_days: '5',
-            enable_emails: 'true'
+            max_auto_approve: '2'
           },
           page: 'approvals'
         }
@@ -41,8 +40,8 @@ RSpec.describe CourseSettingsController, type: :controller do
         expect(response).to redirect_to(approvals_course_settings_path(course.id))
         expect(flash[:notice]).to eq('Course settings updated successfully.')
         settings = CourseSettings.find_by(course_id: course.id)
-        expect(settings.enable_extensions).to be true
         expect(settings.auto_approve_days).to eq(3)
+        expect(settings.auto_approve_extended_request_days).to eq(5)
       end
 
       it 'updates existing course settings' do
@@ -61,7 +60,6 @@ RSpec.describe CourseSettingsController, type: :controller do
         patch :update, params: {
           course_id: course.id,
           course_settings: {
-            enable_extensions: 'true',
             auto_approve_days: '3'
           },
           page: 'approvals'
@@ -73,7 +71,6 @@ RSpec.describe CourseSettingsController, type: :controller do
 
         # Force reload to get updated values
         course_settings.reload
-        expect(course_settings.enable_extensions).to be true
         expect(course_settings.auto_approve_days).to eq(3)
       end
 
@@ -89,7 +86,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
         patch :update, params: {
           course_id: course.id,
-          course_settings: { enable_extensions: 'true' },
+          course_settings: { auto_approve_days: '3' },
           page: 'approvals'
         }
 
@@ -182,7 +179,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
       patch :update, params: {
         course_id: course.id,
-        course_settings: { enable_extensions: 'true' },
+        course_settings: { auto_approve_days: '3' },
         page: 'approvals'
       }
 
@@ -196,7 +193,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
       patch :update, params: {
         course_id: course.id,
-        course_settings: { enable_extensions: 'true' },
+        course_settings: { auto_approve_days: '3' },
         page: 'approvals'
       }
 
