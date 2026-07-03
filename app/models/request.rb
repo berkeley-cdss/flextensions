@@ -86,7 +86,7 @@ class Request < ApplicationRecord
       result = build_result_hash('Request was successfully updated.')
     end
 
-    success = SlackNotifier.notify(slack_message, course.course_settings.slack_webhook_url) if notify_slack && course&.course_settings&.slack_webhook_url.present?
+    success = SlackNotifier.notify(slack_message, course.course_settings.slack_webhook_url) if notify_slack && course.course_settings.slack_webhook_url.present?
     Rails.logger.error "Failed to send Slack notification for request #{id} in course #{course.id}. Please check your webhook URL." unless success
     result
   end
@@ -109,8 +109,6 @@ class Request < ApplicationRecord
   end
 
   def auto_approval_eligible_for_course?
-    return false if course&.course_settings.blank?
-
     course.course_settings.automatic_approval_enabled?
   end
 
@@ -140,11 +138,6 @@ class Request < ApplicationRecord
   # least the configured number of hours before the assignment's deadline. With
   # a value of 0 (the default), this simply requires the deadline to not yet
   # have passed.
-  #
-  # Only called after auto_approval_eligible_for_course?, so course_settings is
-  # guaranteed present; an assignment always has a due_date. We intentionally do
-  # not guard those "impossible" cases with a permissive default -- letting them
-  # raise surfaces the bug rather than silently auto-approving.
   def meets_min_hours_before_deadline?
     settings = course.course_settings
     return true unless settings.enable_min_hours_before_deadline
@@ -198,7 +191,7 @@ class Request < ApplicationRecord
       status: 'approved',
       last_processed_by_user_id: processed_user_id.id,
       external_extension_id: override&.id)
-    send_email_response if course.course_settings&.enable_emails
+    send_email_response if course.course_settings.enable_emails
     true
   end
 
@@ -221,7 +214,7 @@ class Request < ApplicationRecord
   def reject(processed_user_id)
     update(status: 'denied', last_processed_by_user_id: processed_user_id.id)
     # Only send email if the person processing is the same as the request's user
-    send_email_response if course.course_settings&.enable_emails && processed_user_id.id != user_id
+    send_email_response if course.course_settings.enable_emails && processed_user_id.id != user_id
     true
   end
 
@@ -245,7 +238,7 @@ class Request < ApplicationRecord
   end
 
   def send_email_response
-    return unless course.course_settings&.enable_emails
+    return unless course.course_settings.enable_emails
 
     cs = course.course_settings
     to = user.email
@@ -332,7 +325,7 @@ class Request < ApplicationRecord
   end
 
   def notify_slack(slack_message)
-    return if course&.course_settings&.slack_webhook_url.blank?
+    return if course.course_settings.slack_webhook_url.blank?
 
     success = SlackNotifier.notify(slack_message, course.course_settings.slack_webhook_url)
     Rails.logger.error "Failed to send Slack notification for request #{id} in course #{course.id}. Please check your webhook URL." unless success

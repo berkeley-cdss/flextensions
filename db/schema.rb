@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
+ActiveRecord::Schema[7.2].define(version: 2026_07_02_000001) do
   create_schema "hypershield"
 
   # These are extensions that must be enabled in order to support this database
@@ -107,7 +107,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_06_22_000001) do
     t.boolean "extend_late_due_date", default: true, null: false
     t.boolean "enable_min_hours_before_deadline", default: true, null: false
     t.integer "min_hours_before_deadline", default: 0, null: false
-    t.index ["course_id"], name: "index_course_settings_on_course_id"
+    t.index ["course_id"], name: "index_course_settings_on_course_id", unique: true
   end
 
   create_table "course_to_lmss", force: :cascade do |t|

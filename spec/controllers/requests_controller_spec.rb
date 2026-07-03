@@ -574,9 +574,8 @@ RSpec.describe RequestsController, type: :controller do
       session[:user_id] = user.canvas_uid
       UserToCourse.create!(user: user, course: course, role: 'student')
 
-      # Create course settings for auto-approval
-      CourseSettings.create!(
-        course: course,
+      # Configure course settings for auto-approval
+      course.course_settings.update!(
         enable_extensions: true,
         auto_approve_days: 3,
         max_auto_approve: 5
@@ -677,9 +676,8 @@ RSpec.describe RequestsController, type: :controller do
       session[:user_id] = user.canvas_uid
       UserToCourse.create!(user: user, course: course, role: 'student')
 
-      # Create course settings for auto-approval
-      CourseSettings.create!(
-        course: course,
+      # Configure course settings for auto-approval
+      course.course_settings.update!(
         enable_extensions: true,
         auto_approve_days: 3,
         max_auto_approve: 5

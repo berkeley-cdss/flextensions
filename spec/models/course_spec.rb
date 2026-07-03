@@ -37,6 +37,25 @@ RSpec.describe Course, type: :model do
     { "id": 240, "name": "Sherri Johnson", "created_at": "2025-05-05T11:57:36-07:00", "sortable_name": "Johnson, Sherri", "short_name": "Sherri Johnson", "sis_user_id": "216573718", "integration_id": "sherri.johnson53", "sis_import_id": 5, "login_id": "sherri.johnson53@example.com", "email": "sherri.johnson53@example.com", "has_non_collaborative_groups": false }
   ]
 
+  describe 'course settings creation' do
+    it 'automatically creates course settings with defaults when a course is created' do
+      course = described_class.create!(course_name: 'Settings Test', canvas_id: 'canvas_settings', course_code: 'SET101')
+
+      expect(course.course_settings).to be_persisted
+      expect(course.course_settings.enable_extensions).to be false
+      expect(course.course_settings.extend_late_due_date).to be true
+    end
+
+    it 'keeps settings built before the course is saved' do
+      course = described_class.new(course_name: 'Prebuilt Settings', canvas_id: 'canvas_prebuilt', course_code: 'PRE101')
+      course.build_course_settings(enable_extensions: true)
+      course.save!
+
+      expect(course.course_settings.reload.enable_extensions).to be true
+      expect(CourseSettings.where(course_id: course.id).count).to eq(1)
+    end
+  end
+
   describe '#staff_user_for_auto_approval' do
     it 'returns the correct user for auto approval' do
       course = described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101')

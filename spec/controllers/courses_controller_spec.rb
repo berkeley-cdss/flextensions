@@ -5,7 +5,7 @@ RSpec.describe CoursesController, type: :controller do
   let(:course) { Course.create!(course_name: 'Test Course', canvas_id: '456', course_code: 'TST101') }
   let(:course_to_lms) { CourseToLms.create!(course: course, external_course_id: '456', lms_id: 1) }
   let(:student_course) { Course.create!(course_name: 'Student Course', canvas_id: '789', course_code: 'STU101') }
-  let(:course_settings) { CourseSettings.create!(course: course, enable_extensions: true) }
+  let(:course_settings) { course.course_settings.tap { |cs| cs.update!(enable_extensions: true) } }
 
   before do
     session[:user_id] = user.canvas_uid
@@ -55,13 +55,11 @@ RSpec.describe CoursesController, type: :controller do
       end
 
       it 'groups student courses by semester, most-recent-first' do
-        # Disable extensions on the default course so it doesn't appear
-        CourseSettings.create!(course: course, enable_extensions: false)
-
+        # Extensions stay disabled on the default course so it doesn't appear
         spring_student = Course.create!(course_name: 'Student Spring', canvas_id: 'ss1', course_code: 'SS101', semester: 'Spring 2026')
         fall_student = Course.create!(course_name: 'Student Fall', canvas_id: 'sf1', course_code: 'SF101', semester: 'Fall 2025')
-        CourseSettings.create!(course: spring_student, enable_extensions: true)
-        CourseSettings.create!(course: fall_student, enable_extensions: true)
+        spring_student.course_settings.update!(enable_extensions: true)
+        fall_student.course_settings.update!(enable_extensions: true)
         UserToCourse.create!(user: user, course: spring_student, role: 'student')
         UserToCourse.create!(user: user, course: fall_student, role: 'student')
 
@@ -460,7 +458,6 @@ RSpec.describe CoursesController, type: :controller do
       Extension.create!(assignment: assignment, student_email: user.email)
       UserToCourse.create!(user: user, course: course, role: 'teacher')
       Request.create!(course: course, assignment: assignment, user: user, requested_due_date: Time.current, reason: 'Reason')
-      CourseSettings.create!(course: course)
       FormSetting.create!(
         course: course,
         documentation_disp: 'required',
