@@ -76,7 +76,6 @@ class Request < ApplicationRecord
   # Handle request update and check for auto-approval
   def process_update(_current_user)
     link = request_link
-    notify_slack = true
 
     if status == 'pending' && try_auto_approval(_current_user)
       slack_message = build_slack_message(:auto_approved, link)
@@ -86,8 +85,7 @@ class Request < ApplicationRecord
       result = build_result_hash('Request was successfully updated.')
     end
 
-    success = SlackNotifier.notify(slack_message, course.course_settings.slack_webhook_url) if notify_slack && course&.course_settings&.slack_webhook_url.present?
-    Rails.logger.error "Failed to send Slack notification for request #{id} in course #{course.id}. Please check your webhook URL." unless success
+    notify_slack(slack_message)
     result
   end
 
@@ -96,16 +94,25 @@ class Request < ApplicationRecord
   end
 
   # Attempt to auto-approve by posting to the LMS.
+  # eligible_for_auto_approval? already includes the course-level check, so we
+  # don't repeat auto_approval_eligible_for_course? here.
   def try_auto_approval(_current_user)
-    return false unless auto_approval_eligible_for_course?
     return false unless eligible_for_auto_approval?
 
     approval_user = course.staff_user_for_auto_approval
-    approval_user.ensure_fresh_canvas_token!
-    return false if approval_user.canvas_credentials.blank?
+    if approval_user.nil?
+      # Previously this failed silently and the request just stayed pending with
+      # nothing posted to Canvas -- the production symptom we're chasing. Log it
+      # so a course whose staff never linked Canvas is diagnosable.
+      Rails.logger.error(
+        "Auto-approval could not run for request #{id} in course #{course.id}: " \
+        'no staff member has linked Canvas credentials to post the extension.'
+      )
+      return false
+    end
 
-    lms_facade_from_user = assignment.lms_facade.from_user(approval_user)
-    auto_approve(lms_facade_from_user)
+    approval_user.ensure_fresh_canvas_token!
+    auto_approve(assignment.lms_facade.from_user(approval_user))
   end
 
   def auto_approval_eligible_for_course?

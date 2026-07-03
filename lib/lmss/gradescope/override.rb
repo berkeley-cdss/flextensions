@@ -12,6 +12,12 @@ module Lmss
         @override_late_due_date = data.dig('override', 'settings', 'hard_due_date', 'value')
       end
 
+      # A Gradescope override targets exactly one student; expose it as a list
+      # to satisfy the shared BaseOverride#student_ids contract.
+      def student_ids
+        [ student_id ]
+      end
+
       private
 
       def parse_id(raw_id)

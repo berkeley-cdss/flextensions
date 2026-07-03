@@ -179,10 +179,17 @@ class Course < ApplicationRecord
     course_settings.destroy if course_settings
   end
 
-  # Find the first staff user who has a Canvas Token that can be used
-  # to post requests to Canvas.
+  # Find a staff user whose stored Canvas credentials can be used to post
+  # auto-approved extensions to Canvas on the course's behalf.
+  #
+  # Every Flextensions login is via Canvas OAuth, so only staff who have
+  # actually signed in have an LmsCredential. Staff who were pulled in by the
+  # roster sync but never logged in have none. Picking the first staff
+  # *enrollment* (the previous behavior) could therefore land on someone with
+  # no token, causing auto-approval to silently do nothing -- so we skip past
+  # those and return the first staff member who has Canvas credentials.
   def staff_user_for_auto_approval
-    user_to_courses.where(role: UserToCourse.staff_roles).first&.user
+    staff_users.find { |user| user.canvas_credentials.present? }
   end
 
   # Fetch courses from Canvas API

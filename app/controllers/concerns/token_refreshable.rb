@@ -3,7 +3,7 @@ module TokenRefreshable
 
   # Ensure user has a valid token before making API calls
   def with_valid_token(user)
-    return yield(user.lms_credentials.first.token) unless user.token_expires_soon?
+    return yield(user.canvas_credentials.token) unless user.token_expires_soon?
 
     # Token is expiring soon, refresh it
     new_token = refresh_user_token(user)
@@ -22,8 +22,8 @@ module TokenRefreshable
 
   # This needs to be moved to the user model or CanvasFacade
   def refresh_user_token(user)
-    # Get the user's credentials
-    credential = user.lms_credentials.first
+    # Get the user's Canvas credential (the only kind we OAuth-refresh).
+    credential = user.canvas_credentials
     return unless credential&.refresh_token
 
     # TODO: Debug / test API scopes.

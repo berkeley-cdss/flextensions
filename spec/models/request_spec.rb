@@ -508,6 +508,26 @@ RSpec.describe Request, type: :model do
         expect(request.try_auto_approval(user)).to be false
       end
     end
+
+    # Regression for the production bug: when no course staff member has linked
+    # Canvas credentials there is nobody to post the extension as. This must fail
+    # gracefully (and audibly) instead of raising NoMethodError on nil.
+    context 'when no staff member has usable Canvas credentials' do
+      before do
+        allow(request).to receive_messages(eligible_for_auto_approval?: true, course: course)
+        allow(course).to receive(:staff_user_for_auto_approval).and_return(nil)
+      end
+
+      it 'returns false without calling auto_approve' do
+        expect(request).not_to receive(:auto_approve)
+        expect(request.try_auto_approval(nil)).to be false
+      end
+
+      it 'logs an error explaining why auto-approval could not run' do
+        expect(Rails.logger).to receive(:error).with(/no staff member has linked Canvas credentials/)
+        request.try_auto_approval(nil)
+      end
+    end
   end
 
   describe '#auto_approve' do
@@ -748,6 +768,41 @@ RSpec.describe Request, type: :model do
     it 'sets the last_processed_by_user_id' do
       request.reject(instructor)
       expect(request.last_processed_by_user_id).to eq(instructor.id)
+    end
+  end
+
+  describe '#process_update' do
+    before { allow(request).to receive(:try_auto_approval).and_return(false) }
+
+    context 'when the course has no Slack webhook configured' do
+      it 'does not attempt a Slack notification' do
+        expect(SlackNotifier).not_to receive(:notify)
+        request.process_update(instructor)
+      end
+
+      # Regression: the old inline block left `success` nil when there was no
+      # webhook, so it logged a spurious "Failed to send Slack notification"
+      # error for every update on a course that never set one up.
+      it 'does not log a Slack failure error' do
+        expect(Rails.logger).not_to receive(:error)
+        request.process_update(instructor)
+      end
+    end
+
+    context 'when a Slack webhook is configured' do
+      before { course.course_settings.update!(slack_webhook_url: 'https://hooks.slack.example/abc') }
+
+      it 'sends the notification and does not log an error on success' do
+        expect(SlackNotifier).to receive(:notify).and_return(true)
+        expect(Rails.logger).not_to receive(:error)
+        request.process_update(instructor)
+      end
+
+      it 'logs an error when the notification fails' do
+        allow(SlackNotifier).to receive(:notify).and_return(false)
+        expect(Rails.logger).to receive(:error).with(/Failed to send Slack notification/)
+        request.process_update(instructor)
+      end
     end
   end
 

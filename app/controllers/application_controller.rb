@@ -53,9 +53,9 @@ class ApplicationController < ActionController::Base
     if session[:user_id].blank? || !Rails.env.test?
       if current_user.nil?
         return handle_authentication_failure('You must be logged in to access that page.')
-      elsif current_user.lms_credentials.empty?
+      elsif current_user.canvas_credentials.nil?
         return handle_authentication_failure('User has no credentials.')
-      elsif current_user.lms_credentials.first.expire_time < Time.zone.now
+      elsif current_user.canvas_credentials.expire_time < Time.zone.now
         # The Canvas access token has expired. Rather than logging the user out
         # immediately, try to use the stored (long-lived) refresh token to obtain
         # a fresh access token so the session can continue. We only log the user

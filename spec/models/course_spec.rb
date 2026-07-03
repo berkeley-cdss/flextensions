@@ -38,19 +38,44 @@ RSpec.describe Course, type: :model do
   ]
 
   describe '#staff_user_for_auto_approval' do
-    it 'returns the correct user for auto approval' do
-      course = described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101')
-      user = User.create!(email: 'test@example.com', canvas_uid: '123')
+    let(:course) { described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101') }
+
+    def link_canvas_credential(user)
       user.lms_credentials.create!(
         lms_name: 'canvas',
         token: 'valid_token',
         refresh_token: 'refresh_token',
         expire_time: 1.hour.from_now
       )
+    end
+
+    it 'returns a staff user who has Canvas credentials' do
+      user = User.create!(email: 'test@example.com', canvas_uid: '123')
+      link_canvas_credential(user)
       UserToCourse.create!(user: user, course: course, role: 'ta')
 
-      staff_user = course.staff_user_for_auto_approval
-      expect(staff_user).to eq(user)
+      expect(course.staff_user_for_auto_approval).to eq(user)
+    end
+
+    # Regression for the production bug: the first staff enrollment belonged to a
+    # TA who was rostered from Canvas but never signed into Flextensions, so they
+    # had no token. Auto-approval must skip them and use a staff member who does.
+    it 'skips staff members who never linked Canvas credentials' do
+      no_token_ta = User.create!(email: 'rostered@example.com', canvas_uid: '111')
+      UserToCourse.create!(user: no_token_ta, course: course, role: 'ta')
+
+      logged_in_teacher = User.create!(email: 'teacher@example.com', canvas_uid: '222')
+      link_canvas_credential(logged_in_teacher)
+      UserToCourse.create!(user: logged_in_teacher, course: course, role: 'teacher')
+
+      expect(course.staff_user_for_auto_approval).to eq(logged_in_teacher)
+    end
+
+    it 'returns nil when no staff member has linked Canvas credentials' do
+      no_token_ta = User.create!(email: 'rostered@example.com', canvas_uid: '111')
+      UserToCourse.create!(user: no_token_ta, course: course, role: 'ta')
+
+      expect(course.staff_user_for_auto_approval).to be_nil
     end
   end
 

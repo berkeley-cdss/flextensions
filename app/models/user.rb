@@ -64,15 +64,20 @@ class User < ApplicationRecord
     false
   end
 
-  # Get active token or refresh if needed
+  # Returns a currently-valid Canvas access token for this user, refreshing it
+  # via the stored refresh token when it has (nearly) expired. Returns nil when
+  # the user has no Canvas credential -- e.g. a staff member who was rostered
+  # from Canvas but never signed into Flextensions.
   def ensure_fresh_canvas_token!
-    return nil unless lms_credentials.any?
-
-    credential = lms_credentials.first
+    credential = canvas_credentials
+    return nil unless credential
 
     if token_expires_soon?
-      # Call the refresh token method from SessionController
+      # refresh_user_token persists a fresh token on the credential row when the
+      # refresh succeeds; reload so we hand back that value rather than the stale
+      # one we read a moment ago.
       SessionController.new.send(:refresh_user_token, self)
+      credential.reload
     end
 
     credential.token

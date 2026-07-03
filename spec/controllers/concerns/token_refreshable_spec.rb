@@ -50,7 +50,7 @@ RSpec.describe TokenRefreshable, type: :controller do
   describe '#with_valid_token' do
     context 'when token is not expiring soon' do
       it 'yields with current token' do
-        user_double = instance_double(User, lms_credentials: user.lms_credentials, token_expires_soon?: false)
+        user_double = instance_double(User, canvas_credentials: user.canvas_credentials, token_expires_soon?: false)
 
         allow(controller).to receive(:current_user).and_return(user_double)
 
@@ -73,7 +73,7 @@ RSpec.describe TokenRefreshable, type: :controller do
 
         get :dummy_action
         expect(response.body).to eq('Token: refreshed_token')
-        expect(user.lms_credentials.first.reload.token).to eq('refreshed_token')
+        expect(user.canvas_credentials.token).to eq('refreshed_token')
       end
     end
 

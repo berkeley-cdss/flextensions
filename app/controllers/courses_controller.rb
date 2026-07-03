@@ -41,7 +41,7 @@ class CoursesController < ApplicationController
   end
 
   def new
-    token = @user.lms_credentials.first.token
+    token = @user.canvas_credentials.token
     @courses = Course.fetch_courses(token)
     flash[:alert] = 'No courses found.' if @courses.empty?
 
@@ -68,7 +68,7 @@ class CoursesController < ApplicationController
   end
 
   def create
-    token = @user.lms_credentials.first.token
+    token = @user.canvas_credentials.token
     filter_courses(Course.fetch_courses(token), UserToCourse.staff_roles)
       .select { |c| params[:courses]&.include?(c['id'].to_s) }
       .each { |course_api| Course.create_or_update_from_canvas(course_api, token, @user) }
