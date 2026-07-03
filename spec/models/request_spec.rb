@@ -357,6 +357,23 @@ RSpec.describe Request, type: :model do
       end
     end
 
+    context 'when student has allow_extended_requests but extended days are disabled (0)' do
+      before do
+        course_settings.update(auto_approve_days: 2, auto_approve_extended_request_days: 0)
+        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+      end
+
+      it 'falls back to the standard auto_approve_days window' do
+        request.update(requested_due_date: assignment.due_date + 2.days)
+        expect(request.eligible_for_auto_approval?).to be true
+      end
+
+      it 'still rejects requests beyond the standard window' do
+        request.update(requested_due_date: assignment.due_date + 3.days)
+        expect(request.eligible_for_auto_approval?).to be false
+      end
+    end
+
     context 'when student does not have allow_extended_requests' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7)
@@ -504,12 +521,78 @@ RSpec.describe Request, type: :model do
       it 'logs the reason the auto-approval was skipped' do
         allow(Rails.logger).to receive(:warn)
         request.try_auto_approval(nil)
-        expect(Rails.logger).to have_received(:warn).with(/no staff user in course #{course.id} has Canvas credentials/)
+        expect(Rails.logger).to have_received(:warn).with(/no staff member has connected a Canvas account/)
+      end
+
+      it 'records why auto-approval broke down' do
+        request.try_auto_approval(nil)
+        expect(request.auto_approval_breakdown).to include('no staff member has connected')
       end
 
       it 'does not call auto_approve' do
         expect(request).not_to receive(:auto_approve)
         request.try_auto_approval(nil)
+      end
+    end
+
+    context "when the first staff user's token cannot be refreshed" do
+      let(:stale_staff) { course.staff_users.first }
+      let(:working_staff) { course.staff_users.second }
+
+      before do
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true, auto_approve: true)
+        allow(course).to receive(:staff_users_for_auto_approval).and_return([ stale_staff, working_staff ])
+        allow(stale_staff).to receive(:ensure_fresh_canvas_token!).and_return(nil)
+        allow(working_staff).to receive(:ensure_fresh_canvas_token!).and_return('fresh_token')
+      end
+
+      it 'falls back to the next staff user and approves' do
+        expect(request.try_auto_approval(user)).to be true
+        expect(request.auto_approval_breakdown).to be_nil
+      end
+
+      it 'only calls auto_approve once' do
+        expect(request).to receive(:auto_approve).once.and_return(true)
+        request.try_auto_approval(user)
+      end
+    end
+
+    context 'when the LMS rejects the approval for the first staff user' do
+      let(:removed_staff) { course.staff_users.first }
+      let(:working_staff) { course.staff_users.second }
+
+      before do
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
+        allow(course).to receive(:staff_users_for_auto_approval).and_return([ removed_staff, working_staff ])
+        allow(removed_staff).to receive(:ensure_fresh_canvas_token!).and_return('token_without_course_access')
+        allow(working_staff).to receive(:ensure_fresh_canvas_token!).and_return('fresh_token')
+      end
+
+      it 'falls back to the next staff user and approves' do
+        allow(request).to receive(:auto_approve).and_return(false, true)
+        expect(request.try_auto_approval(user)).to be true
+        expect(request.auto_approval_breakdown).to be_nil
+      end
+    end
+
+    context 'when every staff Canvas token is unusable' do
+      before do
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
+        staff = course.staff_users
+        staff.each do |staff_user|
+          allow(staff_user).to receive(:ensure_fresh_canvas_token!).and_return(nil)
+        end
+        allow(course).to receive(:staff_users_for_auto_approval).and_return(staff)
+      end
+
+      it 'returns false and records why auto-approval broke down' do
+        expect(request.try_auto_approval(user)).to be false
+        expect(request.auto_approval_breakdown).to include('Canvas access is currently working')
+      end
+
+      it 'does not call auto_approve' do
+        expect(request).not_to receive(:auto_approve)
+        request.try_auto_approval(user)
       end
     end
 
@@ -535,6 +618,32 @@ RSpec.describe Request, type: :model do
       it 'returns false rather than posting to Canvas with a stale token' do
         expect(request).not_to receive(:auto_approve)
         expect(request.try_auto_approval(nil)).to be false
+      end
+    end
+  end
+
+  describe '#process_created_request' do
+    before do
+      course.course_settings.update!(slack_webhook_url: 'https://hooks.slack.com/services/TEST')
+      allow(SlackNotifier).to receive(:notify).and_return(true)
+    end
+
+    it 'warns course staff in Slack when auto-approval broke down' do
+      allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
+      allow(course).to receive(:staff_users_for_auto_approval).and_return([])
+
+      request.process_created_request(user)
+
+      expect(SlackNotifier).to have_received(:notify).with(a_string_including(':warning:'), anything)
+    end
+
+    it 'does not warn when the request is pending for ordinary reasons' do
+      allow(request).to receive(:try_auto_approval).and_return(false)
+
+      request.process_created_request(user)
+
+      expect(SlackNotifier).to have_received(:notify) do |message, _url|
+        expect(message).not_to include(':warning:')
       end
     end
   end

@@ -23,6 +23,9 @@ class Course < ApplicationRecord
   # TODO: after_initialize :build_course_settings_if_necessary
 
   # Associations
+  # Declared before course_to_lmss so a destroy removes assignments first,
+  # satisfying their FK on course_to_lms_id.
+  has_many :assignments, dependent: :destroy
   has_many :course_to_lmss, dependent: :destroy
   has_many :lmss, through: :course_to_lmss
   has_many :user_to_courses, dependent: :destroy
@@ -109,10 +112,6 @@ class Course < ApplicationRecord
     course_to_lms(1).present?
   end
 
-  def assignments
-    Assignment.where(course_to_lms: course_to_lmss).order(:name)
-  end
-
   def enabled_assignments
     assignments.where(enabled: true)
   end
@@ -154,11 +153,7 @@ class Course < ApplicationRecord
     CourseToLms.find_by(course_id: id, lms_id: GRADESCOPE_LMS_ID)&.external_course_id
   end
 
-  # TODO: Add specs for these 4 simple methods
-  def assignments
-    Assignment.joins(:course_to_lms).where(course_to_lms: { course_id: id })
-  end
-
+  # TODO: Add specs for these 3 simple methods
   def students
     user_to_courses.where(role: UserToCourse::STUDENT_ROLE).map(&:user)
   end
@@ -179,15 +174,22 @@ class Course < ApplicationRecord
     course_settings.destroy if course_settings
   end
 
-  # Find the first staff user who has a Canvas token that can be used to post
-  # auto-approvals to Canvas. Staff synced from the Canvas roster who have
-  # never logged into Flextensions have no stored credentials and are skipped.
+  # Staff users with Canvas credentials on file, most recently refreshed
+  # first -- Canvas revokes refresh tokens that go unused for months, so the
+  # staff member who logged in most recently is the most likely to still
+  # work. Credentials on file can still fail to refresh or belong to someone
+  # who has since left the Canvas course, so callers should be prepared to
+  # fall back to the next user in this list. Staff synced from the Canvas
+  # roster who never logged into Flextensions have no credentials and are
+  # excluded.
+  def staff_users_for_auto_approval
+    staff_users.select { |user| user.canvas_credentials.present? }
+               .sort_by { |user| user.canvas_credentials.updated_at }
+               .reverse
+  end
+
   def staff_user_for_auto_approval
-    User.joins(:user_to_courses, :lms_credentials)
-        .where(user_to_courses: { course_id: id, role: UserToCourse.staff_roles })
-        .where(lms_credentials: { lms_name: 'canvas' })
-        .order('user_to_courses.id')
-        .first
+    staff_users_for_auto_approval.first
   end
 
   # Fetch courses from Canvas API

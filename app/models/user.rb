@@ -45,9 +45,10 @@ class User < ApplicationRecord
 
   # Returns a Canvas access token that is valid for at least the next few
   # minutes, refreshing it first when it is about to expire. Returns nil when
-  # the user has no Canvas credential or the refresh fails (e.g. a revoked
-  # refresh token) -- callers must treat nil as "cannot call Canvas as this
-  # user" rather than proceeding with a stale token.
+  # the user has no Canvas credential or the refresh fails (e.g. Canvas
+  # revoked the refresh token after months of inactivity) -- callers must
+  # treat nil as "cannot call Canvas as this user" rather than proceeding
+  # with a stale token.
   def ensure_fresh_canvas_token!
     credential = canvas_credentials
     return nil if credential.nil?
