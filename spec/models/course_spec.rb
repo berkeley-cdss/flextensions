@@ -77,6 +77,26 @@ RSpec.describe Course, type: :model do
 
       expect(course.staff_user_for_auto_approval).to be_nil
     end
+
+    it 'prefers the staff user whose credentials were refreshed most recently' do
+      course = described_class.create!(canvas_id: 'canvas_126', course_name: 'Test', course_code: 'TEST101')
+
+      idle_ta = User.create!(email: 'idle_ta@example.com', canvas_uid: '127')
+      idle_ta.lms_credentials.create!(
+        lms_name: 'canvas', token: 'stale', refresh_token: 'stale',
+        expire_time: 6.months.ago, updated_at: 6.months.ago
+      )
+      UserToCourse.create!(user: idle_ta, course: course, role: 'ta')
+
+      active_teacher = User.create!(email: 'active_teacher@example.com', canvas_uid: '128')
+      active_teacher.lms_credentials.create!(
+        lms_name: 'canvas', token: 'fresh', refresh_token: 'fresh',
+        expire_time: 1.hour.from_now
+      )
+      UserToCourse.create!(user: active_teacher, course: course, role: 'teacher')
+
+      expect(course.staff_users_for_auto_approval).to eq([ active_teacher, idle_ta ])
+    end
   end
 
   describe '#user_role' do
