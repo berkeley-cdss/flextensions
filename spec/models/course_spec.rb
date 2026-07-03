@@ -56,6 +56,18 @@ RSpec.describe Course, type: :model do
     end
   end
 
+  describe '#enabled_assignments' do
+    it 'returns only enabled assignments belonging to the course' do
+      course = create(:course)
+      other_course = create(:course)
+      enabled = create(:assignment, course_to_lms: course.course_to_lms(1), enabled: true)
+      create(:assignment, course_to_lms: course.course_to_lms(1), enabled: false)
+      create(:assignment, course_to_lms: other_course.course_to_lms(1), enabled: true)
+
+      expect(course.enabled_assignments).to contain_exactly(enabled)
+    end
+  end
+
   describe '#staff_user_for_auto_approval' do
     it 'returns the correct user for auto approval' do
       course = described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101')
@@ -70,6 +82,51 @@ RSpec.describe Course, type: :model do
 
       staff_user = course.staff_user_for_auto_approval
       expect(staff_user).to eq(user)
+    end
+
+    it 'skips staff users without Canvas credentials' do
+      course = described_class.create!(canvas_id: 'canvas_124', course_name: 'Test', course_code: 'TEST101')
+      synced_ta = User.create!(email: 'synced_ta@example.com', canvas_uid: '124')
+      UserToCourse.create!(user: synced_ta, course: course, role: 'ta')
+
+      instructor = User.create!(email: 'instructor2@example.com', canvas_uid: '125')
+      instructor.lms_credentials.create!(
+        lms_name: 'canvas',
+        token: 'valid_token',
+        refresh_token: 'refresh_token',
+        expire_time: 1.hour.from_now
+      )
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+
+      expect(course.staff_user_for_auto_approval).to eq(instructor)
+    end
+
+    it 'returns nil when no staff user has Canvas credentials' do
+      course = described_class.create!(canvas_id: 'canvas_125', course_name: 'Test', course_code: 'TEST101')
+      synced_ta = User.create!(email: 'synced_ta2@example.com', canvas_uid: '126')
+      UserToCourse.create!(user: synced_ta, course: course, role: 'ta')
+
+      expect(course.staff_user_for_auto_approval).to be_nil
+    end
+
+    it 'prefers the staff user whose credentials were refreshed most recently' do
+      course = described_class.create!(canvas_id: 'canvas_126', course_name: 'Test', course_code: 'TEST101')
+
+      idle_ta = User.create!(email: 'idle_ta@example.com', canvas_uid: '127')
+      idle_ta.lms_credentials.create!(
+        lms_name: 'canvas', token: 'stale', refresh_token: 'stale',
+        expire_time: 6.months.ago, updated_at: 6.months.ago
+      )
+      UserToCourse.create!(user: idle_ta, course: course, role: 'ta')
+
+      active_teacher = User.create!(email: 'active_teacher@example.com', canvas_uid: '128')
+      active_teacher.lms_credentials.create!(
+        lms_name: 'canvas', token: 'fresh', refresh_token: 'fresh',
+        expire_time: 1.hour.from_now
+      )
+      UserToCourse.create!(user: active_teacher, course: course, role: 'teacher')
+
+      expect(course.staff_users_for_auto_approval).to eq([ active_teacher, idle_ta ])
     end
   end
 
