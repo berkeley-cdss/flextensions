@@ -64,17 +64,16 @@ class User < ApplicationRecord
     false
   end
 
-  # Get active token or refresh if needed
+  # Get active token or refresh if needed. Returns nil when the user has no
+  # credentials or the refresh fails (e.g. Canvas revoked the refresh token
+  # after months of inactivity), so callers can tell whether this user's
+  # Canvas access actually works.
   def ensure_fresh_canvas_token!
-    return nil unless lms_credentials.any?
-
     credential = lms_credentials.first
+    return nil if credential.nil?
+    return credential.token unless token_expires_soon?
 
-    if token_expires_soon?
-      # Call the refresh token method from SessionController
-      SessionController.new.send(:refresh_user_token, self)
-    end
-
-    credential.token
+    # Call the refresh token method from SessionController
+    SessionController.new.send(:refresh_user_token, self)
   end
 end

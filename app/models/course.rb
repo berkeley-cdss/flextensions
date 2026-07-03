@@ -174,10 +174,20 @@ class Course < ApplicationRecord
     course_settings.destroy if course_settings
   end
 
-  # Find the first staff user who has a Canvas Token that can be used
-  # to post requests to Canvas.
+  # Staff users with Canvas credentials on file, most recently refreshed
+  # first -- Canvas revokes refresh tokens that go unused for months, so the
+  # staff member who logged in most recently is the most likely to still
+  # work. Credentials on file can still fail to refresh or belong to someone
+  # who has since left the Canvas course, so callers should be prepared to
+  # fall back to the next user in this list.
+  def staff_users_for_auto_approval
+    staff_users.select { |user| user.canvas_credentials.present? }
+               .sort_by { |user| user.canvas_credentials.updated_at }
+               .reverse
+  end
+
   def staff_user_for_auto_approval
-    user_to_courses.where(role: UserToCourse.staff_roles).first&.user
+    staff_users_for_auto_approval.first
   end
 
   # Fetch courses from Canvas API
