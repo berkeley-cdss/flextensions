@@ -180,9 +180,10 @@ class Course < ApplicationRecord
   end
 
   # Find the first staff user who has a Canvas Token that can be used
-  # to post requests to Canvas.
+  # to post requests to Canvas. Staff synced from Canvas may never have
+  # logged in, so not every staff enrollment has credentials.
   def staff_user_for_auto_approval
-    user_to_courses.where(role: UserToCourse.staff_roles).first&.user
+    staff_users.find { |user| user.canvas_credentials.present? }
   end
 
   # Fetch courses from Canvas API

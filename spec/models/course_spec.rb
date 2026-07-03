@@ -52,6 +52,31 @@ RSpec.describe Course, type: :model do
       staff_user = course.staff_user_for_auto_approval
       expect(staff_user).to eq(user)
     end
+
+    it 'skips staff users without Canvas credentials' do
+      course = described_class.create!(canvas_id: 'canvas_124', course_name: 'Test', course_code: 'TEST101')
+      synced_ta = User.create!(email: 'synced_ta@example.com', canvas_uid: '124')
+      UserToCourse.create!(user: synced_ta, course: course, role: 'ta')
+
+      instructor = User.create!(email: 'instructor2@example.com', canvas_uid: '125')
+      instructor.lms_credentials.create!(
+        lms_name: 'canvas',
+        token: 'valid_token',
+        refresh_token: 'refresh_token',
+        expire_time: 1.hour.from_now
+      )
+      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+
+      expect(course.staff_user_for_auto_approval).to eq(instructor)
+    end
+
+    it 'returns nil when no staff user has Canvas credentials' do
+      course = described_class.create!(canvas_id: 'canvas_125', course_name: 'Test', course_code: 'TEST101')
+      synced_ta = User.create!(email: 'synced_ta2@example.com', canvas_uid: '126')
+      UserToCourse.create!(user: synced_ta, course: course, role: 'ta')
+
+      expect(course.staff_user_for_auto_approval).to be_nil
+    end
   end
 
   describe '#user_role' do

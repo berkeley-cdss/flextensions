@@ -357,6 +357,23 @@ RSpec.describe Request, type: :model do
       end
     end
 
+    context 'when student has allow_extended_requests but extended days are disabled (0)' do
+      before do
+        course_settings.update(auto_approve_days: 2, auto_approve_extended_request_days: 0)
+        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+      end
+
+      it 'falls back to the standard auto_approve_days window' do
+        request.update(requested_due_date: assignment.due_date + 2.days)
+        expect(request.eligible_for_auto_approval?).to be true
+      end
+
+      it 'still rejects requests beyond the standard window' do
+        request.update(requested_due_date: assignment.due_date + 3.days)
+        expect(request.eligible_for_auto_approval?).to be false
+      end
+    end
+
     context 'when student does not have allow_extended_requests' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7)
@@ -496,6 +513,22 @@ RSpec.describe Request, type: :model do
 
       it 'returns false' do
         expect(request.try_auto_approval(nil)).to be false
+      end
+    end
+
+    context 'when no staff user has Canvas credentials' do
+      before do
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
+        allow(course).to receive(:staff_user_for_auto_approval).and_return(nil)
+      end
+
+      it 'returns false without raising' do
+        expect(request.try_auto_approval(user)).to be false
+      end
+
+      it 'does not call auto_approve' do
+        expect(request).not_to receive(:auto_approve)
+        request.try_auto_approval(user)
       end
     end
 

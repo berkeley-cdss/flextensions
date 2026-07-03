@@ -101,8 +101,16 @@ class Request < ApplicationRecord
     return false unless eligible_for_auto_approval?
 
     approval_user = course.staff_user_for_auto_approval
+    if approval_user.nil?
+      Rails.logger.warn "Auto-approval skipped for request #{id}: no staff user in course #{course.id} has Canvas credentials."
+      return false
+    end
+
     approval_user.ensure_fresh_canvas_token!
-    return false if approval_user.canvas_credentials.blank?
+    if approval_user.canvas_credentials.blank?
+      Rails.logger.warn "Auto-approval skipped for request #{id}: staff user #{approval_user.id} has no usable Canvas credentials."
+      return false
+    end
 
     lms_facade_from_user = assignment.lms_facade.from_user(approval_user)
     auto_approve(lms_facade_from_user)
@@ -121,7 +129,11 @@ class Request < ApplicationRecord
     enrollment = UserToCourse.find_by(user: user, course: course)
     return false if enrollment.nil?
     if enrollment.allow_extended_requests
-      max_days = course.course_settings.auto_approve_extended_request_days
+      # Extended-request students get at least the standard window; a course
+      # that leaves auto_approve_extended_request_days at 0 must not exclude
+      # them from the auto-approval every other student gets.
+      max_days = [ course.course_settings.auto_approve_extended_request_days,
+                   course.course_settings.auto_approve_days ].max
     else
       max_days = course.course_settings.auto_approve_days
     end
@@ -150,7 +162,12 @@ class Request < ApplicationRecord
     return true unless settings.enable_min_hours_before_deadline
 
     hours_until_deadline = (assignment.due_date - Time.current) / 1.hour
-    hours_until_deadline >= settings.min_hours_before_deadline.to_i
+    met = hours_until_deadline >= settings.min_hours_before_deadline.to_i
+    unless met
+      Rails.logger.info "Auto-approval skipped for request #{id}: #{hours_until_deadline.round(1)}h until deadline " \
+                        "is under the #{settings.min_hours_before_deadline.to_i}h minimum for course #{course.id}."
+    end
+    met
   end
 
   def auto_approve(lms_facade_from_user)
