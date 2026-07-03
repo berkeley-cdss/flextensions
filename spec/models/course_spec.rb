@@ -37,6 +37,18 @@ RSpec.describe Course, type: :model do
     { "id": 240, "name": "Sherri Johnson", "created_at": "2025-05-05T11:57:36-07:00", "sortable_name": "Johnson, Sherri", "short_name": "Sherri Johnson", "sis_user_id": "216573718", "integration_id": "sherri.johnson53", "sis_import_id": 5, "login_id": "sherri.johnson53@example.com", "email": "sherri.johnson53@example.com", "has_non_collaborative_groups": false }
   ]
 
+  describe '#enabled_assignments' do
+    it 'returns only enabled assignments belonging to the course' do
+      course = create(:course)
+      other_course = create(:course)
+      enabled = create(:assignment, course_to_lms: course.course_to_lms(1), enabled: true)
+      create(:assignment, course_to_lms: course.course_to_lms(1), enabled: false)
+      create(:assignment, course_to_lms: other_course.course_to_lms(1), enabled: true)
+
+      expect(course.enabled_assignments).to contain_exactly(enabled)
+    end
+  end
+
   describe '#staff_user_for_auto_approval' do
     it 'returns the correct user for auto approval' do
       course = described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101')

@@ -42,10 +42,10 @@ class RequestsController < ApplicationController
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
 
     if @role == 'instructor'
-      prepare_instructor_new_request(course_to_lmss)
+      prepare_instructor_new_request
       render :new_for_student and return
     elsif @role == 'student'
-      redirected = prepare_student_new_request(course_to_lmss)
+      redirected = prepare_student_new_request
       return if redirected
 
       render :new and return
@@ -61,7 +61,7 @@ class RequestsController < ApplicationController
     course_to_lmss = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
 
-    @assignments = Assignment.enabled_for_course(course_to_lmss).order(:name)
+    @assignments = @course.enabled_assignments.order(:name)
     @students = User.joins(:user_to_courses).where(user_to_courses: { course_id: @course.id, role: 'student' }).order(:name)
     @request = @course.requests.new
   end
@@ -209,7 +209,7 @@ class RequestsController < ApplicationController
 
   def handle_request_error
     flash.now[:alert] = 'There was a problem submitting your request.'
-    @assignments = Assignment.enabled_for_course(@course.all_linked_lmss.pluck(:id)).order(:name)
+    @assignments = @course.enabled_assignments.order(:name)
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]
     render :new
   end
@@ -292,14 +292,14 @@ class RequestsController < ApplicationController
     redirect_to result[:redirect_to], alert: result[:alert] if result != true
   end
 
-  def prepare_instructor_new_request(course_to_lms_ids)
+  def prepare_instructor_new_request
     @students = User.joins(:user_to_courses).where(user_to_courses: { course_id: @course.id, role: 'student' }).order(:name)
     @request = @course.requests.new
-    @assignments = Assignment.enabled_for_course(course_to_lms_ids).order(:name)
+    @assignments = @course.enabled_assignments.order(:name)
   end
 
-  def prepare_student_new_request(course_to_lms_ids)
-    all_assignments = Assignment.enabled_for_course(course_to_lms_ids).order(:name)
+  def prepare_student_new_request
+    all_assignments = @course.enabled_assignments.order(:name)
     @assignments = all_assignments.reject { |assignment| assignment.has_pending_request_for_user?(@user, @course) }
     @has_pending = all_assignments.size != @assignments.size
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]
@@ -323,7 +323,7 @@ class RequestsController < ApplicationController
   end
 
   def render_new_for_student_error
-    prepare_instructor_new_request(@course.all_linked_lmss.pluck(:id))
+    prepare_instructor_new_request
     flash.now[:alert] = 'There was a problem submitting the request.'
     render :new_for_student
   end
