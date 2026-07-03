@@ -179,10 +179,15 @@ class Course < ApplicationRecord
     course_settings.destroy if course_settings
   end
 
-  # Find the first staff user who has a Canvas Token that can be used
-  # to post requests to Canvas.
+  # Find the first staff user who has a Canvas token that can be used to post
+  # auto-approvals to Canvas. Staff synced from the Canvas roster who have
+  # never logged into Flextensions have no stored credentials and are skipped.
   def staff_user_for_auto_approval
-    user_to_courses.where(role: UserToCourse.staff_roles).first&.user
+    User.joins(:user_to_courses, :lms_credentials)
+        .where(user_to_courses: { course_id: id, role: UserToCourse.staff_roles })
+        .where(lms_credentials: { lms_name: 'canvas' })
+        .order('user_to_courses.id')
+        .first
   end
 
   # Fetch courses from Canvas API

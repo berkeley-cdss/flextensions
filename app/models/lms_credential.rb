@@ -32,4 +32,36 @@ class LmsCredential < ApplicationRecord
 
   # LMS must exist
   validates :lms_name, presence: true
+
+  # Whether the access token expires within the given buffer (so callers can
+  # refresh it before starting a batch of API calls).
+  def expires_soon?(buffer = 15.minutes)
+    expire_time.present? && Time.zone.now + buffer > expire_time
+  end
+
+  # Exchanges the stored refresh token for a new access token and persists it.
+  # Returns the new access token, or nil when there is no refresh token or
+  # Canvas rejects the refresh (e.g. the user revoked Flextensions' access).
+  def refresh!
+    return nil if refresh_token.blank?
+
+    client = OAuth2::Client.new(
+      ENV.fetch('CANVAS_CLIENT_ID', nil),
+      ENV.fetch('CANVAS_APP_KEY', nil),
+      site: ENV.fetch('CANVAS_URL', nil),
+      token_url: '/login/oauth2/token'
+    )
+    new_token = OAuth2::AccessToken.from_hash(client, refresh_token: refresh_token).refresh!
+
+    update(
+      token: new_token.token,
+      # Canvas does not always rotate refresh tokens; keep the old one then.
+      refresh_token: new_token.refresh_token || refresh_token,
+      expire_time: Time.zone.at(new_token.expires_at)
+    )
+    new_token.token
+  rescue OAuth2::Error => e
+    Rails.logger.error "Failed to refresh #{lms_name} token for user #{user_id}: #{e.message}"
+    nil
+  end
 end

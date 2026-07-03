@@ -74,38 +74,39 @@ class Request < ApplicationRecord
   end
 
   # Handle request update and check for auto-approval
-  def process_update(_current_user)
-    link = request_link
-    notify_slack = true
-
-    if status == 'pending' && try_auto_approval(_current_user)
-      slack_message = build_slack_message(:auto_approved, link)
-      result = build_result_hash('Your request was updated and has been approved.')
+  def process_update(current_user)
+    if status == 'pending' && try_auto_approval(current_user)
+      notify_slack(build_slack_message(:auto_approved, request_link))
+      build_result_hash('Your request was updated and has been approved.')
     else
-      slack_message = build_slack_message(:updated, link)
-      result = build_result_hash('Request was successfully updated.')
+      notify_slack(build_slack_message(:updated, request_link))
+      build_result_hash('Request was successfully updated.')
     end
-
-    success = SlackNotifier.notify(slack_message, course.course_settings.slack_webhook_url) if notify_slack && course&.course_settings&.slack_webhook_url.present?
-    Rails.logger.error "Failed to send Slack notification for request #{id} in course #{course.id}. Please check your webhook URL." unless success
-    result
   end
 
   def calculate_days_difference
     (requested_due_date.to_date - assignment.due_date.to_date).to_i
   end
 
-  # Attempt to auto-approve by posting to the LMS.
+  # Attempt to auto-approve by posting to the LMS. Returns false (leaving the
+  # request pending for manual review) when the request is not eligible or no
+  # staff member's Canvas credentials can be used; every skip is logged so
+  # silently-pending requests can be diagnosed in production.
   def try_auto_approval(_current_user)
-    return false unless auto_approval_eligible_for_course?
     return false unless eligible_for_auto_approval?
 
     approval_user = course.staff_user_for_auto_approval
-    approval_user.ensure_fresh_canvas_token!
-    return false if approval_user.canvas_credentials.blank?
+    if approval_user.nil?
+      Rails.logger.warn "Auto-approval skipped for request #{id}: no staff user in course #{course_id} has Canvas credentials"
+      return false
+    end
 
-    lms_facade_from_user = assignment.lms_facade.from_user(approval_user)
-    auto_approve(lms_facade_from_user)
+    if approval_user.ensure_fresh_canvas_token!.nil?
+      Rails.logger.warn "Auto-approval skipped for request #{id}: could not refresh the Canvas token of user #{approval_user.id}"
+      return false
+    end
+
+    auto_approve(assignment.lms_facade.from_user(approval_user))
   end
 
   def auto_approval_eligible_for_course?
@@ -153,11 +154,10 @@ class Request < ApplicationRecord
     hours_until_deadline >= settings.min_hours_before_deadline.to_i
   end
 
+  # Approves the request as the system user and marks it auto-approved.
+  # Eligibility is the caller's responsibility (see try_auto_approval).
   def auto_approve(lms_facade_from_user)
-    return false unless eligible_for_auto_approval?
-
     system_user = SystemUserService.ensure_auto_approval_user_exists
-    return false unless system_user
 
     # Reuse the regular approve method but mark as auto-approved afterward
     result = approve(lms_facade_from_user, system_user)
@@ -188,7 +188,7 @@ class Request < ApplicationRecord
         dates[:late_due_date]&.iso8601
       )
     rescue => e
-      Rails.logger.error "Error during LMS extension provisioning: #{e.message}"
+      Rails.logger.error "Error during LMS extension provisioning for request #{id}: #{e.message}"
       self.errors.add(:base, 'Failed to provision extension in LMS.')
       self.errors.add(:base, e.message)
       return false
