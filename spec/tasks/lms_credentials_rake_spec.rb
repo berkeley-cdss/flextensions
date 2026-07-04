@@ -12,7 +12,11 @@ RSpec.describe 'lms_credentials:purge', type: :task do
   after { task.reenable }
 
   def create_credential(email, lms_name)
-    lms = Lms.find_or_create_by(lms_name: lms_name) { |l| l.use_auth_token = true }
+    # The seeds loaded in rails_helper insert Lms rows with explicit ids, which
+    # leaves the lmss id sequence behind the existing rows — so create with an
+    # explicit id too rather than relying on the sequence.
+    lms = Lms.find_by('LOWER(lms_name) = ?', lms_name.downcase) ||
+          Lms.create!(id: Lms.maximum(:id).to_i + 1, lms_name: lms_name, use_auth_token: true)
     user = User.create!(email: email, canvas_uid: email)
     user.lms_credentials.create!(
       lms: lms,
