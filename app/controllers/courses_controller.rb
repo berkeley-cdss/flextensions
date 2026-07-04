@@ -4,21 +4,17 @@ class CoursesController < ApplicationController
   # Currently exclude routes that expect JSON.
   before_action :require_instructor_role!, only: %i[edit enrollments delete]
   before_action :set_pending_request_count
-  before_action :determine_user_role
 
   def index
-    staff_enrollments = Enrollment.includes(:course)
-                                  .where(user: @user, role: Enrollment.staff_roles)
+    @staff_enrollments = Enrollment.includes(:course)
+                                  .where(user: current_user, role: Enrollment.staff_roles)
                                   .keep_highest_role
-    @staff_enrollments_by_semester = group_by_semester(staff_enrollments)
+    @staff_enrollments_by_semester = group_by_semester(@staff_enrollments)
 
     # Only show courses to students if extensions are enabled at the course level
-    student_courses = Enrollment.includes(course: :course_settings).where(user: @user, role: 'student')
+    student_courses = Enrollment.includes(course: :course_settings).where(user: current_user, role: 'student')
     visible_student_courses = student_courses.select { |enrollment| enrollment.course.requests_enabled? }
-    @student_courses_by_semester = group_by_semester(visible_student_courses)
-    # Keep flat lists for conditional checks in the view
-    @teacher_courses = teacher_courses
-    @student_courses = visible_student_courses
+    @student_enrollments_by_semester = group_by_semester(visible_student_courses)
   end
 
   def show
@@ -37,12 +33,12 @@ class CoursesController < ApplicationController
       @assignments_last_synced_at = assignments_last_synced_at
       render :instructor_show
     else
-      return redirect_to courses_path, alert: 'You do not have access to this course.'
+      redirect_to courses_path, alert: 'You do not have access to this course.'
     end
   end
 
   def new
-    token = @user.lms_credentials.first.token
+    token = current_user.lms_credentials.first.token
     @courses = Course.fetch_courses(token)
     flash[:alert] = 'No courses found.' if @courses.empty?
 

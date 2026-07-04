@@ -15,11 +15,11 @@ class RequestsController < ApplicationController
 
   def index
     @side_nav = 'requests'
-    if @course.staff_user?(@user)
+    if @course.staff_user?(current_user)
       scope = @course.requests.includes(:assignment)
       @requests = params[:show_all] == 'true' ? scope : scope.pending
     else
-      @requests = @course.requests.for_user(@user)
+      @requests = @course.requests.for_user(current_user)
     end
 
     # Pass the search query to the view
@@ -41,7 +41,7 @@ class RequestsController < ApplicationController
     course_to_lms_ids = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lms_ids.any?
 
-    return new_for_students if @course.staff_user?(@user)
+    return new_for_students if @course.staff_user?(current_user)
 
     redirected = prepare_student_new_request
     render :new unless redirected
@@ -54,16 +54,16 @@ class RequestsController < ApplicationController
 
   def create
     Request.merge_date_and_time!(params[:request])
-    @request = @course.requests.new(request_params.merge(user: @user))
+    @request = @course.requests.new(request_params.merge(user: current_user))
     return unless ensure_assignment_in_course
 
-    if @request.assignment.has_pending_request_for_user?(@user, @course)
+    if @request.assignment.has_pending_request_for_user?(current_user, @course)
       redirect_to course_requests_path(@course), alert: 'You already have a pending request for this assignment.'
       return
     end
 
     if @request.save
-      result = @request.process_created_request(@user)
+      result = @request.process_created_request(current_user)
       redirect_to result[:redirect_to], notice: result[:notice]
     else
       handle_request_error
@@ -93,7 +93,7 @@ class RequestsController < ApplicationController
     return unless ensure_assignment_in_course
 
     if @request.save
-      result = @request.process_update(@user)
+      result = @request.process_update(current_user)
       redirect_to result[:redirect_to], notice: result[:notice]
     else
       flash.now[:alert] = 'There was a problem updating the request.'
@@ -102,7 +102,7 @@ class RequestsController < ApplicationController
   end
 
   def cancel
-    if @request.reject(@user)
+    if @request.reject(current_user)
       redirect_to course_requests_path(@course), notice: 'Request canceled successfully.'
     else
       redirect_to course_requests_path(@course), alert: 'Failed to cancel the request.'
@@ -110,7 +110,7 @@ class RequestsController < ApplicationController
   end
 
   def approve
-    if @request.approve_by(@user)
+    if @request.approve_by(current_user)
       notice = 'Request approved and extension created successfully in Canvas.'
       respond_to do |format|
         format.html { redirect_to course_requests_path(@course), notice: notice }
@@ -126,7 +126,7 @@ class RequestsController < ApplicationController
   end
 
   def reject
-    if @request.reject(@user)
+    if @request.reject(current_user)
       notice = 'Request denied successfully.'
       respond_to do |format|
         format.html { redirect_to course_requests_path(@course), notice: notice }
@@ -150,7 +150,6 @@ class RequestsController < ApplicationController
   end
 
   def export
-    course = Course.find_by(id: params[:course_id])
     token = params[:readonly_api_token]
 
     return render plain: 'Invalid or missing API token', status: :unauthorized unless course && ActiveSupport::SecurityUtils.secure_compare(course.readonly_api_token, token.to_s)
@@ -176,13 +175,13 @@ class RequestsController < ApplicationController
   # Staff may act on any request in the course; everyone else is limited to
   # the requests they own.
   def requests_visible_to_user
-    @course.staff_user?(@user) ? @course.requests : @course.requests.for_user(@user)
+    @course.staff_user?(current_user) ? @course.requests : @course.requests.for_user(current_user)
   end
 
   # Staff-only actions (approve/reject and their mass variants). @role is left
   # to the view layer; access decisions ask the course directly.
   def require_course_staff
-    return if @course.staff_user?(@user)
+    return if @course.staff_user?(current_user)
 
     redirect_to course_path(@course), alert: 'You do not have permission to perform this action.'
   end
@@ -237,8 +236,8 @@ class RequestsController < ApplicationController
   end
 
   def authenticate_user
-    @user = current_user
-    return if @user
+    current_user = current_user
+    return if current_user
 
     redirect_to root_path, alert: 'Please log in to access this page.'
   end
@@ -281,11 +280,11 @@ class RequestsController < ApplicationController
 
   def prepare_student_new_request
     all_assignments = @course.enabled_assignments.order(:name)
-    @assignments = all_assignments.reject { |assignment| assignment.has_pending_request_for_user?(@user, @course) }
+    @assignments = all_assignments.reject { |assignment| assignment.has_pending_request_for_user?(current_user, @course) }
     @has_pending = all_assignments.size != @assignments.size
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]
-    if @selected_assignment&.has_pending_request_for_user?(@user, @course)
-      pending_request = @course.requests.where(user: @user, assignment: @selected_assignment, status: 'pending').first
+    if @selected_assignment&.has_pending_request_for_user?(current_user, @course)
+      pending_request = @course.requests.where(user: current_user, assignment: @selected_assignment, status: 'pending').first
       redirect_to course_request_path(@course, pending_request), alert: 'You already have a pending request for this assignment.' and return true
     end
     @request = @course.requests.new
@@ -294,12 +293,12 @@ class RequestsController < ApplicationController
 
   def reject_other_student_requests(student, assignment_id)
     @course.requests.where(user_id: student.id, assignment_id: assignment_id).where.not(status: 'denied').find_each do |req|
-      req.update(status: 'denied', last_processed_by_user_id: @user.id)
+      req.update(status: 'denied', last_processed_by_user_id: current_user.id)
     end
   end
 
   def handle_successful_student_request(student)
-    result = @request.process_created_request(@user)
+    result = @request.process_created_request(current_user)
     redirect_to result[:redirect_to], notice: "Request created for #{student.name}. #{result[:notice]}"
   end
 
@@ -339,7 +338,7 @@ class RequestsController < ApplicationController
     failed_ids = request_ids - requests.map(&:id)
 
     requests.each do |request|
-      result = action == :approve ? approve_request_for_mass_action(request) : request.reject(@user)
+      result = action == :approve ? approve_request_for_mass_action(request) : request.reject(current_user)
       result ? processed_ids << request.id : failed_ids << request.id
     end
 
@@ -388,7 +387,7 @@ class RequestsController < ApplicationController
   end
 
   def approve_request_for_mass_action(request)
-    request.approve_by(@user)
+    request.approve_by(current_user)
   rescue StandardError => e
     Rails.logger.error("Mass approve failed for request #{request.id}: #{e.message}")
     false
