@@ -1,4 +1,6 @@
 class ApplicationController < ActionController::Base
+  include TokenRefreshable
+
   before_action :authenticated!, unless: -> { excluded_controller_action? }
 
   rescue_from LmsFacade::LmsAPIError, with: :handle_lms_api_error
@@ -10,7 +12,7 @@ class ApplicationController < ActionController::Base
       'login' => [ 'canvas' ],
       'session' => %w[create omniauth_callback omniauth_failure],
       'rails/health' => [ 'show' ],
-      'requests' => [ 'export' ]
+      'requests/exports' => [ 'show' ]
     }
     controller = params[:controller]
     action = params[:action]
@@ -54,7 +56,11 @@ class ApplicationController < ActionController::Base
       elsif current_user.lms_credentials.empty?
         return handle_authentication_failure('User has no credentials.')
       elsif current_user.lms_credentials.first.expire_time < Time.zone.now
-        return handle_authentication_failure('You have been logged out.')
+        # The Canvas access token has expired. Rather than logging the user out
+        # immediately, try to use the stored (long-lived) refresh token to obtain
+        # a fresh access token so the session can continue. We only log the user
+        # out when there is no refresh token or the refresh actually fails.
+        return handle_authentication_failure('You have been logged out.') unless refresh_user_token(current_user)
       end
     end
     true
@@ -122,7 +128,7 @@ class ApplicationController < ActionController::Base
   end
 
   def ensure_instructor_role
-    return if @role == 'instructor'
+    return if @user && @course&.course_staff?(@user)
 
     flash[:alert] = 'You do not have access to this page.'
     redirect_to courses_path

@@ -25,7 +25,7 @@
 #
 # Indexes
 #
-#  index_course_settings_on_course_id  (course_id)
+#  index_course_settings_on_course_id  (course_id) UNIQUE
 #
 # Foreign Keys
 #
@@ -53,6 +53,10 @@ class CourseSettings < ApplicationRecord
   TEMPLATE
 
   belongs_to :course
+
+  # Courses and settings are 1:1; the course_id unique index enforces this at
+  # the database level.
+  validates :course_id, uniqueness: true
 
   before_save :ensure_system_user_for_auto_approval
   validate :gradescope_url_is_valid, if: :enable_gradescope?
@@ -86,12 +90,12 @@ class CourseSettings < ApplicationRecord
 
   # TODO: if disabled should unsync Gradescope assignments
   def create_or_update_gradescope_link
-    if course.course_settings.enable_gradescope
-      gradescope_course_id = extract_gradescope_course_id(course.course_settings.gradescope_course_url)
-      CourseToLms.find_or_initialize_by(course_id: course.id, lms_id: GRADESCOPE_LMS_ID).tap do |course_to_lms|
-        course_to_lms.external_course_id = gradescope_course_id
-        course_to_lms.save!
-      end
+    return unless enable_gradescope
+
+    gradescope_course_id = extract_gradescope_course_id(gradescope_course_url)
+    CourseToLms.find_or_initialize_by(course_id: course.id, lms_id: GRADESCOPE_LMS_ID).tap do |course_to_lms|
+      course_to_lms.external_course_id = gradescope_course_id
+      course_to_lms.save!
     end
   end
 

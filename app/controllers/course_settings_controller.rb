@@ -38,15 +38,18 @@ class CourseSettingsController < ApplicationController
   end
 
   def course_settings_params
-    params.require(:course_settings).permit(
-      :auto_approve_days,
-      :auto_approve_extended_request_days,
-      :max_auto_approve,
-      :enable_min_hours_before_deadline,
-      :min_hours_before_deadline,
-      :extend_late_due_date,
-      :email_subject,
-      :email_template
+    params.expect(
+      course_settings: [
+        :enable_extensions,
+        :auto_approve_days,
+        :auto_approve_extended_request_days,
+        :max_auto_approve,
+        :enable_min_hours_before_deadline,
+        :min_hours_before_deadline,
+        :extend_late_due_date,
+        :email_subject,
+        :email_template
+      ]
     )
   end
 

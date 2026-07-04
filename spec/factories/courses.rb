@@ -27,7 +27,9 @@ FactoryBot.define do
     after(:create) do |course|
       lms = Lms.find_by(id: 1) || create(:lms, id: 1, lms_name: 'Canvas')
 
-      create(:course_settings, course: course)
+      # Course settings are created automatically with the course; factory
+      # courses default to extensions enabled since most specs need them.
+      course.course_settings.update!(enable_extensions: true)
       create(:form_setting, course: course)
       course_to_lms = create(
         :course_to_lms,

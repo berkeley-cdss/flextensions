@@ -1,6 +1,4 @@
 class SessionController < ApplicationController
-  include TokenRefreshable
-
   ## Login work flow explained here
   # Currently the login only supports third-party authentication with Canvas.
   # But the structure to support multiple login methods is largely in place.
@@ -65,13 +63,24 @@ class SessionController < ApplicationController
       expires_at: expires_at
     )
 
-    # Persist / update the user just like `create`
-    user = find_or_create_user(user_data, access_token)
+    developer = auth.provider == 'developer'
+    user =
+      if developer
+        developer_lookup_or_create(user_data, access_token)
+      else
+        canvas_lookup_or_create(user_data, access_token)
+      end
+
+    # Either path returns nil when it refuses the login (e.g. canvas_lookup
+    # declining to re-key an existing account to a new canvas_uid).
+    if user.nil?
+      redirect_to root_path,
+                  alert: 'We could not link your account. Please contact an administrator.'
+      return
+    end
 
     # Auto-enroll developer login users in test courses
-    if auth.provider == 'developer'
-      ensure_developer_test_enrollments(user)
-    end
+    ensure_developer_test_enrollments(user) if developer
 
     redirect_to courses_path, notice: "Logged in! Welcome, #{user_data['name']}!"
   rescue StandardError => e
@@ -95,16 +104,49 @@ class SessionController < ApplicationController
 
     # Ensure enrollment in the test course (as student so they can request extensions)
     if test_course
-      UserToCourse.find_or_create_by!(user_id: user.id, course_id: test_course.id) do |utc|
-        utc.role = 'student'
+      Enrollment.find_or_create_by!(user_id: user.id, course_id: test_course.id) do |enrollment|
+        enrollment.role = 'student'
       end
     end
   end
 
-  # TODO: Refactor.
-  def find_or_create_user(user_data, auth_token)
-    auth_token.token
-    user = nil
+  def developer_login_allowed?
+    Rails.env.local?
+  end
+
+  # Canonical production login path. Canvas owns identity, so users are keyed by
+  # canvas_uid: we refresh the email on a canvas_uid match and create a new
+  # account when the canvas_uid is unknown. We return nil (rather than re-keying)
+  # when a different canvas_uid presents an email that already belongs to an
+  # account, leaving the existing account untouched.
+  def canvas_lookup_or_create(user_data, auth_token)
+    user = User.find_by(canvas_uid: user_data['id'])
+
+    if user
+      user.email = user_data['email']
+    elsif User.exists?(email: user_data['primary_email'])
+      Rails.logger.warn(
+        "Refusing to link canvas_uid=#{user_data['id']} to existing account " \
+        "with email=#{user_data['primary_email']}"
+      )
+      return nil
+    else
+      user = User.new(canvas_uid: user_data['id'])
+      user.assign_attributes(
+        email: user_data['email'],
+        name: user_data['name']
+      )
+    end
+
+    persist_login!(user, auth_token)
+  end
+
+  # Developer / test masquerade path. INTENTIONALLY matches an existing user by
+  # email so a developer can log in *as* them without Canvas. Gated to dev/test
+  # only; returns nil otherwise. Do not use this matching for the Canvas path.
+  def developer_lookup_or_create(user_data, auth_token)
+    return nil unless developer_login_allowed?
+
     if User.exists?(email: user_data['primary_email'])
       user = User.find_by(email: user_data['primary_email'])
       user.canvas_uid = user_data['id']
@@ -118,6 +160,13 @@ class SessionController < ApplicationController
         name: user_data['name']
       )
     end
+
+    persist_login!(user, auth_token)
+  end
+
+  # Shared finalization for both login paths: persist the user, refresh their
+  # LMS credentials, and establish the session.
+  def persist_login!(user, auth_token)
     user.save!
     update_user_credential(user, auth_token)
 

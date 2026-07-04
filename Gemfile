@@ -3,7 +3,7 @@ source 'https://rubygems.org'
 ruby '~> 3.3'
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
-gem 'rails', '~> 7.2.3.1'
+gem 'rails', '~> 8.1.0'
 
 # Use postgres for all env dbs
 gem 'pg'
@@ -114,7 +114,7 @@ group :test do
   gem 'rack_session_access'
   gem 'rspec-retry'
   gem 'selenium-webdriver'
-  gem 'shoulda-matchers', '~> 7.0'
+  gem 'shoulda-matchers', '~> 8.0'
   gem 'simplecov', '~> 0.22.0', require: false
   gem 'simplecov_json_formatter'
   gem 'timecop'

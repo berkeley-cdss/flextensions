@@ -5,11 +5,11 @@ RSpec.describe CoursesController, type: :controller do
   let(:course) { Course.create!(course_name: 'Test Course', canvas_id: '456', course_code: 'TST101') }
   let(:course_to_lms) { CourseToLms.create!(course: course, external_course_id: '456', lms_id: 1) }
   let(:student_course) { Course.create!(course_name: 'Student Course', canvas_id: '789', course_code: 'STU101') }
-  let(:course_settings) { CourseSettings.create!(course: course, enable_extensions: true) }
+  let(:course_settings) { course.course_settings.tap { |cs| cs.update!(enable_extensions: true) } }
 
   before do
     session[:user_id] = user.canvas_uid
-    UserToCourse.create!(user: user, course: course, role: 'student')
+    Enrollment.create!(user: user, course: course, role: 'student')
     user.lms_credentials.create!(
       lms_name: 'canvas',
       token: 'fake_token',
@@ -30,7 +30,7 @@ RSpec.describe CoursesController, type: :controller do
     end
 
     it 'includes Lead TA enrollments in staff courses' do
-      UserToCourse.create!(user: user, course: student_course, role: 'leadta')
+      Enrollment.create!(user: user, course: student_course, role: 'leadta')
 
       get :index
 
@@ -42,8 +42,8 @@ RSpec.describe CoursesController, type: :controller do
       let(:fall_course) { Course.create!(course_name: 'Fall Course', canvas_id: 'fa1', course_code: 'FA101', semester: 'Fall 2025') }
 
       before do
-        UserToCourse.create!(user: user, course: spring_course, role: 'teacher')
-        UserToCourse.create!(user: user, course: fall_course, role: 'teacher')
+        Enrollment.create!(user: user, course: spring_course, role: 'teacher')
+        Enrollment.create!(user: user, course: fall_course, role: 'teacher')
       end
 
       it 'groups teacher courses by semester, most-recent-first' do
@@ -55,15 +55,13 @@ RSpec.describe CoursesController, type: :controller do
       end
 
       it 'groups student courses by semester, most-recent-first' do
-        # Disable extensions on the default course so it doesn't appear
-        CourseSettings.create!(course: course, enable_extensions: false)
-
+        # Extensions stay disabled on the default course so it doesn't appear
         spring_student = Course.create!(course_name: 'Student Spring', canvas_id: 'ss1', course_code: 'SS101', semester: 'Spring 2026')
         fall_student = Course.create!(course_name: 'Student Fall', canvas_id: 'sf1', course_code: 'SF101', semester: 'Fall 2025')
-        CourseSettings.create!(course: spring_student, enable_extensions: true)
-        CourseSettings.create!(course: fall_student, enable_extensions: true)
-        UserToCourse.create!(user: user, course: spring_student, role: 'student')
-        UserToCourse.create!(user: user, course: fall_student, role: 'student')
+        spring_student.course_settings.update!(enable_extensions: true)
+        fall_student.course_settings.update!(enable_extensions: true)
+        Enrollment.create!(user: user, course: spring_student, role: 'student')
+        Enrollment.create!(user: user, course: fall_student, role: 'student')
 
         get :index
 
@@ -89,6 +87,33 @@ RSpec.describe CoursesController, type: :controller do
         course_settings
         get :show, params: { id: course.id }
         expect(response).to render_template('courses/student_show')
+      end
+    end
+
+    context 'when the user is an instructor' do
+      let!(:course_to_lms_record) { CourseToLms.create!(course: course, external_course_id: '456', lms_id: 1) }
+
+      before do
+        Enrollment.create!(user: user, course: course, role: 'teacher')
+      end
+
+      it 'renders the instructor show template' do
+        get :show, params: { id: course.id }
+        expect(response).to render_template('courses/instructor_show')
+      end
+
+      it 'assigns @assignments_last_synced_at from the recent assignment sync' do
+        synced_at = Time.zone.parse('2026-06-20 10:00:00')
+        course_to_lms_record.update!(recent_assignment_sync: { 'synced_at' => synced_at.iso8601 })
+
+        get :show, params: { id: course.id }
+
+        expect(assigns(:assignments_last_synced_at)).to be_within(1.second).of(synced_at)
+      end
+
+      it 'leaves @assignments_last_synced_at nil when assignments have never been synced' do
+        get :show, params: { id: course.id }
+        expect(assigns(:assignments_last_synced_at)).to be_nil
       end
     end
 
@@ -307,7 +332,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a teacher (course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'teacher')
+        Enrollment.create!(user: user, course: course, role: 'teacher')
       end
 
       it 'syncs enrollments and returns OK' do
@@ -322,7 +347,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a leadta (course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'leadta')
+        Enrollment.create!(user: user, course: course, role: 'leadta')
       end
 
       it 'syncs enrollments and returns OK' do
@@ -337,7 +362,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a TA (staff but not course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'ta')
+        Enrollment.create!(user: user, course: course, role: 'ta')
       end
 
       it 'syncs enrollments and returns OK' do
@@ -504,7 +529,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a teacher (course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'teacher')
+        Enrollment.create!(user: user, course: course, role: 'teacher')
       end
 
       it 'renders the enrollments view successfully' do
@@ -527,7 +552,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a TA (staff but not course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'ta')
+        Enrollment.create!(user: user, course: course, role: 'ta')
       end
 
       it 'renders the enrollments view successfully' do
@@ -564,9 +589,8 @@ RSpec.describe CoursesController, type: :controller do
 
     before do
       Extension.create!(assignment: assignment, student_email: user.email)
-      UserToCourse.create!(user: user, course: course, role: 'teacher')
+      Enrollment.create!(user: user, course: course, role: 'teacher')
       Request.create!(course: course, assignment: assignment, user: user, requested_due_date: Time.current, reason: 'Reason')
-      CourseSettings.create!(course: course)
       FormSetting.create!(
         course: course,
         documentation_disp: 'required',
@@ -582,7 +606,7 @@ RSpec.describe CoursesController, type: :controller do
                                    .and change(Assignment, :count).by(-1)
                                                                   .and change(Extension, :count).by(-1)
                                                                                                 .and change(CourseToLms, :count).by(-1)
-                                                                                                                                .and change(UserToCourse, :count).by(-2)
+                                                                                                                                .and change(Enrollment, :count).by(-2)
                                                                                                                                                                  .and change(Request, :count).by(-1)
                                                                                                                                                                                              .and change(CourseSettings, :count).by(-1)
                                                                                                                                                                                                                                 .and change(FormSetting,
