@@ -26,7 +26,7 @@ module API
         if @request.save
           render json: @request, status: :created
         else
-          render json: { errors: @request.errors.full_messages }, status: :unprocessable_entity
+          render json: { error: @request.errors.full_messages.join(', ') }, status: :unprocessable_entity
         end
       end
 
