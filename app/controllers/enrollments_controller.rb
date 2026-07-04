@@ -1,6 +1,5 @@
 class EnrollmentsController < ApplicationController
-  # `authenticated!` from ApplicationController runs before this filter, so
-  # `current_user` is populated by the time we get here.
+  # `authenticated!` from ApplicationController runs before this filter
   before_action :set_course
   before_action :ensure_course_staff!
   before_action :set_enrollment
@@ -27,7 +26,7 @@ class EnrollmentsController < ApplicationController
   # which breaks the JSON fetch from the course-settings UI. Respond with 403
   # JSON so the client can surface the failure inline.
   def ensure_course_staff!
-    return if @course&.course_staff?(current_user)
+    return if @course.staff_user?(current_user)
 
     render json: {
       success: false,

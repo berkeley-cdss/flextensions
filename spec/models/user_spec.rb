@@ -81,7 +81,6 @@ RSpec.describe User, type: :model do
 
     context 'when token expires soon' do
       before do
-        Lms.find_or_create_by(id: 1) { |lms| lms.lms_name = 'Canvas'; lms.use_auth_token = true }
         user.lms_credentials.create!(
           lms_id: 1,
           token: 'stale_token',

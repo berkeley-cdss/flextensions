@@ -5,6 +5,7 @@
 #  id                 :bigint           not null, primary key
 #  course_code        :string
 #  course_name        :string
+#  demo_course        :boolean          default(FALSE), not null
 #  readonly_api_token :string
 #  semester           :string
 #  created_at         :datetime         not null
@@ -105,10 +106,6 @@ RSpec.describe Course, type: :model do
 
   describe '#staff_user_for_auto_approval' do
     let(:course) { described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101') }
-
-    before do
-      Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }
-    end
 
     def create_staff(email, canvas_uid, role, with_credentials: true)
       user = User.create!(email: email, canvas_uid: canvas_uid)

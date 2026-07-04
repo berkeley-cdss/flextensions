@@ -25,10 +25,7 @@
 #  fk_rails_...  (user_id => users.id)
 #
 class LmsCredential < ApplicationRecord
-  # Belongs to a User
   belongs_to :user
-
-  # Belongs to an LMS
   belongs_to :lms
 
   # Encryption for tokens

@@ -5,6 +5,7 @@
 #  id                 :bigint           not null, primary key
 #  course_code        :string
 #  course_name        :string
+#  demo_course        :boolean          default(FALSE), not null
 #  readonly_api_token :string
 #  semester           :string
 #  created_at         :datetime         not null
@@ -130,24 +131,21 @@ class Course < ApplicationRecord
     nil
   end
 
+  def enrolled?(user)
+    enrollments.where(user_id: user.id).any?
+  end
+
   def course_admin?(user)
     enrollments.where(user_id: user.id).any?(&:course_admin?)
   end
 
-  def course_staff?(user)
+  def staff_user?(user)
     enrollments.where(user_id: user.id).any?(&:staff?)
   end
 
-  def course_student?(user)
+  def student_user?(user)
     enrollments.where(user_id: user.id).any?(&:student?)
   end
-
-  # TODO: This doesn't make sense actually.
-  # A course can be linked to many LMSs.
-  # def lms_facade
-  #   course_to_lms = CourseToLms.find_by(id: course_to_lms_id)
-  #   Lms.facade_class(course_to_lms.lms_id)
-  # end
 
   def canvas_id
     external_course_id_for(CANVAS_LMS_ID)

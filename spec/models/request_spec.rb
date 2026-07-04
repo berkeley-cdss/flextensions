@@ -70,7 +70,6 @@ RSpec.describe Request, type: :model do
 
   before do
     Enrollment.create!(user: user, course: course, role: 'student')
-    Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }
     user.lms_credentials.create!(
       lms_id: 1,
       token: 'fake_token',

@@ -36,7 +36,6 @@
 # rubocop:enable Layout/LineLength
 
 class CourseSettings < ApplicationRecord
-  # TODO: Remove the db default text, and use an AR validation.
   DEFAULT_EMAIL_TEMPLATE = <<~LIQUID.freeze
     Hello {{student_name}},
 
@@ -56,9 +55,6 @@ class CourseSettings < ApplicationRecord
   VALID_NOTIFICATION_FREQUENCIES = %w[daily weekly].freeze
 
   belongs_to :course
-
-  # Courses and settings are 1:1; the course_id unique index enforces this at
-  # the database level.
   validates :course_id, uniqueness: true
 
   # Empty <select> and blank <input> submissions become "" — coerce to nil so
