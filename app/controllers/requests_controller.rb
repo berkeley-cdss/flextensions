@@ -1,17 +1,15 @@
-require 'csv'
-
 # We really should get a handle on this.
 # rubocop:disable Metrics/ClassLength
 class RequestsController < ApplicationController
-  # Consider moving export, approve/reject to a separate controller?
-  before_action :authenticate_user, except: [ :export ]
-  before_action :set_course, except: [ :export ]
-  before_action :set_form_settings, except: [ :export ]
-  before_action :set_pending_request_count, except: [ :export ]
-  before_action :check_extensions_enabled_for_students, except: [ :export ]
+  before_action :authenticate_user
+  before_action :set_course
+  before_action :set_form_settings
+  before_action :require_course_membership
+  before_action :set_pending_request_count
+  before_action :check_extensions_enabled_for_students
   before_action :set_request, only: %i[show edit update cancel approve reject]
   before_action :ensure_request_is_pending, only: %i[update approve reject]
-  before_action :require_course_staff, only: %i[create_for_student approve reject mass_approve mass_reject]
+  before_action :ensure_instructor_role, only: %i[create_for_student approve reject mass_approve mass_reject]
 
   def index
     @side_nav = 'requests'
@@ -36,9 +34,7 @@ class RequestsController < ApplicationController
 
   def new
     @side_nav = 'form'
-    return redirect_to course_path(@course), alert: 'You do not have access to this page.' unless enrolled_in_course?
-
-    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.all_linked_lmss.exists?
+    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.has_canvas_linked?
 
     return new_for_student if @course.course_staff?(@user)
 
@@ -148,19 +144,6 @@ class RequestsController < ApplicationController
     process_mass_action(:reject)
   end
 
-  def export
-    course = Course.find_by(id: params[:course_id])
-    token = params[:readonly_api_token]
-
-    return render plain: 'Invalid or missing API token', status: :unauthorized unless course && ActiveSupport::SecurityUtils.secure_compare(course.readonly_api_token, token.to_s)
-
-    requests = course.requests.includes(:assignment, :user)
-    requests = requests.where(status: params[:status]) if params[:status].present?
-
-    csv_data = Request.to_csv(requests)
-    send_data csv_data, filename: 'requests.csv', type: 'text/csv'
-  end
-
   private
 
   # Loads the request for member actions. Scoped so students can only reach
@@ -178,12 +161,17 @@ class RequestsController < ApplicationController
     @course.course_staff?(@user) ? @course.requests : @course.requests.for_user(@user)
   end
 
-  # Staff-only actions (approve/reject and their mass variants). @role is left
-  # to the view layer; access decisions ask the course directly.
-  def require_course_staff
-    return if @course.course_staff?(@user)
+  # Every request action operates inside a course the user belongs to, so a
+  # user with no role in the course is bounced before reaching any action.
+  def require_course_membership
+    return if enrolled_in_course?
 
-    redirect_to course_path(@course), alert: 'You do not have permission to perform this action.'
+    redirect_to course_path(@course), alert: 'You do not have access to this page.'
+  end
+
+  # A user is a member of the course if they are staff or an enrolled student.
+  def enrolled_in_course?
+    @course.course_staff?(@user) || @course.course_student?(@user)
   end
 
   def handle_request_error
@@ -237,13 +225,6 @@ class RequestsController < ApplicationController
     @course.course_student?(student)
   end
 
-  def authenticate_user
-    @user = current_user
-    return if @user
-
-    redirect_to root_path, alert: 'Please log in to access this page.'
-  end
-
   # Runs after set_request, so @request is already loaded and scoped; a missing
   # request has already been redirected as "not found" by set_request.
   def ensure_request_is_pending
@@ -261,14 +242,6 @@ class RequestsController < ApplicationController
     redirect_to courses_path, alert: 'Extensions are not enabled for this course.'
   end
 
-  # A user must be enrolled (as staff or a student) to reach the request forms.
-  def enrolled_in_course?
-    @course.course_staff?(@user) || @course.course_student?(@user)
-  end
-
-  # Prepares and renders the form staff use to submit a request on behalf of a
-  # student. Not a routed action -- it is reached only from #new once the
-  # caller has been confirmed as course staff and the course has a linked LMS.
   # Prepares and renders the form staff use to submit a request on behalf of a
   # student. Not a routed action -- it is reached only from #new once the
   # caller has been confirmed as course staff and the course has a linked LMS.
