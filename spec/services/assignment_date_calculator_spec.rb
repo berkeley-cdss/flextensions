@@ -52,7 +52,7 @@ RSpec.describe AssignmentDateCalculator, type: :service do
   end
 
   before do
-    UserToCourse.create!(user: user, course: course, role: 'student')
+    Enrollment.create!(user: user, course: course, role: 'student')
   end
 
   describe '#calculate' do

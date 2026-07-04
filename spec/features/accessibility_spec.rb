@@ -41,18 +41,18 @@ RSpec.describe 'Accessibility', :a11y, :js, type: :feature do
   let!(:c3_assignment4) { create(:assignment, name: 'CS Project 2', course_to_lms: course_to_lms3, external_assignment_id: 'cs_p2', due_date: 30.days.from_now, late_due_date: 32.days.from_now) }
   let!(:c3_assignment5) { create(:assignment, name: 'CS Final', course_to_lms: course_to_lms3, external_assignment_id: 'cs_final', due_date: 37.days.from_now, late_due_date: 37.days.from_now) }
 
-  let!(:teacher1_course1) { create(:user_to_course, user: teacher1, course: course1, role: 'teacher') }
-  let!(:teacher1_course2) { create(:user_to_course, user: teacher1, course: course2, role: 'teacher') }
-  let!(:teacher2_course3) { create(:user_to_course, user: teacher2, course: course3, role: 'teacher') }
+  let!(:teacher1_course1) { create(:enrollment, user: teacher1, course: course1, role: 'teacher') }
+  let!(:teacher1_course2) { create(:enrollment, user: teacher1, course: course2, role: 'teacher') }
+  let!(:teacher2_course3) { create(:enrollment, user: teacher2, course: course3, role: 'teacher') }
 
-  let!(:student1_course1) { create(:user_to_course, user: student1, course: course1, role: 'student') }
-  let!(:student1_course2) { create(:user_to_course, user: student1, course: course2, role: 'student') }
-  let!(:student2_course1) { create(:user_to_course, user: student2, course: course1, role: 'student') }
-  let!(:student2_course3) { create(:user_to_course, user: student2, course: course3, role: 'student') }
-  let!(:student3_course2) { create(:user_to_course, user: student3, course: course2, role: 'student') }
-  let!(:student3_course3) { create(:user_to_course, user: student3, course: course3, role: 'student') }
-  let!(:student4_course1) { create(:user_to_course, user: student4, course: course1, role: 'student') }
-  let!(:student4_course3) { create(:user_to_course, user: student4, course: course3, role: 'student') }
+  let!(:student1_course1) { create(:enrollment, user: student1, course: course1, role: 'student') }
+  let!(:student1_course2) { create(:enrollment, user: student1, course: course2, role: 'student') }
+  let!(:student2_course1) { create(:enrollment, user: student2, course: course1, role: 'student') }
+  let!(:student2_course3) { create(:enrollment, user: student2, course: course3, role: 'student') }
+  let!(:student3_course2) { create(:enrollment, user: student3, course: course2, role: 'student') }
+  let!(:student3_course3) { create(:enrollment, user: student3, course: course3, role: 'student') }
+  let!(:student4_course1) { create(:enrollment, user: student4, course: course1, role: 'student') }
+  let!(:student4_course3) { create(:enrollment, user: student4, course: course3, role: 'student') }
 
   let!(:c1_request1) { create(:request, :approved, course: course1, user: student1, assignment: c1_assignment1, reason: 'Medical emergency', requested_due_date: 12.days.from_now) }
   let!(:c1_request2) { create(:request, course: course1, user: student2, assignment: c1_assignment2, reason: 'Family emergency', requested_due_date: 18.days.from_now) }
