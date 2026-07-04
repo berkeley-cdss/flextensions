@@ -8,7 +8,7 @@ class RequestsController < ApplicationController
   before_action :set_course, except: [ :export ]
   before_action :require_course_staff, only: %i[create_for_student approve reject mass_approve mass_reject]
   before_action :set_form_settings, except: [ :export ]
-  before_action :check_extensions_enabled_for_students, except: [ :export ]
+  before_action :require_course_access, except: [ :export ]
   before_action :set_request, only: %i[show edit update cancel approve reject]
   before_action :set_pending_request_count, except: [ :export ]
   before_action :ensure_request_is_pending, only: %i[update approve reject]
@@ -36,8 +36,6 @@ class RequestsController < ApplicationController
 
   def new
     @side_nav = 'form'
-    return redirect_to course_path(@course), alert: 'You do not have access to this page.' unless enrolled_in_course?
-
     course_to_lms_ids = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lms_ids.any?
 
@@ -241,17 +239,21 @@ class RequestsController < ApplicationController
   end
 
   # Students may only reach requests while the course has extensions enabled.
-  # Staff are always allowed through so they can manage existing requests.
-  def check_extensions_enabled_for_students
-    return unless @course.student_user?(current_user)
-    return if @course.requests_enabled?
-
-    redirect_to courses_path, alert: 'Extensions are not enabled for this course.'
-  end
-
-  # A user must be enrolled (as staff or a student) to reach the request forms.
-  def enrolled_in_course?
-    @course.staff_user?(current_user) || @course.student_user?(current_user)
+  # Gate for every in-course request page (everything but the token-based
+  # #export). Three rules, in order:
+  #   1. You must have a role in the course. Anyone else is turned away.
+  #   2. Staff are always allowed through so they can manage requests.
+  #   3. Students may only proceed when the course has extensions enabled.
+  def require_course_access
+    if @course.staff_user?(current_user)
+      # rule 2: staff are always allowed.
+    elsif @course.student_user?(current_user)
+      # rule 3: students need extensions enabled.
+      redirect_to courses_path, alert: 'Extensions are not enabled for this course.' unless @course.requests_enabled?
+    else
+      # rule 1: not enrolled in this course at all.
+      redirect_to course_path(@course), alert: 'You do not have access to this page.'
+    end
   end
 
   # Prepares and renders the form staff use to submit a request on behalf of a
