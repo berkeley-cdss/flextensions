@@ -84,7 +84,7 @@ class CoursesController < ApplicationController
 
   def sync_enrollments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
-    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.staff?(@user)
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.staff_user?(@user)
 
     @course.sync_all_enrollments_from_canvas(@user.id)
     render json: { message: 'Users synced successfully.' }, status: :ok

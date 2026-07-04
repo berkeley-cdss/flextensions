@@ -139,11 +139,11 @@ class Course < ApplicationRecord
     enrollments.where(user_id: user.id).any?(&:course_admin?)
   end
 
-  def staff?(user)
+  def staff_user?(user)
     enrollments.where(user_id: user.id).any?(&:staff?)
   end
 
-  def student?(user)
+  def student_user?(user)
     enrollments.where(user_id: user.id).any?(&:student?)
   end
 

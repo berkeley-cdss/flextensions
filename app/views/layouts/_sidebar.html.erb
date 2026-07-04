@@ -53,7 +53,7 @@
 				active: @side_nav == 'form' %>
 		<% end %>
 
-		<% if @course.student?(current_user) %>
+		<% if @course.student_user?(current_user) %>
 			<%= render 'layouts/components/sidebar_menu_item',
 				path: new_course_request_path(@course.id),
 				icon: 'fas fa-file-pen',

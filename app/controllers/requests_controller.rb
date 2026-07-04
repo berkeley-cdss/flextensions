@@ -15,7 +15,7 @@ class RequestsController < ApplicationController
 
   def index
     @side_nav = 'requests'
-    if @course.staff?(@user)
+    if @course.staff_user?(@user)
       scope = @course.requests.includes(:assignment)
       @requests = params[:show_all] == 'true' ? scope : scope.pending
     else
@@ -41,7 +41,7 @@ class RequestsController < ApplicationController
     course_to_lms_ids = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lms_ids.any?
 
-    return new_for_students if @course.staff?(@user)
+    return new_for_students if @course.staff_user?(@user)
 
     redirected = prepare_student_new_request
     render :new unless redirected
@@ -176,13 +176,13 @@ class RequestsController < ApplicationController
   # Staff may act on any request in the course; everyone else is limited to
   # the requests they own.
   def requests_visible_to_user
-    @course.staff?(@user) ? @course.requests : @course.requests.for_user(@user)
+    @course.staff_user?(@user) ? @course.requests : @course.requests.for_user(@user)
   end
 
   # Staff-only actions (approve/reject and their mass variants). @role is left
   # to the view layer; access decisions ask the course directly.
   def require_course_staff
-    return if @course.staff?(@user)
+    return if @course.staff_user?(@user)
 
     redirect_to course_path(@course), alert: 'You do not have permission to perform this action.'
   end
@@ -233,7 +233,7 @@ class RequestsController < ApplicationController
   def student_enrolled_in_course?(student)
     return false unless student
 
-    @course.course_student?(student)
+    @course.student_user?(student)
   end
 
   def authenticate_user
@@ -254,15 +254,14 @@ class RequestsController < ApplicationController
   # Students may only reach requests while the course has extensions enabled.
   # Staff are always allowed through so they can manage existing requests.
   def check_extensions_enabled_for_students
-    return unless @course.course_student?(@user)
-    return if @course.requests_enabled?
+    return if @course.requests_enabled? && enrolled_in_course?
 
     redirect_to courses_path, alert: 'Extensions are not enabled for this course.'
   end
 
   # A user must be enrolled (as staff or a student) to reach the request forms.
   def enrolled_in_course?
-    @course.staff?(@user) || @course.course_student?(@user)
+    @course.staff_user?(current_user) || @course.student_user?(current_user)
   end
 
   # Prepares and renders the form staff use to submit a request on behalf of a
