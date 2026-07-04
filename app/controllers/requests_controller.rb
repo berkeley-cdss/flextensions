@@ -3,7 +3,7 @@
 class RequestsController < ApplicationController
   before_action :authenticate_user
   before_action :set_course
-  before_action :require_course_staff, only: %i[create_for_student approve reject mass_approve mass_reject]
+  before_action :require_course_staff!, only: %i[create_for_student approve reject mass_approve mass_reject]
   before_action :set_form_settings
   before_action :require_course_access
   before_action :set_request, only: %i[show edit update cancel approve reject]
@@ -159,12 +159,6 @@ class RequestsController < ApplicationController
   # the requests they own.
   def requests_visible_to_user
     @course.staff_user?(current_user) ? @course.requests : @course.requests.for_user(current_user)
-  end
-
-  def require_course_staff
-    return if @course.staff_user?(current_user)
-
-    redirect_to courses_path, alert: 'You do not have access to this page.'
   end
 
   def handle_request_error
