@@ -33,6 +33,8 @@
 #  fk_rails_...  (last_processed_by_user_id => users.id)
 #  fk_rails_...  (user_id => users.id)
 #
+require 'csv'
+
 class Request < ApplicationRecord
   belongs_to :course
   belongs_to :assignment

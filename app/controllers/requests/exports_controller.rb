@@ -1,5 +1,3 @@
-require 'csv'
-
 module Requests
   # Public, token-authenticated CSV export of a course's requests. It has no
   # user session, so it lives outside RequestsController and its user/role/
