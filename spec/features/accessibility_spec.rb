@@ -102,9 +102,9 @@ RSpec.describe 'Accessibility', :a11y, :js, type: :feature do
            custom_q2: 'Will this delay affect your other coursework?')
   end
 
-  let!(:course_settings1) { create(:course_settings, course: course1, auto_approve_days: 2) }
-  let!(:course_settings2) { create(:course_settings, course: course2, auto_approve_days: 1) }
-  let!(:course_settings3) { create(:course_settings, course: course3, auto_approve_days: 3) }
+  let!(:course_settings1) { course1.course_settings.tap { |cs| cs.update!(auto_approve_days: 2) } }
+  let!(:course_settings2) { course2.course_settings.tap { |cs| cs.update!(auto_approve_days: 1) } }
+  let!(:course_settings3) { course3.course_settings.tap { |cs| cs.update!(auto_approve_days: 3) } }
 
   let!(:extension1) { create(:extension, assignment: c1_assignment1, student_email: student1.email, initial_due_date: c1_assignment1.due_date, new_due_date: 12.days.from_now) }
   let!(:extension2) { create(:extension, assignment: c2_assignment1, student_email: student1.email, initial_due_date: c2_assignment1.due_date, new_due_date: 13.days.from_now) }
