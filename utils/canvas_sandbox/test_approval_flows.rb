@@ -13,8 +13,13 @@
 #               be approved with the staff user's facade and appear in Canvas.
 #   3. GROUP  — a second student requesting the same extension length; must
 #               join the first student's override group, not get a new one.
-# Finally it reruns AUTO for a course whose first-enrolled staff member has no
-# Canvas credentials (the roster-synced-TA scenario reported in production).
+# Finally it reruns AUTO for two production failure modes:
+#   NOCREDS — the course's first staff member has no Canvas credentials at all
+#             (a TA synced from the roster who never logged into Flextensions).
+#   STALE   — the preferred staff member HAS credentials, but they are expired
+#             and cannot be refreshed (Canvas revokes refresh tokens that go
+#             unused for months); approval must fail over to another staff
+#             user whose token still works.
 #
 # Usage (never hardcode the token):
 #   CANVAS_TOKEN=<token> CANVAS_URL=https://ucberkeleysandbox.instructure.com \
@@ -44,11 +49,13 @@ STUDENTS = {
   auto: { canvas_uid: '237', name: 'Paul Gregory', email: 'paul.gregory86@example.com' },
   manual: { canvas_uid: '238', name: 'Kent Hansen', email: 'kent.hansen98@example.com' },
   group: { canvas_uid: '239', name: 'Becky Hayes', email: 'becky.hayes43@example.com' },
-  no_creds: { canvas_uid: '240', name: 'Sherri Johnson', email: 'sherri.johnson53@example.com' }
+  no_creds: { canvas_uid: '240', name: 'Sherri Johnson', email: 'sherri.johnson53@example.com' },
+  stale: { canvas_uid: '241', name: 'Chad Carter', email: 'chad.carter67@example.com' }
 }.freeze
 
 STAFF = { canvas_uid: '136', name: 'Michael Ball', email: 'ball@berkeley.edu' }.freeze
 NO_CREDS_STAFF = { canvas_uid: '999136', name: 'No Creds TA', email: 'no-creds-ta@example.com' }.freeze
+STALE_STAFF = { canvas_uid: '999137', name: 'Stale Creds TA', email: 'stale-creds-ta@example.com' }.freeze
 
 @results = []
 @created_override_keys = [] # [canvas_course_id, external_assignment_id]
@@ -207,6 +214,33 @@ else
   record('NOCREDS', assignment.name, false,
          "request stayed '#{request.status}' — auto-approval silently skipped " \
          'because the first staff enrollment has no Canvas credentials')
+end
+
+# ---------------------------------------------------------------------------
+# Production repro: the preferred staff member HAS credentials but they are
+# expired and unrefreshable (Canvas revoked the idle refresh token). The
+# credential is newer than the working teacher's, so the failover order tries
+# the stale one first; approval must fall through to the working teacher.
+# ---------------------------------------------------------------------------
+stale_staff = find_or_create_user(STALE_STAFF)
+stale_staff.lms_credentials.destroy_all
+stale_staff.lms_credentials.create!(
+  lms_name: 'canvas',
+  token: 'expired-and-unrefreshable',
+  refresh_token: 'revoked-refresh-token',
+  expire_time: 1.minute.from_now
+)
+enroll(stale_staff, course, 'ta')
+
+request = build_request(course, assignment, students[:stale], 2)
+request.process_created_request(students[:stale])
+request.reload
+if request.status == 'approved'
+  verify_in_canvas('STALE', assignment, students[:stale], request)
+else
+  record('STALE', assignment.name, false,
+         "request stayed '#{request.status}' — failover past the stale staff credential did not happen " \
+         "(breakdown: #{request.auto_approval_breakdown.inspect})")
 end
 
 # ---------------------------------------------------------------------------

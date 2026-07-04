@@ -43,10 +43,15 @@ of the three assignment types it verifies:
 - **GROUP** — a second student with the same extension length joins the first
   student's override group instead of getting a new override.
 
-It then replays the production failure mode (**NOCREDS**): the course's
-first-enrolled staff member has no Canvas credentials — e.g. a TA synced from
-the Canvas roster who never logged into Flextensions — and asserts
-auto-approval still succeeds by using another credentialed staff user.
+It then replays two production failure modes and asserts auto-approval still
+succeeds by falling back to another staff user:
+
+- **NOCREDS** — the course's first staff member has no Canvas credentials at
+  all (a TA synced from the Canvas roster who never logged into Flextensions).
+- **STALE** — the preferred staff member has credentials, but they are expired
+  and cannot be refreshed (Canvas revokes refresh tokens that go unused for
+  months). The refresh attempt is made for real against the Canvas OAuth
+  endpoint and fails, exercising the staff failover path end to end.
 
 The script cleans up the Canvas overrides it created; pass `KEEP_OVERRIDES=1`
 to leave them in place for manual inspection.
