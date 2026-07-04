@@ -20,9 +20,13 @@ class Course < ApplicationRecord
   has_secure_token :readonly_api_token
 
   after_create :regenerate_readonly_api_token_if_blank
-  # TODO: after_initialize :build_course_settings_if_necessary
+  # Every course has exactly one course_settings record (unique index on course_id).
+  after_create :create_default_course_settings
 
   # Associations
+  # Declared before course_to_lmss so a destroy removes assignments first,
+  # satisfying their FK on course_to_lms_id.
+  has_many :assignments, dependent: :destroy
   has_many :course_to_lmss, dependent: :destroy
   has_many :lmss, through: :course_to_lmss
   has_many :user_to_courses, dependent: :destroy
@@ -32,9 +36,7 @@ class Course < ApplicationRecord
 
   has_many :users, through: :user_to_courses
 
-  # Validations
   validates :course_name, presence: true
-  # validate :ensure_course_settings
 
   # Scopes
   scope :by_semester, ->(semester) { where(semester: semester) }
@@ -109,8 +111,9 @@ class Course < ApplicationRecord
     course_to_lms(1).present?
   end
 
-  def assignments
-    Assignment.where(course_to_lms: course_to_lmss).order(:name)
+  # Whether students can see this course and submit extension requests.
+  def requests_enabled?
+    course_settings.enable_extensions?
   end
 
   def enabled_assignments
@@ -139,13 +142,6 @@ class Course < ApplicationRecord
     user_to_courses.where(user_id: user.id).any?(&:student?)
   end
 
-  # Extensions are enabled only when the course has settings that turn them on.
-  # A course should always have settings (built on creation), so a nil here is
-  # unexpected; we fail closed rather than treat the absence as "enabled".
-  def extensions_enabled?
-    !!course_settings&.enable_extensions?
-  end
-
   # TODO: This doesn't make sense actually.
   # A course can be linked to many LMSs.
   # def lms_facade
@@ -154,18 +150,23 @@ class Course < ApplicationRecord
   # end
 
   def canvas_id
-    CourseToLms.find_by(course_id: id, lms_id: CANVAS_LMS_ID)&.external_course_id
+    external_course_id_for(CANVAS_LMS_ID)
   end
 
   def gradescope_id
-    CourseToLms.find_by(course_id: id, lms_id: GRADESCOPE_LMS_ID)&.external_course_id
+    external_course_id_for(GRADESCOPE_LMS_ID)
   end
 
-  # TODO: Add specs for these 4 simple methods
-  def assignments
-    Assignment.joins(:course_to_lms).where(course_to_lms: { course_id: id })
+  # Returns the external course id for the given LMS. A course should have at
+  # most one link per LMS, but when several exist we deterministically prefer a
+  # link that actually carries an external id (ordered by id) so callers never
+  # get an arbitrary nil back.
+  def external_course_id_for(lms_id)
+    links = CourseToLms.where(course_id: id, lms_id: lms_id).order(:id)
+    (links.where.not(external_course_id: nil).first || links.first)&.external_course_id
   end
 
+  # TODO: Add specs for these 3 simple methods
   def students
     user_to_courses.where(role: UserToCourse::STUDENT_ROLE).map(&:user)
   end
@@ -178,18 +179,20 @@ class Course < ApplicationRecord
     user_to_courses.where(role: UserToCourse.staff_roles).map(&:user)
   end
 
-  def destroy_associations
-    assignments.destroy_all
-    course_to_lmss.destroy_all
-    user_to_courses.destroy_all
-    form_setting.destroy if form_setting
-    course_settings.destroy if course_settings
+  # Staff users with Canvas credentials on file, most recently refreshed
+  # first -- Canvas revokes refresh tokens that go unused for months, so the
+  # staff member who logged in most recently is the most likely to still
+  # work. Credentials on file can still fail to refresh or belong to someone
+  # who has since left the Canvas course, so callers should be prepared to
+  # fall back to the next user in this list.
+  def staff_users_for_auto_approval
+    staff_users.select { |user| user.canvas_credentials.present? }
+               .sort_by { |user| user.canvas_credentials.updated_at }
+               .reverse
   end
 
-  # Find the first staff user who has a Canvas Token that can be used
-  # to post requests to Canvas.
   def staff_user_for_auto_approval
-    user_to_courses.where(role: UserToCourse.staff_roles).first&.user
+    staff_users_for_auto_approval.first
   end
 
   # Fetch courses from Canvas API
@@ -221,37 +224,6 @@ class Course < ApplicationRecord
         custom_q2_disp: 'hidden'
       )
       form_setting.save!
-    end
-
-    # Create a 1-to-1 course_settings record if it doesn't exist
-    unless course.course_settings
-      course_settings = course.build_course_settings(
-        enable_extensions: false,
-        auto_approve_days: 0,
-        auto_approve_extended_request_days: 0,
-        max_auto_approve: 0,
-        enable_gradescope: false,
-        gradescope_course_url: nil,
-        enable_emails: false,
-        reply_email: nil,
-        email_subject: 'Extension Request Status: {{status}} - {{course_code}}',
-        email_template: <<~TEMPLATE
-          Dear {{student_name}},
-
-          Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
-
-          Extension Details:
-          - Original Due Date: {{original_due_date}}
-          - New Due Date: {{new_due_date}}
-          - Extension Days: {{extension_days}}
-
-          If you have any questions, please contact the course staff.
-
-          Best regards,
-          {{course_name}} Staff
-        TEMPLATE
-      )
-      course_settings.save!
     end
 
     # TODO: Consider disabling these if performance becomes an issue
@@ -312,5 +284,11 @@ class Course < ApplicationRecord
 
   def regenerate_readonly_api_token_if_blank
     regenerate_readonly_api_token if readonly_api_token.blank?
+  end
+
+  # Course settings are created with the column defaults; the guard only
+  # matters when settings were built in memory before the course was saved.
+  def create_default_course_settings
+    create_course_settings! unless course_settings
   end
 end

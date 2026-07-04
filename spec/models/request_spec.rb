@@ -49,14 +49,14 @@ RSpec.describe Request, type: :model do
       due_date: 2.days.from_now
     )
   end
-  # TODO: Move this to course model initialization
   let(:course_settings) do
-    CourseSettings.create!(
-      course: course,
-      enable_extensions: true,
-      auto_approve_days: 3,
-      max_auto_approve: 2
-    )
+    course.course_settings.tap do |cs|
+      cs.update!(
+        enable_extensions: true,
+        auto_approve_days: 3,
+        max_auto_approve: 2
+      )
+    end
   end
   let(:request) do
     described_class.create!(
@@ -163,15 +163,6 @@ RSpec.describe Request, type: :model do
       end
     end
 
-    context 'when course settings do not exist' do
-      it 'returns false' do
-        course.course_settings&.destroy
-        course.reload
-        expect(request.course.course_settings).to be_nil
-        expect(request.auto_approval_eligible_for_course?).to be false
-      end
-    end
-
     context 'when extensions are disabled' do
       before do
         course_settings.update(enable_extensions: false)
@@ -213,22 +204,11 @@ RSpec.describe Request, type: :model do
     end
   end
 
-  # TODO: Investigate the odd relationship with `course_settings`
-  # Consider dropping the don't exist spec in favor a validation on `Course`.
   describe '#eligible_for_auto_approval?' do
     context 'when all conditions are met' do
       it 'returns true' do
-        course_settings # ensure this exists/is created.
+        course_settings # ensure auto-approval settings are configured
         expect(request.eligible_for_auto_approval?).to be true
-      end
-    end
-
-    context 'when course settings do not exist' do
-      it 'returns false' do
-        course.course_settings&.destroy
-        course.reload
-        expect(course.course_settings).to be_nil
-        expect(request.eligible_for_auto_approval?).to be false
       end
     end
 
@@ -353,6 +333,23 @@ RSpec.describe Request, type: :model do
 
       it 'returns false when exceeding extended request days' do
         request.update(requested_due_date: assignment.due_date + 8.days)
+        expect(request.eligible_for_auto_approval?).to be false
+      end
+    end
+
+    context 'when student has allow_extended_requests but extended days are disabled (0)' do
+      before do
+        course_settings.update(auto_approve_days: 2, auto_approve_extended_request_days: 0)
+        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+      end
+
+      it 'falls back to the standard auto_approve_days window' do
+        request.update(requested_due_date: assignment.due_date + 2.days)
+        expect(request.eligible_for_auto_approval?).to be true
+      end
+
+      it 'still rejects requests beyond the standard window' do
+        request.update(requested_due_date: assignment.due_date + 3.days)
         expect(request.eligible_for_auto_approval?).to be false
       end
     end
@@ -499,6 +496,88 @@ RSpec.describe Request, type: :model do
       end
     end
 
+    context 'when no staff user has Canvas credentials' do
+      before do
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
+        allow(course).to receive(:staff_users_for_auto_approval).and_return([])
+      end
+
+      it 'returns false without raising' do
+        expect(request.try_auto_approval(user)).to be false
+      end
+
+      it 'does not call auto_approve' do
+        expect(request).not_to receive(:auto_approve)
+        request.try_auto_approval(user)
+      end
+
+      it 'records why auto-approval broke down' do
+        request.try_auto_approval(user)
+        expect(request.auto_approval_breakdown).to include('no staff member has connected')
+      end
+    end
+
+    context "when the first staff user's token cannot be refreshed" do
+      let(:stale_staff) { course.staff_users.first }
+      let(:working_staff) { course.staff_users.second }
+
+      before do
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true, auto_approve: true)
+        allow(course).to receive(:staff_users_for_auto_approval).and_return([ stale_staff, working_staff ])
+        allow(stale_staff).to receive(:ensure_fresh_canvas_token!).and_return(nil)
+        allow(working_staff).to receive(:ensure_fresh_canvas_token!).and_return('fresh_token')
+      end
+
+      it 'falls back to the next staff user and approves' do
+        expect(request.try_auto_approval(user)).to be true
+        expect(request.auto_approval_breakdown).to be_nil
+      end
+
+      it 'only calls auto_approve once' do
+        expect(request).to receive(:auto_approve).once.and_return(true)
+        request.try_auto_approval(user)
+      end
+    end
+
+    context 'when the LMS rejects the approval for the first staff user' do
+      let(:removed_staff) { course.staff_users.first }
+      let(:working_staff) { course.staff_users.second }
+
+      before do
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
+        allow(course).to receive(:staff_users_for_auto_approval).and_return([ removed_staff, working_staff ])
+        allow(removed_staff).to receive(:ensure_fresh_canvas_token!).and_return('token_without_course_access')
+        allow(working_staff).to receive(:ensure_fresh_canvas_token!).and_return('fresh_token')
+      end
+
+      it 'falls back to the next staff user and approves' do
+        allow(request).to receive(:auto_approve).and_return(false, true)
+        expect(request.try_auto_approval(user)).to be true
+        expect(request.auto_approval_breakdown).to be_nil
+      end
+    end
+
+    context 'when every staff Canvas token is unusable' do
+      before do
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
+        staff = course.staff_users
+        staff.each do |staff_user|
+          allow(staff_user).to receive(:ensure_fresh_canvas_token!).and_return(nil)
+        end
+        allow(course).to receive(:staff_users_for_auto_approval).and_return(staff)
+      end
+
+      it 'returns false and records why auto-approval broke down' do
+        expect(request.try_auto_approval(user)).to be false
+        expect(request.auto_approval_breakdown).to include('Canvas access is currently working')
+      end
+
+      it 'does not call auto_approve' do
+        expect(request).not_to receive(:auto_approve)
+        request.try_auto_approval(user)
+      end
+    end
+
     context 'when request is not eligible for auto approval' do
       before do
         allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: false)
@@ -506,6 +585,32 @@ RSpec.describe Request, type: :model do
 
       it 'returns false' do
         expect(request.try_auto_approval(user)).to be false
+      end
+    end
+  end
+
+  describe '#process_created_request' do
+    before do
+      course.course_settings.update!(slack_webhook_url: 'https://hooks.slack.com/services/TEST')
+      allow(SlackNotifier).to receive(:notify).and_return(true)
+    end
+
+    it 'warns course staff in Slack when auto-approval broke down' do
+      allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
+      allow(course).to receive(:staff_users_for_auto_approval).and_return([])
+
+      request.process_created_request(user)
+
+      expect(SlackNotifier).to have_received(:notify).with(a_string_including(':warning:'), anything)
+    end
+
+    it 'does not warn when the request is pending for ordinary reasons' do
+      allow(request).to receive(:try_auto_approval).and_return(false)
+
+      request.process_created_request(user)
+
+      expect(SlackNotifier).to have_received(:notify) do |message, _url|
+        expect(message).not_to include(':warning:')
       end
     end
   end
@@ -882,11 +987,7 @@ RSpec.describe Request, type: :model do
 
       context 'when extend_late_due_date setting is true (default)' do
         before do
-          CourseSettings.create!(
-            course: course,
-            enable_extensions: true,
-            extend_late_due_date: true
-          )
+          course.course_settings.update!(extend_late_due_date: true)
         end
 
         it 'shifts the late due date by the same delta as the extension' do
@@ -901,11 +1002,7 @@ RSpec.describe Request, type: :model do
 
       context 'when extend_late_due_date setting is false' do
         before do
-          CourseSettings.create!(
-            course: course,
-            enable_extensions: true,
-            extend_late_due_date: false
-          )
+          course.course_settings.update!(extend_late_due_date: false)
         end
 
         context 'when original late due date is later than extended due date' do
@@ -931,29 +1028,8 @@ RSpec.describe Request, type: :model do
         end
       end
 
-      context 'when extend_late_due_date setting is nil (defaults to true)' do
-        before do
-          # Create settings without explicitly setting extend_late_due_date
-          # This simulates existing courses before the migration
-          cs = CourseSettings.create!(
-            course: course,
-            enable_extensions: true
-          )
-          # Manually set to nil to simulate pre-migration state
-          # cs.update_column(:extend_late_due_date, nil)
-          cs.extend_late_due_date = nil
-        end
-
-        it 'defaults to shifting the late due date by the extension delta' do
-          result = request_with_late_due_date.calculate_new_late_due_date
-          expected = Time.zone.parse('2025-01-20 23:59:00')
-          expect(result).to be_within(1.second).of(expected)
-        end
-      end
-
-      context 'when course has no course settings' do
-        it 'defaults to shifting the late due date (extend_late_due_date = true behavior)' do
-          # No course settings means nil, which defaults to true
+      context 'when course settings are untouched (extend_late_due_date defaults to true)' do
+        it 'shifts the late due date by the extension delta' do
           result = request_with_late_due_date.calculate_new_late_due_date
           expected = Time.zone.parse('2025-01-20 23:59:00')
           expect(result).to be_within(1.second).of(expected)
@@ -970,16 +1046,17 @@ RSpec.describe Request, type: :model do
     end
 
     let(:course_settings) do
-      CourseSettings.create!(
-        course: course,
-        enable_emails: true,
-        reply_email: 'instructor@example.com',
-        email_subject: 'Extension for {{student_name}}',
-        email_template: <<~TEMPLATE
-          Dear {{student_name}},
-          Your extension request has been {{status}}.
-        TEMPLATE
-      )
+      course.course_settings.tap do |cs|
+        cs.update!(
+          enable_emails: true,
+          reply_email: 'instructor@example.com',
+          email_subject: 'Extension for {{student_name}}',
+          email_template: <<~TEMPLATE
+            Dear {{student_name}},
+            Your extension request has been {{status}}.
+          TEMPLATE
+        )
+      end
     end
 
     it 'calls EmailService.send_email with correct parameters' do

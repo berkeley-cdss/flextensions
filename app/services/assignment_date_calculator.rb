@@ -16,7 +16,7 @@ class AssignmentDateCalculator
 
   # @param assignment [Assignment] The assignment being extended
   # @param request [Request] The extension request with the new requested_due_date
-  # @param course_settings [CourseSettings, nil] The course settings (may be nil)
+  # @param course_settings [CourseSettings] The course settings
   def initialize(assignment:, request:, course_settings:)
     @assignment = assignment
     @request = request
@@ -52,7 +52,7 @@ class AssignmentDateCalculator
     original_late_due_date = assignment.late_due_date
     return nil if original_late_due_date.blank?
 
-    if extend_late_due_date?
+    if course_settings.extend_late_due_date
       # Shift the late due date by the same delta as the extension
       extension_delta = request.requested_due_date - assignment.due_date
       original_late_due_date + extension_delta
@@ -60,16 +60,5 @@ class AssignmentDateCalculator
       # Return the later of the original late due date and the new extended due date
       [ original_late_due_date, request.requested_due_date ].max
     end
-  end
-
-  private
-
-  # Determines whether to extend the late due date by the same delta as the extension.
-  # Defaults to true if the setting is nil (for backwards compatibility).
-  # @return [Boolean]
-  def extend_late_due_date?
-    setting = course_settings&.extend_late_due_date
-    # Default to true if setting is nil (for backwards compatibility)
-    setting.nil? ? true : setting
   end
 end

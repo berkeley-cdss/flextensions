@@ -38,12 +38,11 @@ class RequestsController < ApplicationController
     @side_nav = 'form'
     return redirect_to course_path(@course), alert: 'You do not have access to this page.' unless enrolled_in_course?
 
-    course_to_lms_ids = @course.all_linked_lmss.pluck(:id)
-    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lms_ids.any?
+    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.all_linked_lmss.exists?
 
-    return new_for_student(course_to_lms_ids) if @course.course_staff?(@user)
+    return new_for_student if @course.course_staff?(@user)
 
-    redirected = prepare_student_new_request(course_to_lms_ids)
+    redirected = prepare_student_new_request
     render :new unless redirected
   end
 
@@ -189,7 +188,7 @@ class RequestsController < ApplicationController
 
   def handle_request_error
     flash.now[:alert] = 'There was a problem submitting your request.'
-    @assignments = Assignment.enabled_for_course(@course.all_linked_lmss.pluck(:id)).order(:name)
+    @assignments = @course.enabled_assignments.order(:name)
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]
     render :new
   end
@@ -257,7 +256,7 @@ class RequestsController < ApplicationController
   # Staff are always allowed through so they can manage existing requests.
   def check_extensions_enabled_for_students
     return unless @course.course_student?(@user)
-    return if @course.extensions_enabled?
+    return if @course.requests_enabled?
 
     redirect_to courses_path, alert: 'Extensions are not enabled for this course.'
   end
@@ -270,20 +269,23 @@ class RequestsController < ApplicationController
   # Prepares and renders the form staff use to submit a request on behalf of a
   # student. Not a routed action -- it is reached only from #new once the
   # caller has been confirmed as course staff and the course has a linked LMS.
-  def new_for_student(course_to_lms_ids)
+  # Prepares and renders the form staff use to submit a request on behalf of a
+  # student. Not a routed action -- it is reached only from #new once the
+  # caller has been confirmed as course staff and the course has a linked LMS.
+  def new_for_student
     @side_nav = 'form'
-    prepare_instructor_new_request(course_to_lms_ids)
+    prepare_instructor_new_request
     render :new_for_student
   end
 
-  def prepare_instructor_new_request(course_to_lms_ids)
+  def prepare_instructor_new_request
     @students = User.joins(:user_to_courses).where(user_to_courses: { course_id: @course.id, role: 'student' }).order(:name)
     @request = @course.requests.new
-    @assignments = Assignment.enabled_for_course(course_to_lms_ids).order(:name)
+    @assignments = @course.enabled_assignments.order(:name)
   end
 
-  def prepare_student_new_request(course_to_lms_ids)
-    all_assignments = Assignment.enabled_for_course(course_to_lms_ids).order(:name)
+  def prepare_student_new_request
+    all_assignments = @course.enabled_assignments.order(:name)
     @assignments = all_assignments.reject { |assignment| assignment.has_pending_request_for_user?(@user, @course) }
     @has_pending = all_assignments.size != @assignments.size
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]
@@ -307,7 +309,7 @@ class RequestsController < ApplicationController
   end
 
   def render_new_for_student_error
-    prepare_instructor_new_request(@course.all_linked_lmss.pluck(:id))
+    prepare_instructor_new_request
     flash.now[:alert] = 'There was a problem submitting the request.'
     render :new_for_student
   end
