@@ -20,7 +20,7 @@ class CourseSettingsController < ApplicationController
   # rubocop:disable Metrics/AbcSize
   def update
     @side_nav = 'course_settings'
-    @course_settings = @course.course_settings || @course.build_course_settings
+    @course_settings = @course.course_settings
 
     if params[:reset_email_template].present?
       reset_email_templates
@@ -59,24 +59,26 @@ class CourseSettingsController < ApplicationController
   end
 
   def course_settings_params
-    params.require(:course_settings).permit(
-      :enable_extensions,
-      :auto_approve_days,
-      :auto_approve_extended_request_days,
-      :max_auto_approve,
-      :enable_min_hours_before_deadline,
-      :min_hours_before_deadline,
-      :enable_gradescope,
-      :gradescope_course_url,
-      :extend_late_due_date,
-      :enable_emails,
-      :reply_email,
-      :email_subject,
-      :email_template,
-      :enable_slack_webhook_url,
-      :slack_webhook_url,
-      :pending_notification_frequency,
-      :pending_notification_email
+    params.expect(
+      course_settings: [
+        :enable_extensions,
+        :auto_approve_days,
+        :auto_approve_extended_request_days,
+        :max_auto_approve,
+        :enable_min_hours_before_deadline,
+        :min_hours_before_deadline,
+        :enable_gradescope,
+        :gradescope_course_url,
+        :extend_late_due_date,
+        :enable_emails,
+        :reply_email,
+        :email_subject,
+        :email_template,
+        :enable_slack_webhook_url,
+        :slack_webhook_url,
+        :pending_notification_frequency,
+        :pending_notification_email
+      ]
     )
   end
 

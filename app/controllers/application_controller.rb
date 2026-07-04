@@ -12,7 +12,7 @@ class ApplicationController < ActionController::Base
       'login' => [ 'canvas' ],
       'session' => %w[create omniauth_callback omniauth_failure],
       'rails/health' => [ 'show' ],
-      'requests' => [ 'export' ]
+      'requests/exports' => [ 'show' ]
     }
     controller = params[:controller]
     action = params[:action]
@@ -77,6 +77,8 @@ class ApplicationController < ActionController::Base
 
   def handle_lms_api_error(error)
     Rails.logger.error "LMS API Error: #{error.message}"
+    Rails.error.report(error, handled: true,
+                       context: { component: 'lms_api', controller: controller_name, action: action_name })
     # Truncate to 1K characters so we are well short of cookie limits.
     error_message = error.message.truncate(1000)
     flash[:alert] = "An error occurred while communicating with the LMS. Please reach out to flextension@berkeley.edu if you continue to have trouble. Error: #{error_message}"
@@ -128,7 +130,7 @@ class ApplicationController < ActionController::Base
   end
 
   def ensure_instructor_role
-    return if @role == 'instructor'
+    return if @user && @course&.course_staff?(@user)
 
     flash[:alert] = 'You do not have access to this page.'
     redirect_to courses_path

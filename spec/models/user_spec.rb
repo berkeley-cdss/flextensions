@@ -20,48 +20,6 @@
 require 'rails_helper'
 
 RSpec.describe User, type: :model do
-  describe '#token_expired?' do
-    let(:user) { described_class.create!(email: 'test@example.com', canvas_uid: '123') }
-
-    context 'when there are no credentials' do
-      it 'returns false' do
-        expect(user.token_expired?).to be false
-      end
-    end
-
-    context 'when the token is still valid' do
-      before do
-        Lms.find_or_create_by(id: 1) { |lms| lms.lms_name = 'Canvas'; lms.use_auth_token = true }
-        user.lms_credentials.create!(
-          lms_id: 1,
-          token: 'valid_token',
-          refresh_token: 'refresh_token',
-          expire_time: 1.hour.from_now
-        )
-      end
-
-      it 'returns false' do
-        expect(user.token_expired?).to be false
-      end
-    end
-
-    context 'when the token is expired' do
-      before do
-        Lms.find_or_create_by(id: 1) { |lms| lms.lms_name = 'Canvas'; lms.use_auth_token = true }
-        user.lms_credentials.create!(
-          lms_id: 1,
-          token: 'expired_token',
-          refresh_token: 'refresh_token',
-          expire_time: 1.hour.ago
-        )
-      end
-
-      it 'returns true' do
-        expect(user.token_expired?).to be true
-      end
-    end
-  end
-
   describe '#canvas_credentials' do
     let(:user) { described_class.create!(email: 'test@example.com', canvas_uid: '123') }
 
@@ -82,6 +40,28 @@ RSpec.describe User, type: :model do
   describe '#ensure_fresh_canvas_token!' do
     let(:user) { described_class.create!(email: 'test@example.com', canvas_uid: '123') }
 
+    context 'when the user has no credentials' do
+      it 'returns nil' do
+        expect(user.ensure_fresh_canvas_token!).to be_nil
+      end
+    end
+
+    context 'when the user only has non-Canvas credentials' do
+      before do
+        other_lms = Lms.find_or_create_by(id: 3) { |lms| lms.lms_name = 'other_lms'; lms.use_auth_token = true }
+        user.lms_credentials.create!(
+          lms: other_lms,
+          token: 'other_token',
+          refresh_token: 'refresh_token',
+          expire_time: 1.hour.from_now
+        )
+      end
+
+      it 'returns nil' do
+        expect(user.ensure_fresh_canvas_token!).to be_nil
+      end
+    end
+
     context 'when token does not expire soon' do
       before do
         Lms.find_or_create_by(id: 1) { |lms| lms.lms_name = 'Canvas'; lms.use_auth_token = true }
@@ -93,13 +73,14 @@ RSpec.describe User, type: :model do
         )
       end
 
-      it 'returns the current token' do
+      it 'returns the current token without refreshing' do
+        expect_any_instance_of(LmsCredential).not_to receive(:refresh!)
         expect(user.ensure_fresh_canvas_token!).to eq('valid_token')
       end
     end
 
-    context 'when token expires soon and is refreshed' do
-      let(:credential) do
+    context 'when token expires soon' do
+      before do
         Lms.find_or_create_by(id: 1) { |lms| lms.lms_name = 'Canvas'; lms.use_auth_token = true }
         user.lms_credentials.create!(
           lms_id: 1,
@@ -109,16 +90,16 @@ RSpec.describe User, type: :model do
         )
       end
 
-      before { credential }
+      it 'refreshes the token and returns the new one' do
+        allow_any_instance_of(LmsCredential).to receive(:refresh!).and_return('refreshed_token')
 
-      it 'refreshes token and returns it' do
-        allow(user).to receive(:token_expires_soon?).and_return(true)
+        expect(user.ensure_fresh_canvas_token!).to eq('refreshed_token')
+      end
 
-        allow_any_instance_of(SessionController).to receive(:refresh_user_token).and_return('refreshed_token')
+      it 'returns nil when the refresh fails, rather than a stale token' do
+        allow_any_instance_of(LmsCredential).to receive(:refresh!).and_return(nil)
 
-        result = user.ensure_fresh_canvas_token!
-
-        expect(result).to eq('stale_token') # Still returns the credential.token
+        expect(user.ensure_fresh_canvas_token!).to be_nil
       end
     end
   end

@@ -25,7 +25,7 @@ RSpec.describe RequestsController, type: :controller do
       custom_q1_disp: 'hidden',
       custom_q2_disp: 'hidden'
     )
-    UserToCourse.create!(user: user, course: course, role: 'student')
+    Enrollment.create!(user: user, course: course, role: 'student')
     CourseToLms.create!(course:, lms_id: 1)
 
     user.lms_credentials.create!(
@@ -44,7 +44,7 @@ RSpec.describe RequestsController, type: :controller do
 
     it 'renders instructor request index' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: teacher_course, role: 'teacher') # or use 'ta'
+      Enrollment.create!(user: instructor, course: teacher_course, role: 'teacher') # or use 'ta'
       FormSetting.create!(course: teacher_course, documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden')
       get :index, params: { course_id: teacher_course.id }
 
@@ -54,7 +54,7 @@ RSpec.describe RequestsController, type: :controller do
 
     it 'assigns @search_query from params[:search]' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: teacher_course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: teacher_course, role: 'teacher')
       FormSetting.create!(course: teacher_course, documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden')
 
       get :index, params: { course_id: teacher_course.id, search: '12345', show_all: 'true' }
@@ -64,7 +64,7 @@ RSpec.describe RequestsController, type: :controller do
 
     it 'assigns @search_query as nil when no search param is provided' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: teacher_course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: teacher_course, role: 'teacher')
       FormSetting.create!(course: teacher_course, documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden')
 
       get :index, params: { course_id: teacher_course.id }
@@ -84,6 +84,25 @@ RSpec.describe RequestsController, type: :controller do
     it 'renders new request form' do
       get :new, params: { course_id: course.id }
       expect(response).to render_template('requests/new')
+    end
+
+    it 'renders the on-behalf-of form for staff' do
+      session[:user_id] = instructor.canvas_uid
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
+
+      get :new, params: { course_id: course.id }
+
+      expect(response).to render_template('requests/new_for_student')
+    end
+
+    it 'redirects a user with no role in the course' do
+      other = User.create!(email: 'norole@example.com', canvas_uid: '654', name: 'No Role')
+      session[:user_id] = other.canvas_uid
+
+      get :new, params: { course_id: course.id }
+
+      expect(response).to redirect_to(course_path(course))
+      expect(flash[:alert]).to eq('You do not have access to this page.')
     end
   end
 
@@ -292,12 +311,36 @@ RSpec.describe RequestsController, type: :controller do
       expect(response).to redirect_to(course_request_path(course, request))
       expect(flash[:notice]).to include('updated')
     end
+
+    it 'does not reassign the request to a different assignment' do
+      other_assignment = Assignment.create!(
+        name: 'A2',
+        course_to_lms_id: course_to_lms.id,
+        due_date: 5.days.from_now,
+        external_assignment_id: 'x2',
+        enabled: true
+      )
+
+      patch :update, params: {
+        course_id: course.id,
+        id: request.id,
+        request: {
+          assignment_id: other_assignment.id,
+          reason: 'Updated reason',
+          requested_due_date: Date.tomorrow.to_s,
+          due_time: '12:00'
+        }
+      }
+
+      expect(response).to redirect_to(course_request_path(course, request))
+      expect(request.reload.assignment_id).to eq(assignment.id)
+    end
   end
 
   describe 'POST #cancel' do
     before do
       session[:user_id] = user.canvas_uid
-      UserToCourse.create!(user: user, course: course, role: 'student')
+      Enrollment.create!(user: user, course: course, role: 'student')
     end
 
     it 'cancels the request and updates its status to denied' do
@@ -329,7 +372,7 @@ RSpec.describe RequestsController, type: :controller do
   describe 'POST #approve' do
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
       instructor.lms_credentials.create!(
         lms_id: 1,
         token: 'instructor_token',
@@ -367,7 +410,7 @@ RSpec.describe RequestsController, type: :controller do
     end
 
     it 'approves a pending request' do
-      allow(request).to receive(:approve).and_return(true)
+      allow_any_instance_of(Request).to receive(:approve).and_return(true)
 
       post :approve, params: { course_id: course.id, id: request.id }
 
@@ -392,7 +435,7 @@ RSpec.describe RequestsController, type: :controller do
       post :approve, params: { course_id: course.id, id: request.id }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/failed/i)
     end
@@ -401,7 +444,7 @@ RSpec.describe RequestsController, type: :controller do
   describe 'POST #reject' do
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
       FormSetting.create!(course: course, documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden')
     end
 
@@ -435,7 +478,7 @@ RSpec.describe RequestsController, type: :controller do
       post :reject, params: { course_id: course.id, id: request.id }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/failed/i)
     end
@@ -466,7 +509,7 @@ RSpec.describe RequestsController, type: :controller do
     before do
       Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
       instructor.lms_credentials.create!(
         lms_id: 1,
         token: 'instructor_token',
@@ -502,7 +545,7 @@ RSpec.describe RequestsController, type: :controller do
       post :mass_approve, params: { course_id: course.id, request_ids: [] }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/select at least one/i)
     end
@@ -532,7 +575,7 @@ RSpec.describe RequestsController, type: :controller do
 
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
     end
 
     it 'rejects selected requests and returns processed IDs' do
@@ -560,7 +603,7 @@ RSpec.describe RequestsController, type: :controller do
       }, format: :json
 
       payload = response.parsed_body
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/no pending requests/i)
     end
@@ -573,11 +616,10 @@ RSpec.describe RequestsController, type: :controller do
 
     before do
       session[:user_id] = user.canvas_uid
-      UserToCourse.create!(user: user, course: course, role: 'student')
+      Enrollment.create!(user: user, course: course, role: 'student')
 
-      # Create course settings for auto-approval
-      CourseSettings.create!(
-        course: course,
+      # Configure course settings for auto-approval
+      course.course_settings.update!(
         enable_extensions: true,
         auto_approve_days: 3,
         max_auto_approve: 5
@@ -676,11 +718,10 @@ RSpec.describe RequestsController, type: :controller do
 
     before do
       session[:user_id] = user.canvas_uid
-      UserToCourse.create!(user: user, course: course, role: 'student')
+      Enrollment.create!(user: user, course: course, role: 'student')
 
-      # Create course settings for auto-approval
-      CourseSettings.create!(
-        course: course,
+      # Configure course settings for auto-approval
+      course.course_settings.update!(
         enable_extensions: true,
         auto_approve_days: 3,
         max_auto_approve: 5
@@ -814,7 +855,7 @@ RSpec.describe RequestsController, type: :controller do
         Request.create!(user: other_student, course: course, assignment: assignment, reason: 'Theirs', requested_due_date: 3.days.from_now)
       end
 
-      before { UserToCourse.create!(user: other_student, course: course, role: 'student') }
+      before { Enrollment.create!(user: other_student, course: course, role: 'student') }
 
       it 'is not viewable via #show' do
         get :show, params: { course_id: course.id, id: others_request.id }
@@ -850,7 +891,7 @@ RSpec.describe RequestsController, type: :controller do
 
       before do
         session[:user_id] = instructor.canvas_uid
-        UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
       end
 
       it 'rejects filing on behalf of a student who is not enrolled in the course' do
@@ -887,7 +928,7 @@ RSpec.describe RequestsController, type: :controller do
       end
 
       it 'creates a request for an enrolled student' do
-        UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
+        Enrollment.create!(user: enrolled_student, course: course, role: 'student')
 
         post :create_for_student, params: {
           course_id: course.id,
@@ -904,7 +945,7 @@ RSpec.describe RequestsController, type: :controller do
       end
 
       it 'treats an assignment from another course as an invalid request' do
-        UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
+        Enrollment.create!(user: enrolled_student, course: course, role: 'student')
 
         post :create_for_student, params: {
           course_id: course.id,
@@ -921,6 +962,73 @@ RSpec.describe RequestsController, type: :controller do
         expect(flash[:alert]).to include('problem submitting the request')
         expect(Request.where(user: enrolled_student)).to be_empty
       end
+    end
+  end
+
+  describe 'staff-only actions' do
+    before do
+      Enrollment.create!(user: user, course: course, role: 'student')
+    end
+
+    it 'forbids a student from approving a request' do
+      post :approve, params: { course_id: course.id, id: request.id }
+
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to include('do not have access')
+      expect(request.reload.status).to eq('pending')
+    end
+
+    it 'forbids a student from rejecting a request' do
+      post :reject, params: { course_id: course.id, id: request.id }
+
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to include('do not have access')
+      expect(request.reload.status).to eq('pending')
+    end
+
+    it 'forbids a student from mass-approving' do
+      post :mass_approve, params: { course_id: course.id, request_ids: [ request.id ] }
+
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to include('do not have access')
+    end
+
+    it 'forbids a student from filing a request on behalf of another student' do
+      post :create_for_student, params: {
+        course_id: course.id,
+        request: { user_id: user.id, assignment_id: assignment.id, reason: 'x', requested_due_date: Date.tomorrow.to_s, due_time: '10:00' }
+      }
+
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to include('do not have access')
+    end
+  end
+
+  describe 'access control' do
+    it 'redirects to the courses list when the course does not exist' do
+      get :index, params: { course_id: 0 }
+
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to eq('Course not found.')
+    end
+
+    it 'blocks students when extensions are disabled for the course' do
+      course.course_settings.update!(enable_extensions: false)
+
+      get :index, params: { course_id: course.id }
+
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to eq('Extensions are not enabled for this course.')
+    end
+
+    it 'still allows staff when extensions are disabled' do
+      course.course_settings.update!(enable_extensions: false)
+      session[:user_id] = instructor.canvas_uid
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
+
+      get :index, params: { course_id: course.id }
+
+      expect(response).to have_http_status(:ok)
     end
   end
 end

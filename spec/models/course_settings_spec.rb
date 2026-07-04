@@ -16,6 +16,8 @@
 #  gradescope_course_url              :string
 #  max_auto_approve                   :integer          default(0)
 #  min_hours_before_deadline          :integer          default(0), not null
+#  pending_notification_email         :string
+#  pending_notification_frequency     :string
 #  reply_email                        :string
 #  slack_webhook_url                  :string
 #  created_at                         :datetime         not null
@@ -24,7 +26,7 @@
 #
 # Indexes
 #
-#  index_course_settings_on_course_id  (course_id)
+#  index_course_settings_on_course_id  (course_id) UNIQUE
 #
 # Foreign Keys
 #
@@ -39,6 +41,12 @@ RSpec.describe CourseSettings, type: :model do
   describe 'associations' do
     it 'belongs to course' do
       expect(course_settings.course).to eq(course)
+    end
+
+    it 'does not allow a second settings record for the same course' do
+      duplicate = described_class.new(course: course)
+      expect(duplicate).not_to be_valid
+      expect(duplicate.errors[:course_id]).to include('has already been taken')
     end
   end
 
@@ -308,8 +316,7 @@ RSpec.describe CourseSettings, type: :model do
   describe 'extend_late_due_date setting' do
     it 'defaults to true for new course settings' do
       new_course = create(:course, canvas_id: 'canvas_new', course_name: 'New Course', course_code: 'NEW101')
-      new_settings = described_class.create!(course: new_course)
-      expect(new_settings.extend_late_due_date).to be true
+      expect(new_course.course_settings.extend_late_due_date).to be true
     end
 
     it 'can be set to false' do

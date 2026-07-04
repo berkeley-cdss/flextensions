@@ -36,7 +36,7 @@ FactoryBot.define do
 
     after(:create) do |user, evaluator|
       evaluator.courses.each do |course|
-        create(:user_to_course, user: user, course: course, role: evaluator.role)
+        create(:enrollment, user: user, course: course, role: evaluator.role)
       end
     end
 
@@ -48,15 +48,15 @@ FactoryBot.define do
     end
 
     factory :teacher do
-      after(:create) { |user| create(:user_to_course, user: user, role: 'teacher') }
+      after(:create) { |user| create(:enrollment, user: user, role: 'teacher') }
     end
 
     factory :ta do
-      after(:create) { |user| create(:user_to_course, user: user, role: 'ta') }
+      after(:create) { |user| create(:enrollment, user: user, role: 'ta') }
     end
 
     factory :student do
-      after(:create) { |user| create(:user_to_course, user: user, role: 'student') }
+      after(:create) { |user| create(:enrollment, user: user, role: 'student') }
     end
   end
 end

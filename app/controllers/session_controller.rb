@@ -84,6 +84,7 @@ class SessionController < ApplicationController
     redirect_to courses_path, notice: "Logged in! Welcome, #{user_data['name']}!"
   rescue StandardError => e
     Rails.logger.error("OmniAuth callback error: #{e.message}")
+    Rails.error.report(e, handled: true, context: { component: 'omniauth_callback' })
     redirect_to root_path, alert: 'Authentication failed. Invalid credentials.'
   end
 
@@ -103,8 +104,8 @@ class SessionController < ApplicationController
 
     # Ensure enrollment in the test course (as student so they can request extensions)
     if test_course
-      UserToCourse.find_or_create_by!(user_id: user.id, course_id: test_course.id) do |utc|
-        utc.role = 'student'
+      Enrollment.find_or_create_by!(user_id: user.id, course_id: test_course.id) do |enrollment|
+        enrollment.role = 'student'
       end
     end
   end

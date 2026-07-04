@@ -1,4 +1,4 @@
-class UserToCoursesController < ApplicationController
+class EnrollmentsController < ApplicationController
   # `authenticated!` from ApplicationController runs before this filter, so
   # `current_user` is populated by the time we get here.
   before_action :set_course
@@ -20,7 +20,7 @@ class UserToCoursesController < ApplicationController
   private
 
   def set_enrollment
-    @enrollment = UserToCourse.find(params[:id])
+    @enrollment = @course.enrollments.find(params[:id])
   end
 
   # ApplicationController#ensure_instructor_role would redirect with a flash,
