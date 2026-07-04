@@ -41,7 +41,7 @@ class RequestsController < ApplicationController
     course_to_lms_ids = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lms_ids.any?
 
-    return new_for_students if @course.staff_user?(current_user)
+    return new_for_student if @course.staff_user?(current_user)
 
     redirected = prepare_student_new_request
     render :new unless redirected
@@ -229,13 +229,6 @@ class RequestsController < ApplicationController
     return false unless student
 
     @course.student_user?(student)
-  end
-
-  def authenticate_user
-    current_user = current_user
-    return if current_user
-
-    redirect_to root_path, alert: 'Please log in to access this page.'
   end
 
   # Runs after set_request, so @request is already loaded and scoped; a missing
