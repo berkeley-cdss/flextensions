@@ -958,8 +958,8 @@ RSpec.describe RequestsController, type: :controller do
           }
         }
 
-        expect(response).to render_template(:new_for_student)
-        expect(flash[:alert]).to include('problem submitting the request')
+        expect(response).to redirect_to(new_course_request_path(course))
+        expect(flash[:alert]).to include('assignment is not enabled')
         expect(Request.where(user: enrolled_student)).to be_empty
       end
     end

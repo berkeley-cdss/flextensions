@@ -70,15 +70,16 @@ class RequestsController < ApplicationController
     prepare_instructor_new_request
     student = User.find_by(id: params[:request][:user_id])
 
-    unless @course.student_user?(student)
-      return render :new_for_student, alert: 'The selected student is not enrolled in this course.'
+    unless student.present? && @course.student_user?(student)
+      return redirect_to new_course_request_path(@course),
+                         alert: 'The selected student is not enrolled in this course.'
     end
 
     Request.merge_date_and_time!(params[:request])
     @request.assign_attributes(request_params.merge(user: student))
     unless @course.enabled_assignments.exists?(id: @request.assignment_id)
-      return render :new_for_student,
-                    alert: 'The selected assignment is not enabled or in this course.'
+      return redirect_to new_course_request_path(@course),
+                         alert: 'The selected assignment is not enabled or in this course.'
     end
 
     # TODO: Move this logic or remove it. (Shouldn't instructors just edit or reject the existing request instead of creating a new one?)
