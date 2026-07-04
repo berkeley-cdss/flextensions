@@ -30,6 +30,11 @@ class CanvasFacade < LmsFacade
   # Whenever a new scope is added, it must be added to the Canvas developer key **FIRST**,
   # especially in the production environment. You will likely want to use feature flags
   # and coordination with Berkeley to ensure that the scopes are added to the developer key.
+  # NOTE: Changing the key's scopes invalidates EVERY token already derived from the key.
+  # Run `bin/rails lms_credentials:purge` afterwards to drop the dead stored credentials;
+  # users re-authenticate automatically on their next visit. (Any dead credential that is
+  # not purged is also removed automatically the first time its refresh fails with
+  # invalid_grant -- see LmsCredential#refresh!.)
   # NOTE: This is read into the OmniAuth initializer in `config/initializers/omniauth.rb`.
   # If you change this list, you will need to restart the Rails server.
   CANVAS_API_SCOPES = [
