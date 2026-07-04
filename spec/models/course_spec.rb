@@ -73,6 +73,25 @@ RSpec.describe Course, type: :model do
     end
   end
 
+  describe '#canvas_id' do
+    let(:course) { described_class.create!(canvas_id: 'canvas_cid', course_name: 'Test', course_code: 'TEST101') }
+
+    it 'returns the external course id of the Canvas link' do
+      CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: '456')
+
+      expect(course.canvas_id).to eq('456')
+    end
+
+    it 'prefers a populated link even when a blank duplicate exists' do
+      # Order of creation is intentionally "blank first" to guard against the
+      # non-deterministic find_by that previously returned an arbitrary row.
+      CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: nil)
+      CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: '456')
+
+      expect(course.canvas_id).to eq('456')
+    end
+  end
+
   describe '#enabled_assignments' do
     it 'returns only enabled assignments belonging to the course' do
       course = create(:course)

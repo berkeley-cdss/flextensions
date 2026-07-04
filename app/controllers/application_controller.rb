@@ -12,7 +12,7 @@ class ApplicationController < ActionController::Base
       'login' => [ 'canvas' ],
       'session' => %w[create omniauth_callback omniauth_failure],
       'rails/health' => [ 'show' ],
-      'requests' => [ 'export' ]
+      'requests/exports' => [ 'show' ]
     }
     controller = params[:controller]
     action = params[:action]

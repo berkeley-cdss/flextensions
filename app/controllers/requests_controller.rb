@@ -1,16 +1,13 @@
-require 'csv'
-
 # We really should get a handle on this.
 # rubocop:disable Metrics/ClassLength
 class RequestsController < ApplicationController
-  # Consider moving export, approve/reject to a separate controller?
-  before_action :authenticate_user, except: [ :export ]
-  before_action :set_course, except: [ :export ]
+  before_action :authenticate_user
+  before_action :set_course
   before_action :require_course_staff, only: %i[create_for_student approve reject mass_approve mass_reject]
-  before_action :set_form_settings, except: [ :export ]
-  before_action :require_course_access, except: [ :export ]
+  before_action :set_form_settings
+  before_action :require_course_access
   before_action :set_request, only: %i[show edit update cancel approve reject]
-  before_action :set_pending_request_count, except: [ :export ]
+  before_action :set_pending_request_count
   before_action :ensure_request_is_pending, only: %i[update approve reject]
 
   def index
@@ -147,19 +144,6 @@ class RequestsController < ApplicationController
     process_mass_action(:reject)
   end
 
-  def export
-    course = Course.find_by(id: params[:course_id])
-    token = params[:readonly_api_token]
-
-    return render plain: 'Invalid or missing API token', status: :unauthorized unless course && ActiveSupport::SecurityUtils.secure_compare(course.readonly_api_token, token.to_s)
-
-    requests = course.requests.includes(:assignment, :user)
-    requests = requests.where(status: params[:status]) if params[:status].present?
-
-    csv_data = Request.to_csv(requests)
-    send_data csv_data, filename: 'requests.csv', type: 'text/csv'
-  end
-
   private
 
   # Loads the request for member actions. Scoped so students can only reach
@@ -180,7 +164,7 @@ class RequestsController < ApplicationController
   def require_course_staff
     return if @course.staff_user?(current_user)
 
-    redirect_to course_path(@course), alert: 'You do not have permission to perform this action.'
+    redirect_to courses_path, alert: 'You do not have access to this page.'
   end
 
   def handle_request_error
@@ -238,9 +222,7 @@ class RequestsController < ApplicationController
     redirect_to course_path(@course), alert: 'This action can only be performed on pending requests.'
   end
 
-  # Students may only reach requests while the course has extensions enabled.
-  # Gate for every in-course request page (everything but the token-based
-  # #export). Three rules, in order:
+  # Gate for every in-course request page. Three rules, in order:
   #   1. You must have a role in the course. Anyone else is turned away.
   #   2. Staff are always allowed through so they can manage requests.
   #   3. Students may only proceed when the course has extensions enabled.
