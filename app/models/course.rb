@@ -20,9 +20,7 @@ class Course < ApplicationRecord
   has_secure_token :readonly_api_token
 
   after_create :regenerate_readonly_api_token_if_blank
-  # Every course has exactly one course_settings record (enforced by a unique
-  # index on course_settings.course_id), so it is always safe to call
-  # course.course_settings without a nil check.
+  # Every course has exactly one course_settings record (unique index on course_id).
   after_create :create_default_course_settings
 
   # Associations
@@ -38,7 +36,6 @@ class Course < ApplicationRecord
 
   has_many :users, through: :user_to_courses
 
-  # Validations
   validates :course_name, presence: true
 
   # Scopes
@@ -112,6 +109,11 @@ class Course < ApplicationRecord
 
   def has_canvas_linked?
     course_to_lms(1).present?
+  end
+
+  # Whether students can see this course and submit extension requests.
+  def requests_enabled?
+    course_settings.enable_extensions?
   end
 
   def enabled_assignments

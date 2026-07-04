@@ -242,7 +242,7 @@
 
                                 <div class="mb-3">
                                     <div class="text-start">
-                                        <% if @course.course_settings.enable_extensions %>
+                                        <% if @course.requests_enabled? %>
                                             <%= link_to 'Delete Course (must have student extension requests disabled)', '#', class: 'btn btn-outline-danger disable me-3', aria_disabled: 'true' %>
                                         <% else %>
                                             <%= link_to 'Delete Course',

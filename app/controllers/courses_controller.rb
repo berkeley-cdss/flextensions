@@ -10,7 +10,7 @@ class CoursesController < ApplicationController
 
     # Only show courses to students if extensions are enabled at the course level
     student_courses = UserToCourse.includes(course: :course_settings).where(user: @user, role: 'student')
-    visible_student_courses = student_courses.select { |utc| utc.course.course_settings.enable_extensions }
+    visible_student_courses = student_courses.select { |utc| utc.course.requests_enabled? }
     @student_courses_by_semester = group_by_semester(visible_student_courses)
 
     # Keep flat lists for conditional checks in the view
@@ -26,7 +26,7 @@ class CoursesController < ApplicationController
     @course.regenerate_readonly_api_token_if_blank
 
     if @role == 'student'
-      return redirect_to courses_path, alert: 'Extensions are not enabled for this course.' unless @course.course_settings.enable_extensions
+      return redirect_to courses_path, alert: 'Extensions are not enabled for this course.' unless @course.requests_enabled?
 
       @assignments = @course.enabled_assignments
     else
@@ -97,7 +97,7 @@ class CoursesController < ApplicationController
 
   def delete
     return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
-    return redirect_to courses_path, alert: 'Extensions are enabled for this course.' if @course.course_settings.enable_extensions
+    return redirect_to courses_path, alert: 'Extensions are enabled for this course.' if @course.requests_enabled?
 
     assignments = @course.assignments
     Extension.where(assignment_id: assignments.select(:id)).destroy_all

@@ -56,6 +56,22 @@ RSpec.describe Course, type: :model do
     end
   end
 
+  describe '#requests_enabled?' do
+    it 'is true when extensions are enabled in the course settings' do
+      course = create(:course)
+      course.course_settings.update!(enable_extensions: true)
+
+      expect(course.requests_enabled?).to be true
+    end
+
+    it 'is false when extensions are disabled in the course settings' do
+      course = create(:course)
+      course.course_settings.update!(enable_extensions: false)
+
+      expect(course.requests_enabled?).to be false
+    end
+  end
+
   describe '#enabled_assignments' do
     it 'returns only enabled assignments belonging to the course' do
       course = create(:course)

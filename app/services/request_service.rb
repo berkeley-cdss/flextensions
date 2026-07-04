@@ -16,7 +16,7 @@ class RequestService
   # Ensure extensions are enabled for students
   def self.check_extensions_enabled_for_students(role, course, redirect_path)
     return true unless role == 'student'
-    return true if course.course_settings.enable_extensions
+    return true if course.requests_enabled?
 
     { redirect_to: redirect_path, alert: 'Extensions are not enabled for this course.' }
   end
