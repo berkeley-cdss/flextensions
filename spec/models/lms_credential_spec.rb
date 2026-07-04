@@ -148,12 +148,31 @@ RSpec.describe LmsCredential, type: :model do
       expect(credential.refresh!).to be_nil
     end
 
-    it 'returns nil and keeps the old token when Canvas rejects the refresh' do
-      fake_response = instance_double(OAuth2::Response, parsed: {}, status: 401)
+    it 'returns nil and keeps the credential on a transient failure (no OAuth error code)' do
+      fake_response = instance_double(OAuth2::Response, parsed: {}, status: 500, body: 'Internal Server Error')
       allow(OAuth2::AccessToken).to receive(:from_hash).and_raise(OAuth2::Error.new(fake_response))
 
       expect(credential.refresh!).to be_nil
       expect(credential.reload.token).to eq('old_token')
+    end
+
+    it 'returns nil and keeps the credential on a non-grant OAuth error (e.g. misconfigured client)' do
+      fake_response = instance_double(OAuth2::Response, status: 401, body: '{"error":"invalid_client"}',
+                                                        parsed: { 'error' => 'invalid_client' })
+      allow(OAuth2::AccessToken).to receive(:from_hash).and_raise(OAuth2::Error.new(fake_response))
+
+      expect(credential.refresh!).to be_nil
+      expect(credential.reload.token).to eq('old_token')
+    end
+
+    it 'deletes the credential when Canvas reports the refresh token is dead (invalid_grant)' do
+      fake_response = instance_double(OAuth2::Response, status: 400, body: '{"error":"invalid_grant"}',
+                                                        parsed: { 'error' => 'invalid_grant',
+                                                                  'error_description' => 'refresh_token not found' })
+      allow(OAuth2::AccessToken).to receive(:from_hash).and_raise(OAuth2::Error.new(fake_response))
+
+      expect(credential.refresh!).to be_nil
+      expect(described_class.exists?(credential.id)).to be false
     end
   end
 end

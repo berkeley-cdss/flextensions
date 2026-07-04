@@ -42,6 +42,12 @@ class LmsCredential < ApplicationRecord
   # Exchanges the stored refresh token for a new access token and persists it.
   # Returns the new access token, or nil when there is no refresh token or
   # Canvas rejects the refresh (e.g. the user revoked Flextensions' access).
+  #
+  # When Canvas reports the refresh token itself is dead (invalid_grant), the
+  # credential is deleted so nothing keeps retrying it: the user simply goes
+  # through OAuth again on their next visit, and auto-approval stops offering
+  # them as a candidate. Transient failures (network errors, outages, a
+  # misconfigured client) leave the credential untouched.
   def refresh!
     return nil if refresh_token.blank?
 
@@ -61,7 +67,16 @@ class LmsCredential < ApplicationRecord
     )
     new_token.token
   rescue OAuth2::Error => e
-    Rails.logger.error "Failed to refresh #{lms_name} token for user #{user_id}: #{e.message}"
+    if e.code == 'invalid_grant'
+      # Canvas no longer recognizes this refresh token: the user revoked
+      # Flextensions under Settings > Approved Integrations, or the developer
+      # key/scopes changed (which invalidates every token derived from the
+      # key). It can never work again, so remove it rather than retry it.
+      Rails.logger.warn "Removing revoked #{lms_name} credential for user #{user_id} (invalid_grant)"
+      destroy
+    else
+      Rails.logger.error "Failed to refresh #{lms_name} token for user #{user_id}: #{e.message}"
+    end
     nil
   end
 end
