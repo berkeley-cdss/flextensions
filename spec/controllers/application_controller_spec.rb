@@ -110,10 +110,11 @@ RSpec.describe ApplicationController, type: :controller do
   end
 
   describe '#render_role_based_view' do
+    let(:course) { Course.create!(course_name: 'Biology 101', canvas_id: 'course-123') }
+
     before do
       allow(controller).to receive_messages(controller_name: controller_name_override, action_name: action_name_override)
       allow(controller).to receive(:current_user).and_return(user)
-      course = Course.create!(course_name: 'Biology 101', canvas_id: 'course-123')
       controller.instance_variable_set(:@course, course)
     end
 
@@ -136,7 +137,7 @@ RSpec.describe ApplicationController, type: :controller do
       let(:action_name_override)     { 'index' }
 
       before do
-        Enrollment.create!(user: user, course: course, role: 'instructor')
+        Enrollment.create!(user: user, course: course, role: 'teacher')
       end
 
       it 'renders requests/instructor_index' do
@@ -150,7 +151,7 @@ RSpec.describe ApplicationController, type: :controller do
       let(:action_name_override)     { 'show' }
 
       before do
-        controller.instance_variable_set(:@role, 'student')
+        Enrollment.create!(user: user, course: course, role: 'student')
       end
 
       it 'renders the overridden student view under requests' do

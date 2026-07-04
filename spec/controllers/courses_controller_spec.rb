@@ -130,7 +130,7 @@ RSpec.describe CoursesController, type: :controller do
   describe 'GET #edit' do
     it 'redirects non-instructor users' do
       get :edit, params: { id: course.id }
-      expect(response).to redirect_to(course_path(course))
+      expect(response).to redirect_to(courses_path)
       expect(flash[:alert]).to eq('You do not have access to this page.')
     end
   end

@@ -24,14 +24,14 @@ class CoursesController < ApplicationController
     @side_nav = 'show'
     @course.regenerate_readonly_api_token_if_blank
 
-    if @course.student_user?(current_user)
-      return redirect_to courses_path, alert: 'Extensions are not enabled for this course.' unless @course.requests_enabled?
-      @assignments = @course.enabled_assignments
-      render :student_show
-    elsif @course.staff_user?(current_user)
+    if @course.staff_user?(current_user)
       @assignments = @course.assignments
       @assignments_last_synced_at = assignments_last_synced_at
       render :instructor_show
+    elsif @course.student_user?(current_user)
+      return redirect_to courses_path, alert: 'Extensions are not enabled for this course.' unless @course.requests_enabled?
+      @assignments = @course.enabled_assignments
+      render :student_show
     else
       redirect_to courses_path, alert: 'You do not have access to this course.'
     end
