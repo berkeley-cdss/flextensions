@@ -5,6 +5,7 @@
 #  id                 :bigint           not null, primary key
 #  course_code        :string
 #  course_name        :string
+#  demo_course        :boolean          default(FALSE), not null
 #  readonly_api_token :string
 #  semester           :string
 #  created_at         :datetime         not null
@@ -130,15 +131,19 @@ class Course < ApplicationRecord
     nil
   end
 
+  def enrolled?(user)
+    enrollments.where(user_id: user.id).any?
+  end
+
   def course_admin?(user)
     enrollments.where(user_id: user.id).any?(&:course_admin?)
   end
 
-  def course_staff?(user)
+  def staff_user?(user)
     enrollments.where(user_id: user.id).any?(&:staff?)
   end
 
-  def course_student?(user)
+  def student_user?(user)
     enrollments.where(user_id: user.id).any?(&:student?)
   end
 
@@ -150,11 +155,20 @@ class Course < ApplicationRecord
   # end
 
   def canvas_id
-    CourseToLms.find_by(course_id: id, lms_id: CANVAS_LMS_ID)&.external_course_id
+    external_course_id_for(CANVAS_LMS_ID)
   end
 
   def gradescope_id
-    CourseToLms.find_by(course_id: id, lms_id: GRADESCOPE_LMS_ID)&.external_course_id
+    external_course_id_for(GRADESCOPE_LMS_ID)
+  end
+
+  # Returns the external course id for the given LMS. A course should have at
+  # most one link per LMS, but when several exist we deterministically prefer a
+  # link that actually carries an external id (ordered by id) so callers never
+  # get an arbitrary nil back.
+  def external_course_id_for(lms_id)
+    links = CourseToLms.where(course_id: id, lms_id: lms_id).order(:id)
+    (links.where.not(external_course_id: nil).first || links.first)&.external_course_id
   end
 
   # TODO: Add specs for these 3 simple methods
@@ -175,7 +189,9 @@ class Course < ApplicationRecord
   # staff member who logged in most recently is the most likely to still
   # work. Credentials on file can still fail to refresh or belong to someone
   # who has since left the Canvas course, so callers should be prepared to
-  # fall back to the next user in this list.
+  # fall back to the next user in this list. Staff synced from the Canvas
+  # roster who never logged into Flextensions have no credentials and are
+  # excluded.
   def staff_users_for_auto_approval
     staff_users.select { |user| user.canvas_credentials.present? }
                .sort_by { |user| user.canvas_credentials.updated_at }
