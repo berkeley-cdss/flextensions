@@ -49,14 +49,14 @@ RSpec.describe Request, type: :model do
       due_date: 2.days.from_now
     )
   end
-  # TODO: Move this to course model initialization
   let(:course_settings) do
-    CourseSettings.create!(
-      course: course,
-      enable_extensions: true,
-      auto_approve_days: 3,
-      max_auto_approve: 2
-    )
+    course.course_settings.tap do |cs|
+      cs.update!(
+        enable_extensions: true,
+        auto_approve_days: 3,
+        max_auto_approve: 2
+      )
+    end
   end
   let(:request) do
     described_class.create!(
@@ -69,7 +69,7 @@ RSpec.describe Request, type: :model do
   end
 
   before do
-    UserToCourse.create!(user: user, course: course, role: 'student')
+    Enrollment.create!(user: user, course: course, role: 'student')
     user.lms_credentials.create!(
       lms_name: 'canvas',
       token: 'fake_token',
@@ -163,15 +163,6 @@ RSpec.describe Request, type: :model do
       end
     end
 
-    context 'when course settings do not exist' do
-      it 'returns false' do
-        course.course_settings&.destroy
-        course.reload
-        expect(request.course.course_settings).to be_nil
-        expect(request.auto_approval_eligible_for_course?).to be false
-      end
-    end
-
     context 'when extensions are disabled' do
       before do
         course_settings.update(enable_extensions: false)
@@ -213,22 +204,11 @@ RSpec.describe Request, type: :model do
     end
   end
 
-  # TODO: Investigate the odd relationship with `course_settings`
-  # Consider dropping the don't exist spec in favor a validation on `Course`.
   describe '#eligible_for_auto_approval?' do
     context 'when all conditions are met' do
       it 'returns true' do
-        course_settings # ensure this exists/is created.
+        course_settings # ensure auto-approval settings are configured
         expect(request.eligible_for_auto_approval?).to be true
-      end
-    end
-
-    context 'when course settings do not exist' do
-      it 'returns false' do
-        course.course_settings&.destroy
-        course.reload
-        expect(course.course_settings).to be_nil
-        expect(request.eligible_for_auto_approval?).to be false
       end
     end
 
@@ -343,7 +323,7 @@ RSpec.describe Request, type: :model do
     context 'when student has allow_extended_requests and requests more than auto_approve_days' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7)
-        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+        Enrollment.find_by(user: user, course: course).update!(allow_extended_requests: true)
       end
 
       it 'returns true when within extended request days' do
@@ -360,7 +340,7 @@ RSpec.describe Request, type: :model do
     context 'when student has allow_extended_requests but extended days are disabled (0)' do
       before do
         course_settings.update(auto_approve_days: 2, auto_approve_extended_request_days: 0)
-        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+        Enrollment.find_by(user: user, course: course).update!(allow_extended_requests: true)
       end
 
       it 'falls back to the standard auto_approve_days window' do
@@ -377,7 +357,7 @@ RSpec.describe Request, type: :model do
     context 'when student does not have allow_extended_requests' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7)
-        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: false)
+        Enrollment.find_by(user: user, course: course).update!(allow_extended_requests: false)
       end
 
       it 'returns false when exceeding standard auto_approve_days' do
@@ -394,7 +374,7 @@ RSpec.describe Request, type: :model do
     context 'when student requests exactly the max extended days' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7)
-        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+        Enrollment.find_by(user: user, course: course).update!(allow_extended_requests: true)
       end
 
       it 'returns true at the boundary' do
@@ -416,7 +396,7 @@ RSpec.describe Request, type: :model do
     context 'when user has no enrollment record' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7)
-        UserToCourse.find_by(user: user, course: course).destroy
+        Enrollment.find_by(user: user, course: course).destroy
       end
 
       it 'returns false for all requests' do
@@ -428,7 +408,7 @@ RSpec.describe Request, type: :model do
     context 'when extended student hits max_auto_approve limit' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7, max_auto_approve: 1)
-        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+        Enrollment.find_by(user: user, course: course).update!(allow_extended_requests: true)
         described_class.create!(
           user: user,
           course: course,
@@ -599,7 +579,7 @@ RSpec.describe Request, type: :model do
     context 'when the first staff enrollment has no credentials but another staff user does' do
       before do
         allow(request).to receive_messages(eligible_for_auto_approval?: true, auto_approve: true)
-        course.user_to_courses.where(role: UserToCourse.staff_roles).order(:id).first.user.lms_credentials.destroy_all
+        course.enrollments.where(role: Enrollment.staff_roles).order(:id).first.user.lms_credentials.destroy_all
       end
 
       it 'still auto-approves using the credentialed staff user' do
@@ -950,11 +930,7 @@ RSpec.describe Request, type: :model do
 
       context 'when extend_late_due_date setting is true (default)' do
         before do
-          CourseSettings.create!(
-            course: course,
-            enable_extensions: true,
-            extend_late_due_date: true
-          )
+          course.course_settings.update!(extend_late_due_date: true)
         end
 
         it 'shifts the late due date by the same delta as the extension' do
@@ -969,11 +945,7 @@ RSpec.describe Request, type: :model do
 
       context 'when extend_late_due_date setting is false' do
         before do
-          CourseSettings.create!(
-            course: course,
-            enable_extensions: true,
-            extend_late_due_date: false
-          )
+          course.course_settings.update!(extend_late_due_date: false)
         end
 
         context 'when original late due date is later than extended due date' do
@@ -999,29 +971,8 @@ RSpec.describe Request, type: :model do
         end
       end
 
-      context 'when extend_late_due_date setting is nil (defaults to true)' do
-        before do
-          # Create settings without explicitly setting extend_late_due_date
-          # This simulates existing courses before the migration
-          cs = CourseSettings.create!(
-            course: course,
-            enable_extensions: true
-          )
-          # Manually set to nil to simulate pre-migration state
-          # cs.update_column(:extend_late_due_date, nil)
-          cs.extend_late_due_date = nil
-        end
-
-        it 'defaults to shifting the late due date by the extension delta' do
-          result = request_with_late_due_date.calculate_new_late_due_date
-          expected = Time.zone.parse('2025-01-20 23:59:00')
-          expect(result).to be_within(1.second).of(expected)
-        end
-      end
-
-      context 'when course has no course settings' do
-        it 'defaults to shifting the late due date (extend_late_due_date = true behavior)' do
-          # No course settings means nil, which defaults to true
+      context 'when course settings are untouched (extend_late_due_date defaults to true)' do
+        it 'shifts the late due date by the extension delta' do
           result = request_with_late_due_date.calculate_new_late_due_date
           expected = Time.zone.parse('2025-01-20 23:59:00')
           expect(result).to be_within(1.second).of(expected)
@@ -1038,16 +989,17 @@ RSpec.describe Request, type: :model do
     end
 
     let(:course_settings) do
-      CourseSettings.create!(
-        course: course,
-        enable_emails: true,
-        reply_email: 'instructor@example.com',
-        email_subject: 'Extension for {{student_name}}',
-        email_template: <<~TEMPLATE
-          Dear {{student_name}},
-          Your extension request has been {{status}}.
-        TEMPLATE
-      )
+      course.course_settings.tap do |cs|
+        cs.update!(
+          enable_emails: true,
+          reply_email: 'instructor@example.com',
+          email_subject: 'Extension for {{student_name}}',
+          email_template: <<~TEMPLATE
+            Dear {{student_name}},
+            Your extension request has been {{status}}.
+          TEMPLATE
+        )
+      end
     end
 
     it 'calls EmailService.send_email with correct parameters' do

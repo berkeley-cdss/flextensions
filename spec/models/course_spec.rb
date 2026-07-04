@@ -37,6 +37,41 @@ RSpec.describe Course, type: :model do
     { "id": 240, "name": "Sherri Johnson", "created_at": "2025-05-05T11:57:36-07:00", "sortable_name": "Johnson, Sherri", "short_name": "Sherri Johnson", "sis_user_id": "216573718", "integration_id": "sherri.johnson53", "sis_import_id": 5, "login_id": "sherri.johnson53@example.com", "email": "sherri.johnson53@example.com", "has_non_collaborative_groups": false }
   ]
 
+  describe 'course settings creation' do
+    it 'automatically creates course settings with defaults when a course is created' do
+      course = described_class.create!(course_name: 'Settings Test', canvas_id: 'canvas_settings', course_code: 'SET101')
+
+      expect(course.course_settings).to be_persisted
+      expect(course.course_settings.enable_extensions).to be false
+      expect(course.course_settings.extend_late_due_date).to be true
+    end
+
+    it 'keeps settings built before the course is saved' do
+      course = described_class.new(course_name: 'Prebuilt Settings', canvas_id: 'canvas_prebuilt', course_code: 'PRE101')
+      course.build_course_settings(enable_extensions: true)
+      course.save!
+
+      expect(course.course_settings.reload.enable_extensions).to be true
+      expect(CourseSettings.where(course_id: course.id).count).to eq(1)
+    end
+  end
+
+  describe '#requests_enabled?' do
+    it 'is true when extensions are enabled in the course settings' do
+      course = create(:course)
+      course.course_settings.update!(enable_extensions: true)
+
+      expect(course.requests_enabled?).to be true
+    end
+
+    it 'is false when extensions are disabled in the course settings' do
+      course = create(:course)
+      course.course_settings.update!(enable_extensions: false)
+
+      expect(course.requests_enabled?).to be false
+    end
+  end
+
   describe '#enabled_assignments' do
     it 'returns only enabled assignments belonging to the course' do
       course = create(:course)
@@ -62,7 +97,7 @@ RSpec.describe Course, type: :model do
           expire_time: 1.hour.from_now
         )
       end
-      UserToCourse.create!(user: user, course: course, role: role)
+      Enrollment.create!(user: user, course: course, role: role)
       user
     end
 
@@ -106,14 +141,14 @@ RSpec.describe Course, type: :model do
         lms_name: 'canvas', token: 'stale', refresh_token: 'stale',
         expire_time: 6.months.ago, updated_at: 6.months.ago
       )
-      UserToCourse.create!(user: idle_ta, course: course, role: 'ta')
+      Enrollment.create!(user: idle_ta, course: course, role: 'ta')
 
       active_teacher = User.create!(email: 'active_teacher@example.com', canvas_uid: '128')
       active_teacher.lms_credentials.create!(
         lms_name: 'canvas', token: 'fresh', refresh_token: 'fresh',
         expire_time: 1.hour.from_now
       )
-      UserToCourse.create!(user: active_teacher, course: course, role: 'teacher')
+      Enrollment.create!(user: active_teacher, course: course, role: 'teacher')
 
       expect(course.staff_users_for_auto_approval).to eq([ active_teacher, idle_ta ])
     end
@@ -123,7 +158,7 @@ RSpec.describe Course, type: :model do
     it 'treats leadta enrollments as instructors' do
       course = described_class.create!(canvas_id: 'canvas_leadta', course_name: 'Test', course_code: 'TEST101')
       user = User.create!(email: 'leadta@example.com', canvas_uid: 'leadta_123')
-      UserToCourse.create!(user: user, course: course, role: 'leadta')
+      Enrollment.create!(user: user, course: course, role: 'leadta')
 
       expect(course.user_role(user)).to eq('instructor')
     end
@@ -273,11 +308,11 @@ end
       allow(user).to receive(:ensure_fresh_canvas_token!).and_return('fake_token')
     end
 
-    it 'creates user and user_to_course record' do
+    it 'creates user and enrollment record' do
       expect do
         course.sync_users_from_canvas(user.id, 'student')
       end.to change(User, :count).by(CANVAS_USERS.size).and(
-        change(UserToCourse, :count).by(CANVAS_USERS.size)
+        change(Enrollment, :count).by(CANVAS_USERS.size)
       )
     end
   end

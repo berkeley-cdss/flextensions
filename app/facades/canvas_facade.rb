@@ -10,7 +10,7 @@ class CanvasFacade < LmsFacade
 
   CANVAS_URL = ENV.fetch('CANVAS_URL', nil)
   CANVAS_CUSTOM_COURSE_ROLES = {
-    UserToCourse::LEAD_TA_ROLE => 'Lead TA'
+    Enrollment::LEAD_TA_ROLE => 'Lead TA'
   }.freeze
 
   # Canvas instances can scope the flextensions developer key.
@@ -205,7 +205,7 @@ class CanvasFacade < LmsFacade
   end
 
   def role_query_param(role)
-    normalized_role = UserToCourse.normalize_role(role)
+    normalized_role = Enrollment.normalize_role(role)
     canvas_course_role = CANVAS_CUSTOM_COURSE_ROLES[normalized_role]
 
     if canvas_course_role

@@ -20,7 +20,8 @@ class Course < ApplicationRecord
   has_secure_token :readonly_api_token
 
   after_create :regenerate_readonly_api_token_if_blank
-  # TODO: after_initialize :build_course_settings_if_necessary
+  # Every course has exactly one course_settings record (unique index on course_id).
+  after_create :create_default_course_settings
 
   # Associations
   # Declared before course_to_lmss so a destroy removes assignments first,
@@ -28,16 +29,14 @@ class Course < ApplicationRecord
   has_many :assignments, dependent: :destroy
   has_many :course_to_lmss, dependent: :destroy
   has_many :lmss, through: :course_to_lmss
-  has_many :user_to_courses, dependent: :destroy
+  has_many :enrollments, dependent: :destroy
   has_one :form_setting, dependent: :destroy
   has_one :course_settings, dependent: :destroy
   has_many :requests, dependent: :destroy
 
-  has_many :users, through: :user_to_courses
+  has_many :users, through: :enrollments
 
-  # Validations
   validates :course_name, presence: true
-  # validate :ensure_course_settings
 
   # Scopes
   scope :by_semester, ->(semester) { where(semester: semester) }
@@ -112,6 +111,11 @@ class Course < ApplicationRecord
     course_to_lms(1).present?
   end
 
+  # Whether students can see this course and submit extension requests.
+  def requests_enabled?
+    course_settings.enable_extensions?
+  end
+
   def enabled_assignments
     assignments.where(enabled: true)
   end
@@ -119,23 +123,23 @@ class Course < ApplicationRecord
   # TODO: Replace this with staff_role?(user) or student_role?(user)
   # Or is user.staff_role?(course) or user.student_role?(course) better?
   def user_role(user)
-    roles = UserToCourse.where(user_id: user.id, course_id: id).pluck(:role)
-    return 'instructor' if roles.intersect?(UserToCourse.staff_roles)
-    return 'student' if roles.include?(UserToCourse::STUDENT_ROLE)
+    roles = Enrollment.where(user_id: user.id, course_id: id).pluck(:role)
+    return 'instructor' if roles.intersect?(Enrollment.staff_roles)
+    return 'student' if roles.include?(Enrollment::STUDENT_ROLE)
 
     nil
   end
 
   def course_admin?(user)
-    user_to_courses.where(user_id: user.id).any?(&:course_admin?)
+    enrollments.where(user_id: user.id).any?(&:course_admin?)
   end
 
   def course_staff?(user)
-    user_to_courses.where(user_id: user.id).any?(&:staff?)
+    enrollments.where(user_id: user.id).any?(&:staff?)
   end
 
   def course_student?(user)
-    user_to_courses.where(user_id: user.id).any?(&:student?)
+    enrollments.where(user_id: user.id).any?(&:student?)
   end
 
   # TODO: This doesn't make sense actually.
@@ -155,23 +159,15 @@ class Course < ApplicationRecord
 
   # TODO: Add specs for these 3 simple methods
   def students
-    user_to_courses.where(role: UserToCourse::STUDENT_ROLE).map(&:user)
+    enrollments.where(role: Enrollment::STUDENT_ROLE).map(&:user)
   end
 
   def instructors
-    user_to_courses.where(role: UserToCourse::TEACHER_ROLE).map(&:user)
+    enrollments.where(role: Enrollment::TEACHER_ROLE).map(&:user)
   end
 
   def staff_users
-    user_to_courses.where(role: UserToCourse.staff_roles).map(&:user)
-  end
-
-  def destroy_associations
-    assignments.destroy_all
-    course_to_lmss.destroy_all
-    user_to_courses.destroy_all
-    form_setting.destroy if form_setting
-    course_settings.destroy if course_settings
+    enrollments.where(role: Enrollment.staff_roles).map(&:user)
   end
 
   # Staff users with Canvas credentials on file, most recently refreshed
@@ -223,37 +219,6 @@ class Course < ApplicationRecord
       form_setting.save!
     end
 
-    # Create a 1-to-1 course_settings record if it doesn't exist
-    unless course.course_settings
-      course_settings = course.build_course_settings(
-        enable_extensions: false,
-        auto_approve_days: 0,
-        auto_approve_extended_request_days: 0,
-        max_auto_approve: 0,
-        enable_gradescope: false,
-        gradescope_course_url: nil,
-        enable_emails: false,
-        reply_email: nil,
-        email_subject: 'Extension Request Status: {{status}} - {{course_code}}',
-        email_template: <<~TEMPLATE
-          Dear {{student_name}},
-
-          Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
-
-          Extension Details:
-          - Original Due Date: {{original_due_date}}
-          - New Due Date: {{new_due_date}}
-          - Extension Days: {{extension_days}}
-
-          If you have any questions, please contact the course staff.
-
-          Best regards,
-          {{course_name}} Staff
-        TEMPLATE
-      )
-      course_settings.save!
-    end
-
     # TODO: Consider disabling these if performance becomes an issue
     course.sync_assignments(user)
     course.sync_all_enrollments_from_canvas(user.id)
@@ -300,17 +265,23 @@ class Course < ApplicationRecord
     end
   end
 
-  # Fetch users for a course and create/find their User and UserToCourse records
+  # Fetch users for a course and create/find their User and Enrollment records
   # TODO: This may need to become a background job
   def sync_users_from_canvas(user, roles = [ 'student' ])
     SyncUsersFromCanvasJob.perform_now(id, user, roles)
   end
 
   def sync_all_enrollments_from_canvas(user)
-    sync_users_from_canvas(user, UserToCourse.roles)
+    sync_users_from_canvas(user, Enrollment.roles)
   end
 
   def regenerate_readonly_api_token_if_blank
     regenerate_readonly_api_token if readonly_api_token.blank?
+  end
+
+  # Course settings are created with the column defaults; the guard only
+  # matters when settings were built in memory before the course was saved.
+  def create_default_course_settings
+    create_course_settings! unless course_settings
   end
 end

@@ -20,7 +20,7 @@ class CourseSettingsController < ApplicationController
   # rubocop:disable Metrics/AbcSize
   def update
     @side_nav = 'course_settings'
-    @course_settings = @course.course_settings || @course.build_course_settings
+    @course_settings = @course.course_settings
 
     if params[:reset_email_template].present?
       reset_email_templates

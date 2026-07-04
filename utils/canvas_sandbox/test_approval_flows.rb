@@ -81,7 +81,7 @@ def give_canvas_credentials(user)
 end
 
 def enroll(user, course, role)
-  UserToCourse.find_or_create_by!(user: user, course: course, role: role)
+  Enrollment.find_or_create_by!(user: user, course: course, role: role)
 end
 
 def canvas_override_for(assignment, student)
@@ -134,7 +134,7 @@ settings.update!(enable_extensions: true, auto_approve_days: 3, max_auto_approve
                  enable_emails: false, min_hours_before_deadline: 0)
 
 # Make the credentialed staff user the course's only staff enrollment.
-UserToCourse.where(course: course).delete_all
+Enrollment.where(course: course).delete_all
 enroll(staff, course, 'teacher')
 students.each_value { |s| enroll(s, course, 'student') }
 
@@ -200,7 +200,7 @@ end
 # ---------------------------------------------------------------------------
 no_creds_staff = find_or_create_user(NO_CREDS_STAFF)
 no_creds_staff.lms_credentials.destroy_all
-UserToCourse.where(course: course, role: UserToCourse.staff_roles).delete_all
+Enrollment.where(course: course, role: Enrollment.staff_roles).delete_all
 enroll(no_creds_staff, course, 'ta')   # enrolled first -> arbitrary .first picks them
 enroll(staff, course, 'teacher')
 
