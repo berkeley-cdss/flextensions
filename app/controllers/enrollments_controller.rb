@@ -27,7 +27,7 @@ class EnrollmentsController < ApplicationController
   # which breaks the JSON fetch from the course-settings UI. Respond with 403
   # JSON so the client can surface the failure inline.
   def ensure_course_staff!
-    return if @course&staff_user?(current_user)
+    return if @course.staff_user?(current_user)
 
     render json: {
       success: false,
