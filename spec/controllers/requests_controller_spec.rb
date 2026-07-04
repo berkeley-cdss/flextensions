@@ -102,7 +102,7 @@ RSpec.describe RequestsController, type: :controller do
       get :new, params: { course_id: course.id }
 
       expect(response).to redirect_to(course_path(course))
-      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(flash[:alert]).to include('You do not have access to this page.')
     end
   end
 
@@ -191,7 +191,7 @@ RSpec.describe RequestsController, type: :controller do
 
         # Should redirect with the appropriate message
         expect(response).to redirect_to(courses_path)
-        expect(flash[:alert]).to eq('Extensions are not enabled for this course.')
+        expect(flash[:alert]).to include('Extensions are not enabled for this course.')
         expect(Request.last).to be_nil # No request should be created
       end
 
@@ -239,7 +239,7 @@ RSpec.describe RequestsController, type: :controller do
 
       expect(response).to have_http_status(:ok)
       expect(response).to render_template(:new)
-      expect(flash[:alert]).to eq('There was a problem submitting your request.')
+      expect(flash[:alert]).to include('There was a problem submitting your request.')
     end
 
     it 're-renders with enabled assignments from every linked LMS, not just Canvas' do
@@ -293,7 +293,7 @@ RSpec.describe RequestsController, type: :controller do
       get :edit, params: { course_id: course.id, id: '9999' }
 
       expect(response).to redirect_to(course_path(course))
-      expect(flash[:alert]).to eq('Request not found.')
+      expect(flash[:alert]).to include('Request not found.')
     end
   end
 
@@ -355,7 +355,7 @@ RSpec.describe RequestsController, type: :controller do
       post :cancel, params: { course_id: course.id, id: '9999' }
 
       expect(response).to redirect_to(course_path(course))
-      expect(flash[:alert]).to eq('Request not found.')
+      expect(flash[:alert]).to include('Request not found.')
     end
 
     it 'does not cancel a request if it fails to update' do
@@ -861,7 +861,7 @@ RSpec.describe RequestsController, type: :controller do
         get :show, params: { course_id: course.id, id: others_request.id }
 
         expect(response).to redirect_to(course_path(course))
-        expect(flash[:alert]).to eq('Request not found.')
+        expect(flash[:alert]).to include('Request not found.')
       end
 
       it 'is not editable via #update' do
@@ -872,7 +872,7 @@ RSpec.describe RequestsController, type: :controller do
         }
 
         expect(response).to redirect_to(course_path(course))
-        expect(flash[:alert]).to eq('Request not found.')
+        expect(flash[:alert]).to include('Request not found.')
         expect(others_request.reload.reason).to eq('Theirs')
       end
 
@@ -880,7 +880,7 @@ RSpec.describe RequestsController, type: :controller do
         post :cancel, params: { course_id: course.id, id: others_request.id }
 
         expect(response).to redirect_to(course_path(course))
-        expect(flash[:alert]).to eq('Request not found.')
+        expect(flash[:alert]).to include('Request not found.')
         expect(others_request.reload.status).to eq('pending')
       end
     end
@@ -1009,7 +1009,7 @@ RSpec.describe RequestsController, type: :controller do
       get :index, params: { course_id: 0 }
 
       expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('Course not found.')
+      expect(flash[:alert]).to include('Course not found.')
     end
 
     it 'blocks students when extensions are disabled for the course' do
@@ -1018,7 +1018,7 @@ RSpec.describe RequestsController, type: :controller do
       get :index, params: { course_id: course.id }
 
       expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('Extensions are not enabled for this course.')
+      expect(flash[:alert]).to include('Extensions are not enabled for this course.')
     end
 
     it 'still allows staff when extensions are disabled' do

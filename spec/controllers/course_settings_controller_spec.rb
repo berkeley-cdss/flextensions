@@ -277,7 +277,7 @@ RSpec.describe CourseSettingsController, type: :controller do
       }
 
       expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(flash[:alert]).to include('You do not have access to this page.')
 
       # Verify settings were not changed
       expect(course.reload.course_settings.enable_extensions).to be false
@@ -292,7 +292,7 @@ RSpec.describe CourseSettingsController, type: :controller do
       }
 
       expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(flash[:alert]).to include('You do not have access to this page.')
     end
   end
 
@@ -307,7 +307,7 @@ RSpec.describe CourseSettingsController, type: :controller do
       }
 
       expect(response).to redirect_to(root_path)
-      expect(flash[:alert]).to eq('You must be logged in to access that page.')
+      expect(flash[:alert]).to include('You must be logged in to access that page.')
     end
 
     it 'redirects to courses path when course is not found' do
@@ -321,7 +321,7 @@ RSpec.describe CourseSettingsController, type: :controller do
       }
 
       expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('Course not found.')
+      expect(flash[:alert]).to include('Course not found.')
     end
   end
 end

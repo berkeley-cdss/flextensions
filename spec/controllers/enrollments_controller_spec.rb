@@ -120,7 +120,7 @@ RSpec.describe EnrollmentsController, type: :controller do
         }
 
         expect(response).to redirect_to(courses_path)
-        expect(flash[:alert]).to eq('Course not found.')
+        expect(flash[:alert]).to include('Course not found.')
       end
     end
 

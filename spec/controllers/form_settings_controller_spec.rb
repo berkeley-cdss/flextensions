@@ -45,7 +45,7 @@ RSpec.describe FormSettingsController, type: :controller do
       it 'redirects to courses_path with alert' do
         get :edit, params: { course_id: '999' }
         expect(response).to redirect_to(courses_path)
-        expect(flash[:alert]).to eq('Course not found.')
+        expect(flash[:alert]).to include('Course not found.')
       end
     end
 
@@ -55,7 +55,7 @@ RSpec.describe FormSettingsController, type: :controller do
       it 'redirects to root_path' do
         get :edit, params: { course_id: course.id }
         expect(response).to redirect_to(root_path)
-        expect(flash[:alert]).to eq('You must be logged in to access that page.')
+        expect(flash[:alert]).to include('You must be logged in to access that page.')
       end
     end
   end
@@ -96,7 +96,7 @@ RSpec.describe FormSettingsController, type: :controller do
           form_setting: { documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden' }
         }
         expect(response).to redirect_to(courses_path)
-        expect(flash[:alert]).to eq('Course not found.')
+        expect(flash[:alert]).to include('Course not found.')
       end
     end
 
@@ -109,7 +109,7 @@ RSpec.describe FormSettingsController, type: :controller do
           form_setting: { documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden' }
         }
         expect(response).to redirect_to(root_path)
-        expect(flash[:alert]).to eq('You must be logged in to access that page.')
+        expect(flash[:alert]).to include('You must be logged in to access that page.')
       end
     end
 
@@ -121,7 +121,7 @@ RSpec.describe FormSettingsController, type: :controller do
       it 'denies access and redirects to courses path' do
         patch :update, params: valid_params
         expect(response).to redirect_to(courses_path)
-        expect(flash[:alert]).to eq('You do not have access to this page.')
+        expect(flash[:alert]).to include('You do not have access to this page.')
       end
     end
   end

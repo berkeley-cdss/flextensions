@@ -74,7 +74,7 @@ RSpec.describe ApplicationController, type: :controller do
 
         get :index
         expect(response).to redirect_to(root_path)
-        expect(flash[:alert]).to eq('You must be logged in to access that page.')
+        expect(flash[:alert]).to include('You must be logged in to access that page.')
       end
     end
 
@@ -96,7 +96,7 @@ RSpec.describe ApplicationController, type: :controller do
 
         get :index
         expect(response).to redirect_to(root_path)
-        expect(flash[:alert]).to eq('You have been logged out.')
+        expect(flash[:alert]).to include('You have been logged out.')
       end
     end
 

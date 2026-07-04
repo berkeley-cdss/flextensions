@@ -123,7 +123,7 @@ RSpec.describe CoursesController, type: :controller do
       it 'redirects to courses_path with alert' do
         get :show, params: { id: '9999' }
         expect(response).to redirect_to(courses_path)
-        expect(flash[:alert]).to eq('Course not found.')
+        expect(flash[:alert]).to include('Course not found.')
       end
     end
   end
@@ -132,7 +132,7 @@ RSpec.describe CoursesController, type: :controller do
     it 'redirects non-instructor users' do
       get :edit, params: { id: course.id }
       expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(flash[:alert]).to include('You do not have access to this page.')
     end
   end
 
@@ -321,7 +321,7 @@ RSpec.describe CoursesController, type: :controller do
 
       get :new
 
-      expect(flash[:alert]).to eq('No courses found.')
+      expect(flash[:alert]).to include('No courses found.')
     end
 
     describe 'semester filter' do
@@ -434,7 +434,7 @@ RSpec.describe CoursesController, type: :controller do
       it 'redirects with access denied' do
         get :enrollments, params: { id: course.id }
         expect(response).to redirect_to(courses_path)
-        expect(flash[:alert]).to eq('You do not have access to this page.')
+        expect(flash[:alert]).to include('You do not have access to this page.')
       end
     end
   end

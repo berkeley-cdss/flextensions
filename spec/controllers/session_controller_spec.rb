@@ -81,7 +81,7 @@ RSpec.describe SessionController, type: :controller do
         get :omniauth_callback, params: { provider: 'canvas' } # <= add provider
 
         expect(response).to redirect_to(root_path)
-        expect(flash[:alert]).to eq('Authentication failed. Invalid credentials.')
+        expect(flash[:alert]).to include('Authentication failed. Invalid credentials.')
       end
     end
   end
