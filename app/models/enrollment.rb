@@ -107,4 +107,8 @@ class Enrollment < ApplicationRecord
   def self.staff_enrollment?(enrollment)
     staff_roles.include?(role_from_canvas_enrollment(enrollment))
   end
+
+  def self.display_role(role)
+    ROLE_LABELS.fetch(role, role.capitalize)
+  end
 end
