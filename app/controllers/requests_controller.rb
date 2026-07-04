@@ -367,6 +367,8 @@ class RequestsController < ApplicationController
     request.approve_by(@user)
   rescue StandardError => e
     Rails.logger.error("Mass approve failed for request #{request.id}: #{e.message}")
+    Rails.error.report(e, handled: true,
+                       context: { component: 'mass_approve', request_id: request.id, actor_id: @user&.id })
     false
   end
 
