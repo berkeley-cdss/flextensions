@@ -29,6 +29,7 @@ class Enrollment < ApplicationRecord
   STAFF_ROLES = [ TEACHER_ROLE, TA_ROLE, LEAD_TA_ROLE ].freeze
   COURSE_ADMIN_ROLES = [ TEACHER_ROLE, LEAD_TA_ROLE ].freeze
   ROLE_LABELS = {
+    TEACHER_ROLE => 'Instructor',
     LEAD_TA_ROLE => 'Lead TA'
   }.freeze
   # Role ranking from lowest to highest, used to pick a single role when a

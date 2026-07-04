@@ -1,6 +1,6 @@
 <div class="row">
     <%= render "layouts/components/flash" %>
     <div class="col-12">
-        <h4 class="mb-4"><%= @course.course_name %> / <%= @course.course_code %> <span class="badge text-bg-warning"><%= @role.capitalize %></span></h4>
+        <h4 class="mb-4"><%= @course.course_name %> / <%= @course.course_code %> <span class="badge text-bg-warning"><%= display_role(current_user) %></span></h4>
     </div>
 </div>

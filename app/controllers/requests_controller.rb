@@ -178,8 +178,6 @@ class RequestsController < ApplicationController
     @course.staff_user?(current_user) ? @course.requests : @course.requests.for_user(current_user)
   end
 
-  # Staff-only actions (approve/reject and their mass variants). @role is left
-  # to the view layer; access decisions ask the course directly.
   def require_course_staff
     return if @course.staff_user?(current_user)
 
@@ -193,8 +191,6 @@ class RequestsController < ApplicationController
     render :new
   end
 
-  # @course and @role are set by ApplicationController#set_course. The request
-  # form views additionally need the course's form configuration.
   def set_form_settings
     @form_settings = @course.form_setting
   end
