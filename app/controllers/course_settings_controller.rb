@@ -79,8 +79,4 @@ class CourseSettingsController < ApplicationController
       ]
     )
   end
-
-  def set_pending_request_count
-    @pending_requests_count = Request.where(course_id: @course&.id, status: 'pending').count
-  end
 end

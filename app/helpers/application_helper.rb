@@ -15,8 +15,8 @@ module ApplicationHelper
     end
   end
 
-  def display_role(user)
-    enrollment = user.enrollments.find_by(course: @course)
+  def display_role(user, course)
+    enrollment = user.enrollments.find_by(course: course)
     enrollment ? enrollment.display_role : 'Unknown'
   end
 end

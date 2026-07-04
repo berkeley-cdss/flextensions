@@ -60,7 +60,7 @@ class Enrollment < ApplicationRecord
   end
 
   def display_role
-    Enrollment.display_role(role)
+    ROLE_LABELS.fetch(role, role.capitalize)
   end
 
   # Rank of this enrollment's role; higher wins. Unknown roles rank lowest.
@@ -106,9 +106,5 @@ class Enrollment < ApplicationRecord
 
   def self.staff_enrollment?(enrollment)
     staff_roles.include?(role_from_canvas_enrollment(enrollment))
-  end
-
-  def self.display_role(role)
-    ROLE_LABELS.fetch(role.to_s, role.to_s.capitalize)
   end
 end
