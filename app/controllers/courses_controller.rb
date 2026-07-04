@@ -20,21 +20,23 @@ class CoursesController < ApplicationController
   end
 
   def show
-    return redirect_to courses_path, alert: 'Course not found.' unless @course
+    # TODO: This shouldn't be possible. Remove?
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.has_canvas_linked?
 
     @side_nav = 'show'
     @course.regenerate_readonly_api_token_if_blank
 
-    if @role == 'student'
+    if @course.student_user?(current_user)
       return redirect_to courses_path, alert: 'Extensions are not enabled for this course.' unless @course.requests_enabled?
-
       @assignments = @course.enabled_assignments
-    else
+      render :student_show
+    elsif @course.staff_user?(current_user)
       @assignments = @course.assignments
       @assignments_last_synced_at = assignments_last_synced_at
+      render :instructor_show
+    else
+      return redirect_to courses_path, alert: 'You do not have access to this course.'
     end
-    render_role_based_view
   end
 
   def new

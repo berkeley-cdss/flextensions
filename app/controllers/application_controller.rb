@@ -24,9 +24,9 @@ class ApplicationController < ActionController::Base
   helper_method :current_user
   def current_user
     if defined?(@current_user)
-  @current_user
+      @current_user
     else
-  @current_user = User.find_by(canvas_uid: session[:user_id])
+      @current_user = User.find_by(canvas_uid: session[:user_id])
     end
     # TODO: Remove this line after refactoring all auth methods,
     # and remove other instances of @user in controllers + views
@@ -84,9 +84,9 @@ class ApplicationController < ActionController::Base
   end
 
   def set_pending_request_count
-    return unless defined?(@course) && @course.present? && defined?(@user) && @user.present?
+    return unless defined?(@course) && @course.present? && current_user.present?
     # only calculating pending requests count if the role is instructor so we don't show it to students
-    return unless @course.user_role(@user) == 'instructor'
+    return unless @course.staff_user?(current_user) == 'instructor'
 
     @pending_requests_count = @course.requests.where(status: 'pending').count
   end
@@ -105,10 +105,9 @@ class ApplicationController < ActionController::Base
     instructor_view = "#{ctrl}/instructor_#{act}"
     student_view = "#{ctrl}/student_#{act}"
 
-    case @role
-    when 'instructor'
+    if @course.staff_user?(current_user)
       render instructor_view
-    when 'student'
+    elsif @course.student_user?(current_user)
       render student_view
     else
       redirect_to courses_path, alert: 'You do not have access to this view.'
@@ -127,8 +126,9 @@ class ApplicationController < ActionController::Base
     @role = @course.user_role(@user) if @user
   end
 
-  def ensure_instructor_role
-    return if @role == 'instructor'
+  def require_instructor_role!
+    return unless @course && current_user
+    return if @course.staff_user?(current_user)
 
     flash[:alert] = 'You do not have access to this page.'
     redirect_to courses_path
