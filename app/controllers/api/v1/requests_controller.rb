@@ -8,9 +8,15 @@ module API
       end
 
       def create
-        find_extension_params
+        find_request_params
         course_id = @course_to_lms.external_course_id.to_i
         assignment_id = @assignment.external_assignment_id.to_i
+
+        student = User.find_by(canvas_uid: params[:student_uid].to_s)
+        unless student
+          render json: { error: 'Student not found' }.to_json, status: :not_found
+          return
+        end
 
         # Query the base ("Everyone") dates. get_base_dates reads the assignment
         # with override_assignment_dates=false, whose top-level dates are the
@@ -35,7 +41,21 @@ module API
           return
         end
 
-        render json: { id: override.id, new_due_date: override.override_due_date || params[:new_due_date] }.to_json, status: :ok
+        @request = Request.new(
+          course: @course,
+          assignment: @assignment,
+          user: student,
+          requested_due_date: override.override_due_date || params[:new_due_date],
+          reason: params[:reason].presence || 'API request',
+          status: 'approved',
+          external_extension_id: override.id
+        )
+        unless @request.save
+          render json: { error: "Extension provisioned, but local save failed: #{@request.errors.full_messages.join(', ')}" }.to_json,
+                 status: :internal_server_error
+          return
+        end
+        render json: @request.to_json, status: :ok
       end
 
       def destroy
@@ -50,7 +70,7 @@ module API
         @canvas_facade = CanvasFacade.new(request.headers['Authorization'])
       end
 
-      def find_extension_params
+      def find_request_params
         @lms = Lms.find(params[:lms_id])
         @course = Course.find(params[:course_id])
         @assignment = Assignment.find(params[:assignment_id])
