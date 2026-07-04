@@ -24,7 +24,7 @@ module API
         Extension.destroy_all
         Assignment.destroy_all
         CourseToLms.destroy_all
-        UserToCourse.destroy_all
+        Enrollment.destroy_all
         Course.destroy_all
         Lms.destroy_all
         User.destroy_all

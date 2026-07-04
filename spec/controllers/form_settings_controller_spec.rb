@@ -3,7 +3,7 @@ require 'rails_helper'
 RSpec.describe FormSettingsController, type: :controller do
   let(:user) { User.create!(email: 'instructor@example.com', canvas_uid: '12345', name: 'Instructor') }
   let(:course) { Course.create!(course_name: 'Algorithms', canvas_id: '789', course_code: 'CS101') }
-  let(:user_to_course) { UserToCourse.create!(user: user, course: course, role: 'teacher') }
+  let(:enrollment) { Enrollment.create!(user: user, course: course, role: 'teacher') }
   let(:valid_params) do
     {
       course_id: course.id,
@@ -24,6 +24,7 @@ RSpec.describe FormSettingsController, type: :controller do
   before do
     session[:user_id] = user.canvas_uid
     allow_any_instance_of(Course).to receive(:user_role).and_return('instructor')
+    allow_any_instance_of(Course).to receive(:course_staff?).and_return(true)
     course.create_form_setting!(
       documentation_disp: 'hidden',
       custom_q1_disp: 'optional',
@@ -116,6 +117,7 @@ RSpec.describe FormSettingsController, type: :controller do
     context 'when user is a student' do
       before do
         allow_any_instance_of(Course).to receive(:user_role).and_return('student')
+        allow_any_instance_of(Course).to receive(:course_staff?).and_return(false)
       end
 
       it 'denies access and redirects to courses path' do

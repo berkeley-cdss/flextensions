@@ -10,7 +10,7 @@ class CanvasFacade < LmsFacade
 
   CANVAS_URL = ENV.fetch('CANVAS_URL', nil)
   CANVAS_CUSTOM_COURSE_ROLES = {
-    UserToCourse::LEAD_TA_ROLE => 'Lead TA'
+    Enrollment::LEAD_TA_ROLE => 'Lead TA'
   }.freeze
 
   # Canvas instances can scope the flextensions developer key.
@@ -30,6 +30,11 @@ class CanvasFacade < LmsFacade
   # Whenever a new scope is added, it must be added to the Canvas developer key **FIRST**,
   # especially in the production environment. You will likely want to use feature flags
   # and coordination with Berkeley to ensure that the scopes are added to the developer key.
+  # NOTE: Changing the key's scopes invalidates EVERY token already derived from the key.
+  # Run `bin/rails lms_credentials:purge` afterwards to drop the dead stored credentials;
+  # users re-authenticate automatically on their next visit. (Any dead credential that is
+  # not purged is also removed automatically the first time its refresh fails with
+  # invalid_grant -- see LmsCredential#refresh!.)
   # NOTE: This is read into the OmniAuth initializer in `config/initializers/omniauth.rb`.
   # If you change this list, you will need to restart the Rails server.
   CANVAS_API_SCOPES = [
@@ -200,7 +205,7 @@ class CanvasFacade < LmsFacade
   end
 
   def role_query_param(role)
-    normalized_role = UserToCourse.normalize_role(role)
+    normalized_role = Enrollment.normalize_role(role)
     canvas_course_role = CANVAS_CUSTOM_COURSE_ROLES[normalized_role]
 
     if canvas_course_role

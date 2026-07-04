@@ -1,6 +1,6 @@
 # == Schema Information
 #
-# Table name: user_to_courses
+# Table name: enrollments
 #
 #  id                      :bigint           not null, primary key
 #  allow_extended_requests :boolean          default(FALSE), not null
@@ -13,8 +13,8 @@
 #
 # Indexes
 #
-#  index_user_to_courses_on_course_id  (course_id)
-#  index_user_to_courses_on_user_id    (user_id)
+#  index_enrollments_on_course_id  (course_id)
+#  index_enrollments_on_user_id    (user_id)
 #
 # Foreign Keys
 #
@@ -23,20 +23,20 @@
 #
 require 'rails_helper'
 
-RSpec.describe UserToCourse, type: :model do
+RSpec.describe Enrollment, type: :model do
   describe 'Lead TA role support' do
     it 'treats leadta as a supported staff role' do
-      user_to_course = build(:user_to_course, role: 'leadta')
+      enrollment = build(:enrollment, role: 'leadta')
 
       expect(described_class.staff_roles).to include('leadta')
       expect(described_class.roles).to include('leadta')
-      expect(user_to_course).to be_staff
+      expect(enrollment).to be_staff
     end
 
     it 'treats leadta as a course admin role' do
-      user_to_course = build(:user_to_course, role: 'leadta')
+      enrollment = build(:enrollment, role: 'leadta')
 
-      expect(user_to_course).to be_course_admin
+      expect(enrollment).to be_course_admin
     end
   end
 
@@ -56,9 +56,9 @@ RSpec.describe UserToCourse, type: :model do
 
   describe '#display_role' do
     it 'formats leadta as Lead TA' do
-      user_to_course = build(:user_to_course, role: 'leadta')
+      enrollment = build(:enrollment, role: 'leadta')
 
-      expect(user_to_course.display_role).to eq('Lead TA')
+      expect(enrollment.display_role).to eq('Lead TA')
     end
   end
 end

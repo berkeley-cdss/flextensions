@@ -10,7 +10,7 @@ RSpec.describe AssignmentsController, type: :controller do
     let!(:user) { User.create!(name: 'Test User', email: 'test@example.com', canvas_uid: '123') }
     let!(:course) { Course.create!(course_name: 'Test Course', canvas_id: '123') }
     let!(:course_to_lms) { CourseToLms.create!(course: course, lms_id: 1, external_course_id: '123') }
-    let!(:course_settings) { CourseSettings.create!(course: course, enable_extensions: true) }
+    let!(:course_settings) { course.course_settings.tap { |cs| cs.update!(enable_extensions: true) } }
     let!(:assignment) do
       Assignment.create!(
         name: 'Test Assignment',
@@ -23,7 +23,7 @@ RSpec.describe AssignmentsController, type: :controller do
 
     context 'when the user is an instructor' do
       before do
-        UserToCourse.create!(user: user, course: course, role: UserToCourse::TEACHER_ROLE)
+        Enrollment.create!(user: user, course: course, role: Enrollment::TEACHER_ROLE)
       end
 
       it 'updates the enabled status to true' do
@@ -45,7 +45,7 @@ RSpec.describe AssignmentsController, type: :controller do
 
     context 'when the user is not an instructor' do
       before do
-        UserToCourse.create!(user: user, course: course, role: UserToCourse::STUDENT_ROLE)
+        Enrollment.create!(user: user, course: course, role: Enrollment::STUDENT_ROLE)
       end
 
       it 'returns a forbidden status' do
@@ -58,7 +58,7 @@ RSpec.describe AssignmentsController, type: :controller do
 
     context 'when a student forges an instructor role in the request body' do
       before do
-        UserToCourse.create!(user: user, course: course, role: UserToCourse::STUDENT_ROLE)
+        Enrollment.create!(user: user, course: course, role: Enrollment::STUDENT_ROLE)
       end
 
       it 'ignores the client-supplied role and returns forbidden' do
@@ -72,7 +72,7 @@ RSpec.describe AssignmentsController, type: :controller do
     context 'when course-level extensions are disabled' do
       before do
         course_settings.update!(enable_extensions: false)
-        UserToCourse.create!(user: user, course: course, role: UserToCourse::TEACHER_ROLE)
+        Enrollment.create!(user: user, course: course, role: Enrollment::TEACHER_ROLE)
       end
 
       it 'still allows enabling the assignment and returns ok status' do
@@ -85,7 +85,7 @@ RSpec.describe AssignmentsController, type: :controller do
 
     context 'when there is no due_date on an Assignment' do
       before do
-        UserToCourse.create!(user: user, course: course, role: UserToCourse::TEACHER_ROLE)
+        Enrollment.create!(user: user, course: course, role: Enrollment::TEACHER_ROLE)
         assignment.update!(due_date: nil)
       end
 

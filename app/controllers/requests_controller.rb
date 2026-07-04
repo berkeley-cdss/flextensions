@@ -1,26 +1,23 @@
-require 'csv'
-
 # We really should get a handle on this.
 # rubocop:disable Metrics/ClassLength
 class RequestsController < ApplicationController
-  # Consider moving export, approve/reject to a separate controller?
-  before_action :authenticate_user, except: [ :export ]
-  before_action :set_course_role_from_settings, except: [ :export ]
-  before_action :authenticate_course, except: [ :export ]
-  before_action :set_pending_request_count, except: [ :export ]
-  before_action :check_extensions_enabled_for_students, except: [ :export ]
+  before_action :authenticate_user
+  before_action :set_course
+  before_action :set_form_settings
+  before_action :require_course_membership
+  before_action :set_pending_request_count
+  before_action :check_extensions_enabled_for_students
   before_action :set_request, only: %i[show edit update cancel approve reject]
   before_action :ensure_request_is_pending, only: %i[update approve reject]
-  before_action :check_instructor_permission, only: %i[approve reject mass_approve mass_reject]
+  before_action :ensure_instructor_role, only: %i[create_for_student approve reject mass_approve mass_reject]
 
   def index
     @side_nav = 'requests'
-    if @role == 'student'
-      @requests = @course.requests.for_user(@user)
-    elsif params[:show_all] == 'true'
-      @requests = @course.requests.includes(:assignment)
+    if @course.course_staff?(@user)
+      scope = @course.requests.includes(:assignment)
+      @requests = params[:show_all] == 'true' ? scope : scope.pending
     else
-      @requests = @course.requests.includes(:assignment).where(status: 'pending')
+      @requests = @course.requests.for_user(@user)
     end
 
     # Pass the search query to the view
@@ -37,33 +34,12 @@ class RequestsController < ApplicationController
 
   def new
     @side_nav = 'form'
-    # course_to_lms = @course.course_to_lms(1)
-    course_to_lmss = @course.all_linked_lmss.pluck(:id)
-    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
+    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.has_canvas_linked?
 
-    if @role == 'instructor'
-      prepare_instructor_new_request(course_to_lmss)
-      render :new_for_student and return
-    elsif @role == 'student'
-      redirected = prepare_student_new_request(course_to_lmss)
-      return if redirected
+    return new_for_student if @course.course_staff?(@user)
 
-      render :new and return
-    else
-      redirect_to course_path(@course.id), alert: 'You do not have access to this page.'
-    end
-  end
-
-  def new_for_student
-    @side_nav = 'form'
-    return redirect_to course_requests_path(@course), alert: 'You do not have permission to access this page.' unless @role == 'instructor'
-
-    course_to_lmss = @course.all_linked_lmss.pluck(:id)
-    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lmss.any?
-
-    @assignments = Assignment.enabled_for_course(course_to_lmss).order(:name)
-    @students = User.joins(:user_to_courses).where(user_to_courses: { course_id: @course.id, role: 'student' }).order(:name)
-    @request = @course.requests.new
+    redirected = prepare_student_new_request
+    render :new unless redirected
   end
 
   def edit
@@ -90,8 +66,6 @@ class RequestsController < ApplicationController
   end
 
   def create_for_student
-    return redirect_to course_requests_path(@course), alert: 'You do not have permission to perform this action.' unless @role == 'instructor'
-
     student = User.find_by(id: params[:request][:user_id])
     return redirect_to new_course_request_path(@course), alert: 'Student is not enrolled in this course.' unless student_enrolled_in_course?(student)
 
@@ -131,13 +105,11 @@ class RequestsController < ApplicationController
   end
 
   def approve
-    @assignment = Assignment.find_by(id: @request.assignment_id)
-    lms_facade = @assignment.lms_facade
-    if @request.approve(lms_facade.from_user(@user), @user)
+    if @request.approve_by(@user)
       notice = 'Request approved and extension created successfully in Canvas.'
       respond_to do |format|
         format.html { redirect_to course_requests_path(@course), notice: notice }
-        format.json { render json: { success: true, message: notice, new_status: 'approved', pending_count: @course.requests.where(status: 'pending').count } }
+        format.json { render json: { success: true, message: notice, new_status: 'approved', pending_count: @course.requests.pending.count } }
       end
     else
       alert = "Failed to approve the request. #{@request.errors.full_messages.join(', ')}"
@@ -153,7 +125,7 @@ class RequestsController < ApplicationController
       notice = 'Request denied successfully.'
       respond_to do |format|
         format.html { redirect_to course_requests_path(@course), notice: notice }
-        format.json { render json: { success: true, message: notice, new_status: 'denied', pending_count: @course.requests.where(status: 'pending').count } }
+        format.json { render json: { success: true, message: notice, new_status: 'denied', pending_count: @course.requests.pending.count } }
       end
     else
       alert = 'Failed to deny the request.'
@@ -170,19 +142,6 @@ class RequestsController < ApplicationController
 
   def mass_reject
     process_mass_action(:reject)
-  end
-
-  def export
-    course = Course.find_by(id: params[:course_id])
-    token = params[:readonly_api_token]
-
-    return render plain: 'Invalid or missing API token', status: :unauthorized unless course && ActiveSupport::SecurityUtils.secure_compare(course.readonly_api_token, token.to_s)
-
-    requests = course.requests.includes(:assignment, :user)
-    requests = requests.where(status: params[:status]) if params[:status].present?
-
-    csv_data = Request.to_csv(requests)
-    send_data csv_data, filename: 'requests.csv', type: 'text/csv'
   end
 
   private
@@ -202,29 +161,30 @@ class RequestsController < ApplicationController
     @course.course_staff?(@user) ? @course.requests : @course.requests.for_user(@user)
   end
 
-  def check_instructor_permission
-    result = RequestService.check_instructor_permission(@role, course_path(@course))
-    redirect_to result[:redirect_to], alert: result[:alert] if result != true
+  # Every request action operates inside a course the user belongs to, so a
+  # user with no role in the course is bounced before reaching any action.
+  def require_course_membership
+    return if enrolled_in_course?
+
+    redirect_to course_path(@course), alert: 'You do not have access to this page.'
+  end
+
+  # A user is a member of the course if they are staff or an enrolled student.
+  def enrolled_in_course?
+    @course.course_staff?(@user) || @course.course_student?(@user)
   end
 
   def handle_request_error
     flash.now[:alert] = 'There was a problem submitting your request.'
-    @assignments = Assignment.enabled_for_course(@course.all_linked_lmss.pluck(:id)).order(:name)
+    @assignments = @course.enabled_assignments.order(:name)
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]
     render :new
   end
 
-  def set_course_role_from_settings
-    result = RequestService.set_course_role_from_settings(params[:course_id], @user)
-
-    if result[:redirect_to]
-      redirect_to result[:redirect_to], alert: result[:alert]
-      return
-    end
-
-    @course = result[:course]
-    @role = result[:role]
-    @form_settings = result[:form_settings]
+  # @course and @role are set by ApplicationController#set_course. The request
+  # form views additionally need the course's form configuration.
+  def set_form_settings
+    @form_settings = @course.form_setting
   end
 
   # The assignment is chosen at creation and is not editable afterwards, so the
@@ -263,41 +223,40 @@ class RequestsController < ApplicationController
     @course.course_student?(student)
   end
 
-  def authenticate_user
-    result = RequestService.authenticate_user(session[:user_id])
-
-    if result[:redirect_to]
-      redirect_to result[:redirect_to], alert: result[:alert]
-      return
-    end
-
-    @user = result[:user]
-  end
-
-  def authenticate_course
-    result = RequestService.authenticate_course(@course, courses_path)
-    redirect_to result[:redirect_to], alert: result[:alert] if result != true
-  end
-
-  # Runs after set_request, so @request is already loaded and scoped.
+  # Runs after set_request, so @request is already loaded and scoped; a missing
+  # request has already been redirected as "not found" by set_request.
   def ensure_request_is_pending
-    result = RequestService.ensure_request_is_pending(@request, course_path(@course))
-    redirect_to result[:redirect_to], alert: result[:alert] if result != true
+    return if @request.pending?
+
+    redirect_to course_path(@course), alert: 'This action can only be performed on pending requests.'
   end
 
+  # Students may only reach requests while the course has extensions enabled.
+  # Staff are always allowed through so they can manage existing requests.
   def check_extensions_enabled_for_students
-    result = RequestService.check_extensions_enabled_for_students(@role, @course, courses_path)
-    redirect_to result[:redirect_to], alert: result[:alert] if result != true
+    return unless @course.course_student?(@user)
+    return if @course.requests_enabled?
+
+    redirect_to courses_path, alert: 'Extensions are not enabled for this course.'
   end
 
-  def prepare_instructor_new_request(course_to_lms_ids)
-    @students = User.joins(:user_to_courses).where(user_to_courses: { course_id: @course.id, role: 'student' }).order(:name)
+  # Prepares and renders the form staff use to submit a request on behalf of a
+  # student. Not a routed action -- it is reached only from #new once the
+  # caller has been confirmed as course staff and the course has a linked LMS.
+  def new_for_student
+    @side_nav = 'form'
+    prepare_instructor_new_request
+    render :new_for_student
+  end
+
+  def prepare_instructor_new_request
+    @students = User.joins(:enrollments).where(enrollments: { course_id: @course.id, role: 'student' }).order(:name)
     @request = @course.requests.new
-    @assignments = Assignment.enabled_for_course(course_to_lms_ids).order(:name)
+    @assignments = @course.enabled_assignments.order(:name)
   end
 
-  def prepare_student_new_request(course_to_lms_ids)
-    all_assignments = Assignment.enabled_for_course(course_to_lms_ids).order(:name)
+  def prepare_student_new_request
+    all_assignments = @course.enabled_assignments.order(:name)
     @assignments = all_assignments.reject { |assignment| assignment.has_pending_request_for_user?(@user, @course) }
     @has_pending = all_assignments.size != @assignments.size
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]
@@ -321,7 +280,7 @@ class RequestsController < ApplicationController
   end
 
   def render_new_for_student_error
-    prepare_instructor_new_request(@course.all_linked_lmss.pluck(:id))
+    prepare_instructor_new_request
     flash.now[:alert] = 'There was a problem submitting the request.'
     render :new_for_student
   end
@@ -339,7 +298,7 @@ class RequestsController < ApplicationController
       )
     end
 
-    requests = @course.requests.where(id: request_ids, status: 'pending').includes(:assignment)
+    requests = @course.requests.where(id: request_ids).pending.includes(:assignment)
 
     if requests.empty?
       return render_mass_action_response(
@@ -382,7 +341,7 @@ class RequestsController < ApplicationController
   end
 
   def render_mass_action_response(success:, message:, processed_ids:, failed_ids:, new_status:, status:)
-    pending_count = @course.requests.where(status: 'pending').count
+    pending_count = @course.requests.pending.count
     respond_to do |format|
       format.html do
         if success
@@ -405,10 +364,7 @@ class RequestsController < ApplicationController
   end
 
   def approve_request_for_mass_action(request)
-    lms_facade = request.assignment&.lms_facade
-    return false unless lms_facade
-
-    request.approve(lms_facade.from_user(@user), @user)
+    request.approve_by(@user)
   rescue StandardError => e
     Rails.logger.error("Mass approve failed for request #{request.id}: #{e.message}")
     false
