@@ -21,7 +21,7 @@
 			Requests <span class="badge rounded-pill float-end text-bg-danger ms-2"><%= @pending_requests_count %></span>
 		<% end %>
 
-		<% if @role == 'instructor' %>
+		<% if @course.staff_user?(current_user) %>
 			<%= sidebar_nav_item path: enrollments_course_path(@course.id), icon: 'fas fa-users', nav: 'enrollments', text: 'Enrollments' %>
 
 			<% settings_open = %w[course_details approvals emails form_settings].include?(current_nav_page) %>
@@ -49,7 +49,7 @@
 			<%= sidebar_nav_item path: new_course_request_path(@course.id), icon: 'fas fa-user-plus', nav: 'form', text: 'Request for Student' %>
 		<% end %>
 
-		<% if @role == 'student' %>
+		<% if @course.student_user?(current_user) %>
 			<%= sidebar_nav_item path: new_course_request_path(@course.id), icon: 'fas fa-file-pen', nav: 'form', text: 'Request Extension' %>
 		<% end %>
 	</ul>

@@ -3,9 +3,9 @@
     <div class="col-12">
       <%= render "courses/course_title" %>
       <h1 class="sr-only">Course Enrollments</h1>
-      
+
       <%= render "shared/extension_status_warning", course: @course %>
-      
+
       <div class="table-responsive">
       <table class="table table-bordered table-striped datatable flextensions-table" id="enrollments-table" data-controller="enrollments">
         <thead class="table-blue-medium text-white">
@@ -14,7 +14,7 @@
             <th class="text-center">Student ID</th>
             <th class="text-center">Email</th>
             <th class="text-center">Role</th>
-            <% if @is_course_admin %>
+            <% if @course.staff_user?(current_user) %>
               <th class="text-center">
                 Extended Requests?
                 <a tabindex="0"
@@ -42,7 +42,7 @@
                     <%= enrollment.user.name %> <i class="fas fa-arrow-right"></i>
                   <% end %>
                 </span>
-                <% if @is_course_admin && enrollment.student? %>
+                <% if enrollment.student? %>
                   <span>
                     <%= link_to new_course_request_path(@course, "request[user_id]": enrollment.user.id), title: "Create request for this student" do %>
                       <i class="fas fa-plus-circle"></i>
@@ -53,7 +53,7 @@
               <td class="text-center"><%= enrollment.user.student_id %></td>
               <td class="text-center"><%= enrollment.user.email %></td>
               <td class="text-center"><%= enrollment.display_role %></td>
-              <% if @is_course_admin %>
+              <% if @course.staff_user?(current_user) %>
                 <td class="justify-content-center align-content-center"
                     data-order="<%= enrollment.allow_extended_requests ? 1 : 0 %>">
                   <% if enrollment.student? %>

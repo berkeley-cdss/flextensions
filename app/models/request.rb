@@ -224,6 +224,8 @@ class Request < ApplicationRecord
       )
     rescue => e
       Rails.logger.error "Error during LMS extension provisioning for request #{id}: #{e.message}"
+      Rails.error.report(e, handled: true,
+                         context: { component: 'lms_provisioning', request_id: id, course_id: course_id, lms: lms_facade.class.name })
       self.errors.add(:base, 'Failed to provision extension in LMS.')
       self.errors.add(:base, e.message)
       return false

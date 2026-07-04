@@ -2,7 +2,7 @@ class FormSettingsController < ApplicationController
   before_action :authenticated!
   before_action :authenticate_user
   before_action :set_course
-  before_action :ensure_instructor_role
+  before_action :require_course_staff!
   before_action :set_pending_request_count
 
   def edit
@@ -42,9 +42,5 @@ class FormSettingsController < ApplicationController
         :custom_q2, :custom_q2_desc, :custom_q2_disp
       ]
     )
-  end
-
-  def set_pending_request_count
-    @pending_requests_count = Request.where(course_id: @course&.id, status: 'pending').count
   end
 end

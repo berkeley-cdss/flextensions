@@ -153,15 +153,19 @@ class Course < ApplicationRecord
     nil
   end
 
+  def enrolled?(user)
+    enrollments.where(user_id: user.id).any?
+  end
+
   def course_admin?(user)
     enrollments.where(user_id: user.id).any?(&:course_admin?)
   end
 
-  def course_staff?(user)
+  def staff_user?(user)
     enrollments.where(user_id: user.id).any?(&:staff?)
   end
 
-  def course_student?(user)
+  def student_user?(user)
     enrollments.where(user_id: user.id).any?(&:student?)
   end
 

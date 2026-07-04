@@ -34,7 +34,8 @@ RSpec.describe CoursesController, type: :controller do
 
       get :index
 
-      expect(assigns(:teacher_courses).map(&:role)).to include('leadta')
+      staff_enrollments = assigns(:staff_enrollments_by_semester).flat_map { |_semester, enrollments| enrollments }
+      expect(staff_enrollments.map(&:role)).to include('leadta')
     end
 
     context 'semester grouping' do
@@ -49,7 +50,7 @@ RSpec.describe CoursesController, type: :controller do
       it 'groups teacher courses by semester, most-recent-first' do
         get :index
 
-        grouped = assigns(:teacher_courses_by_semester)
+        grouped = assigns(:staff_enrollments_by_semester)
         semesters = grouped.map(&:first)
         expect(semesters).to eq([ 'Spring 2026', 'Fall 2025' ])
       end
@@ -65,7 +66,7 @@ RSpec.describe CoursesController, type: :controller do
 
         get :index
 
-        grouped = assigns(:student_courses_by_semester)
+        grouped = assigns(:student_enrollments_by_semester)
         semesters = grouped.map(&:first)
         expect(semesters).to eq([ 'Spring 2026', 'Fall 2025' ])
       end
@@ -129,7 +130,7 @@ RSpec.describe CoursesController, type: :controller do
   describe 'GET #edit' do
     it 'redirects non-instructor users' do
       get :edit, params: { id: course.id }
-      expect(response).to redirect_to(course_path(course))
+      expect(response).to redirect_to(courses_path)
       expect(flash[:alert]).to eq('You do not have access to this page.')
     end
 
@@ -543,11 +544,6 @@ RSpec.describe CoursesController, type: :controller do
         enrollment_user_ids = assigns(:enrollments).map(&:user_id)
         expect(enrollment_user_ids).to include(user.id)
       end
-
-      it 'sets @is_course_admin to true' do
-        get :enrollments, params: { id: course.id }
-        expect(assigns(:is_course_admin)).to be true
-      end
     end
 
     context 'when user is a TA (staff but not course admin)' do
@@ -561,11 +557,6 @@ RSpec.describe CoursesController, type: :controller do
         expect(response).to have_http_status(:ok)
         expect(response).to render_template(:enrollments)
         expect(assigns(:enrollments)).not_to be_nil
-      end
-
-      it 'sets @is_course_admin to false' do
-        get :enrollments, params: { id: course.id }
-        expect(assigns(:is_course_admin)).to be false
       end
     end
 
