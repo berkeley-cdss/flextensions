@@ -457,7 +457,7 @@ RSpec.describe Request, type: :model do
 
     context 'when auto approval is eligible and successful' do
       before do
-        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true, auto_approve: true)
+        allow(request).to receive_messages(eligible_for_auto_approval?: true, auto_approve: true)
       end
 
       it 'returns true' do
@@ -470,9 +470,9 @@ RSpec.describe Request, type: :model do
       end
     end
 
-    context 'when course is not eligible for auto approval' do
+    context 'when request is not eligible for auto approval' do
       before do
-        allow(request).to receive(:auto_approval_eligible_for_course?).and_return(false)
+        allow(request).to receive(:eligible_for_auto_approval?).and_return(false)
       end
 
       it 'returns false' do
@@ -485,35 +485,33 @@ RSpec.describe Request, type: :model do
       end
     end
 
-    context 'when user has no LMS credentials' do
-      before do
-        allow(request).to receive(:auto_approval_eligible_for_course?).and_return(true)
-        user.lms_credentials.destroy_all
-      end
-
-      it 'returns false' do
-        expect(request.try_auto_approval(nil)).to be false
-      end
-    end
-
+    # The production failure mode: staff synced from the Canvas roster have no
+    # stored credentials, so no staff token is available to post the approval.
     context 'when no staff user has Canvas credentials' do
       before do
-        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
-        allow(course).to receive(:staff_users_for_auto_approval).and_return([])
+        allow(request).to receive(:eligible_for_auto_approval?).and_return(true)
+        course.staff_users.each { |staff| staff.lms_credentials.destroy_all }
       end
 
-      it 'returns false without raising' do
-        expect(request.try_auto_approval(user)).to be false
+      it 'returns false and leaves the request pending' do
+        expect(request.try_auto_approval(nil)).to be false
+        expect(request.reload.status).to eq('pending')
       end
 
-      it 'does not call auto_approve' do
-        expect(request).not_to receive(:auto_approve)
-        request.try_auto_approval(user)
+      it 'logs the reason the auto-approval was skipped' do
+        allow(Rails.logger).to receive(:warn)
+        request.try_auto_approval(nil)
+        expect(Rails.logger).to have_received(:warn).with(/no staff member has connected a Canvas account/)
       end
 
       it 'records why auto-approval broke down' do
-        request.try_auto_approval(user)
+        request.try_auto_approval(nil)
         expect(request.auto_approval_breakdown).to include('no staff member has connected')
+      end
+
+      it 'does not call auto_approve' do
+        expect(request).not_to receive(:auto_approve)
+        request.try_auto_approval(nil)
       end
     end
 
@@ -578,13 +576,28 @@ RSpec.describe Request, type: :model do
       end
     end
 
-    context 'when request is not eligible for auto approval' do
+    context 'when the first staff enrollment has no credentials but another staff user does' do
       before do
-        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: false)
+        allow(request).to receive_messages(eligible_for_auto_approval?: true, auto_approve: true)
+        course.enrollments.where(role: Enrollment.staff_roles).order(:id).first.user.lms_credentials.destroy_all
       end
 
-      it 'returns false' do
-        expect(request.try_auto_approval(user)).to be false
+      it 'still auto-approves using the credentialed staff user' do
+        expect(request).to receive(:auto_approve).with(canvas_facade)
+        expect(request.try_auto_approval(nil)).to be true
+      end
+    end
+
+    context 'when the staff token is expiring and cannot be refreshed' do
+      before do
+        allow(request).to receive(:eligible_for_auto_approval?).and_return(true)
+        course.staff_users.each { |staff| staff.lms_credentials.each { |cred| cred.update!(expire_time: 1.minute.from_now) } }
+        allow_any_instance_of(LmsCredential).to receive(:refresh!).and_return(nil)
+      end
+
+      it 'returns false rather than posting to Canvas with a stale token' do
+        expect(request).not_to receive(:auto_approve)
+        expect(request.try_auto_approval(nil)).to be false
       end
     end
   end
@@ -619,7 +632,7 @@ RSpec.describe Request, type: :model do
     let(:canvas_facade) { instance_double(CanvasFacade) }
 
     before do
-      allow(request).to receive_messages(eligible_for_auto_approval?: true, approve: true)
+      allow(request).to receive(:approve).and_return(true)
     end
 
     it 'calls approve with the system user' do
@@ -644,31 +657,6 @@ RSpec.describe Request, type: :model do
         expect {
           request.auto_approve(canvas_facade)
         }.to change { User.where(email: SystemUserService::AUTO_APPROVAL_EMAIL).count }.by(1)
-      end
-    end
-
-    context 'when the request is not eligible for auto approval' do
-      before do
-        allow(request).to receive(:eligible_for_auto_approval?).and_return(false)
-      end
-
-      it 'returns false' do
-        expect(request.auto_approve(canvas_facade)).to be false
-      end
-
-      it 'does not call approve' do
-        expect(request).not_to receive(:approve)
-        request.auto_approve(canvas_facade)
-      end
-    end
-
-    context 'when no system user can be found or created' do
-      before do
-        allow(SystemUserService).to receive_messages(auto_approval_user: nil, ensure_auto_approval_user_exists: nil)
-      end
-
-      it 'returns false' do
-        expect(request.auto_approve(canvas_facade)).to be false
       end
     end
 

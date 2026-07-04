@@ -410,7 +410,7 @@ RSpec.describe RequestsController, type: :controller do
     end
 
     it 'approves a pending request' do
-      allow(request).to receive(:approve).and_return(true)
+      allow_any_instance_of(Request).to receive(:approve).and_return(true)
 
       post :approve, params: { course_id: course.id, id: request.id }
 
@@ -972,24 +972,24 @@ RSpec.describe RequestsController, type: :controller do
     it 'forbids a student from approving a request' do
       post :approve, params: { course_id: course.id, id: request.id }
 
-      expect(response).to redirect_to(course_path(course))
-      expect(flash[:alert]).to include('do not have permission')
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to include('do not have access')
       expect(request.reload.status).to eq('pending')
     end
 
     it 'forbids a student from rejecting a request' do
       post :reject, params: { course_id: course.id, id: request.id }
 
-      expect(response).to redirect_to(course_path(course))
-      expect(flash[:alert]).to include('do not have permission')
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to include('do not have access')
       expect(request.reload.status).to eq('pending')
     end
 
     it 'forbids a student from mass-approving' do
       post :mass_approve, params: { course_id: course.id, request_ids: [ request.id ] }
 
-      expect(response).to redirect_to(course_path(course))
-      expect(flash[:alert]).to include('do not have permission')
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to include('do not have access')
     end
 
     it 'forbids a student from filing a request on behalf of another student' do
@@ -998,8 +998,8 @@ RSpec.describe RequestsController, type: :controller do
         request: { user_id: user.id, assignment_id: assignment.id, reason: 'x', requested_due_date: Date.tomorrow.to_s, due_time: '10:00' }
       }
 
-      expect(response).to redirect_to(course_path(course))
-      expect(flash[:alert]).to include('do not have permission')
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to include('do not have access')
     end
   end
 
@@ -1028,52 +1028,6 @@ RSpec.describe RequestsController, type: :controller do
       get :index, params: { course_id: course.id }
 
       expect(response).to have_http_status(:ok)
-    end
-  end
-
-  # The export endpoint is public and authenticated solely by the course's
-  # read-only API token, so its access checks are covered directly here.
-  describe 'GET #export' do
-    it 'returns a CSV of requests when the token is valid' do
-      Request.create!(user: user, course: course, assignment: assignment,
-                      reason: 'Need more time', requested_due_date: 4.days.from_now, status: 'pending')
-
-      get :export, params: { course_id: course.id, readonly_api_token: course.readonly_api_token }
-
-      expect(response).to have_http_status(:ok)
-      expect(response.media_type).to eq('text/csv')
-      expect(response.body).to include('Student')
-      expect(response.body).to include('A1')
-    end
-
-    it 'filters the export by status when requested' do
-      Request.create!(user: instructor, course: course, assignment: assignment,
-                      reason: 'Approved one', requested_due_date: 4.days.from_now, status: 'approved')
-
-      get :export, params: { course_id: course.id, readonly_api_token: course.readonly_api_token, status: 'approved' }
-
-      expect(response.body).to include('Instructor')
-      expect(response.body).to include('approved')
-      expect(response.body).not_to include('pending')
-    end
-
-    it 'rejects an invalid token' do
-      get :export, params: { course_id: course.id, readonly_api_token: 'wrong-token' }
-
-      expect(response).to have_http_status(:unauthorized)
-      expect(response.body).to include('Invalid or missing API token')
-    end
-
-    it 'rejects a missing token' do
-      get :export, params: { course_id: course.id }
-
-      expect(response).to have_http_status(:unauthorized)
-    end
-
-    it 'rejects a request for a non-existent course' do
-      get :export, params: { course_id: 0, readonly_api_token: 'anything' }
-
-      expect(response).to have_http_status(:unauthorized)
     end
   end
 end

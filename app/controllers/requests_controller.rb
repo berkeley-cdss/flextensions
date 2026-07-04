@@ -1,17 +1,15 @@
-require 'csv'
-
 # We really should get a handle on this.
 # rubocop:disable Metrics/ClassLength
 class RequestsController < ApplicationController
-  # Consider moving export, approve/reject to a separate controller?
-  before_action :authenticate_user, except: [ :export ]
-  before_action :set_course, except: [ :export ]
-  before_action :require_course_staff, only: %i[create_for_student approve reject mass_approve mass_reject]
-  before_action :set_form_settings, except: [ :export ]
-  before_action :require_course_access, except: [ :export ]
+  before_action :authenticate_user
+  before_action :set_course
+  before_action :set_form_settings
+  before_action :require_course_membership
+  before_action :set_pending_request_count
+  before_action :check_extensions_enabled_for_students
   before_action :set_request, only: %i[show edit update cancel approve reject]
-  before_action :set_pending_request_count, except: [ :export ]
   before_action :ensure_request_is_pending, only: %i[update approve reject]
+  before_action :ensure_instructor_role, only: %i[create_for_student approve reject mass_approve mass_reject]
 
   def index
     @side_nav = 'requests'
@@ -36,10 +34,9 @@ class RequestsController < ApplicationController
 
   def new
     @side_nav = 'form'
-    course_to_lms_ids = @course.all_linked_lmss.pluck(:id)
-    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lms_ids.any?
+    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.has_canvas_linked?
 
-    return new_for_student if @course.staff_user?(current_user)
+    return new_for_student if @course.course_staff?(@user)
 
     redirected = prepare_student_new_request
     render :new unless redirected
@@ -147,19 +144,6 @@ class RequestsController < ApplicationController
     process_mass_action(:reject)
   end
 
-  def export
-    course = Course.find_by(id: params[:course_id])
-    token = params[:readonly_api_token]
-
-    return render plain: 'Invalid or missing API token', status: :unauthorized unless course && ActiveSupport::SecurityUtils.secure_compare(course.readonly_api_token, token.to_s)
-
-    requests = course.requests.includes(:assignment, :user)
-    requests = requests.where(status: params[:status]) if params[:status].present?
-
-    csv_data = Request.to_csv(requests)
-    send_data csv_data, filename: 'requests.csv', type: 'text/csv'
-  end
-
   private
 
   # Loads the request for member actions. Scoped so students can only reach
@@ -177,10 +161,17 @@ class RequestsController < ApplicationController
     @course.staff_user?(current_user) ? @course.requests : @course.requests.for_user(current_user)
   end
 
-  def require_course_staff
-    return if @course.staff_user?(current_user)
+  # Every request action operates inside a course the user belongs to, so a
+  # user with no role in the course is bounced before reaching any action.
+  def require_course_membership
+    return if enrolled_in_course?
 
-    redirect_to course_path(@course), alert: 'You do not have permission to perform this action.'
+    redirect_to course_path(@course), alert: 'You do not have access to this page.'
+  end
+
+  # A user is a member of the course if they are staff or an enrolled student.
+  def enrolled_in_course?
+    @course.course_staff?(@user) || @course.course_student?(@user)
   end
 
   def handle_request_error
@@ -383,6 +374,8 @@ class RequestsController < ApplicationController
     request.approve_by(current_user)
   rescue StandardError => e
     Rails.logger.error("Mass approve failed for request #{request.id}: #{e.message}")
+    Rails.error.report(e, handled: true,
+                       context: { component: 'mass_approve', request_id: request.id, actor_id: @user&.id })
     false
   end
 

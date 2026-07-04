@@ -33,6 +33,8 @@
 #  fk_rails_...  (last_processed_by_user_id => users.id)
 #  fk_rails_...  (user_id => users.id)
 #
+require 'csv'
+
 class Request < ApplicationRecord
   belongs_to :course
   belongs_to :assignment
@@ -91,22 +93,16 @@ class Request < ApplicationRecord
   end
 
   # Handle request update and check for auto-approval
-  def process_update(_current_user)
-    link = request_link
-    notify_slack = true
-
-    if status == 'pending' && try_auto_approval(_current_user)
-      slack_message = build_slack_message(:auto_approved, link)
-      result = build_result_hash('Your request was updated and has been approved.')
+  def process_update(current_user)
+    if status == 'pending' && try_auto_approval(current_user)
+      notify_slack(build_slack_message(:auto_approved, request_link))
+      build_result_hash('Your request was updated and has been approved.')
     else
-      slack_message = build_slack_message(:updated, link)
+      slack_message = build_slack_message(:updated, request_link)
       slack_message += auto_approval_breakdown_slack_note if auto_approval_breakdown
-      result = build_result_hash('Request was successfully updated.')
+      notify_slack(slack_message)
+      build_result_hash('Request was successfully updated.')
     end
-
-    success = SlackNotifier.notify(slack_message, course.course_settings.slack_webhook_url) if notify_slack && course.course_settings.slack_webhook_url.present?
-    Rails.logger.error "Failed to send Slack notification for request #{id} in course #{course.id}. Please check your webhook URL." unless success
-    result
   end
 
   def calculate_days_difference
@@ -123,7 +119,6 @@ class Request < ApplicationRecord
   # token cannot be refreshed or the LMS rejects the approval, fall back to
   # the next staff user rather than giving up.
   def try_auto_approval(_current_user)
-    return false unless auto_approval_eligible_for_course?
     return false unless eligible_for_auto_approval?
 
     candidates = course.staff_users_for_auto_approval
@@ -194,11 +189,10 @@ class Request < ApplicationRecord
     met
   end
 
+  # Approves the request as the system user and marks it auto-approved.
+  # Eligibility is the caller's responsibility (see try_auto_approval).
   def auto_approve(lms_facade_from_user)
-    return false unless eligible_for_auto_approval?
-
     system_user = SystemUserService.ensure_auto_approval_user_exists
-    return false unless system_user
 
     # Reuse the regular approve method but mark as auto-approved afterward
     result = approve(lms_facade_from_user, system_user)
@@ -229,7 +223,9 @@ class Request < ApplicationRecord
         dates[:late_due_date]&.iso8601
       )
     rescue => e
-      Rails.logger.error "Error during LMS extension provisioning: #{e.message}"
+      Rails.logger.error "Error during LMS extension provisioning for request #{id}: #{e.message}"
+      Rails.error.report(e, handled: true,
+                         context: { component: 'lms_provisioning', request_id: id, course_id: course_id, lms: lms_facade.class.name })
       self.errors.add(:base, 'Failed to provision extension in LMS.')
       self.errors.add(:base, e.message)
       return false

@@ -200,7 +200,7 @@ Faultline.configure do |config|
 
   # Subscribe to Rails error reporting API (Rails.error.report/handle/record)
   # This captures errors from background jobs and explicit Rails.error calls
-  # config.register_error_subscriber = true
+  config.register_error_subscriber = true
 
   # Paths to ignore (no error tracking for these)
   config.middleware_ignore_paths = ["/assets", "/up", "/health", "/admin/errors"]
