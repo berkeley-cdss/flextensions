@@ -123,14 +123,9 @@ class ApplicationController < ActionController::Base
     end
   end
 
-<<<<<<< HEAD
-  def require_instructor_role!
+  def ensure_instructor_role
     return unless @course && current_user
     return if @course.staff_user?(current_user)
-=======
-  def ensure_instructor_role
-    return if @user && @course&.course_staff?(@user)
->>>>>>> fb560b2a8f56af86f69eb995f9f4b48195b5a482
 
     redirect_to courses_path, alert: 'You do not have access to this page.'
   end
