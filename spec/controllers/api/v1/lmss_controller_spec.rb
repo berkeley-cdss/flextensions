@@ -15,7 +15,6 @@ module API
       after do
         # Clean up the specifically created data
         LmsCredential.destroy_all
-        Extension.destroy_all
         Assignment.destroy_all
         CourseToLms.destroy_all
         Enrollment.destroy_all

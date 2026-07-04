@@ -35,19 +35,7 @@ module API
           return
         end
 
-        @extension = Extension.new(
-          assignment_id: @assignment.id,
-          student_email: nil,
-          initial_due_date: base_dates['due_at'],
-          new_due_date: override.override_due_date || params[:new_due_date],
-          external_extension_id: override.id,
-          last_processed_by_id: nil
-        )
-        unless @extension.save
-          render json: { error: 'Extension requested, but local save failed' }.to_json, status: :internal_server_error
-          return
-        end
-        render json: @extension.to_json, status: :ok
+        render json: { id: override.id, new_due_date: override.override_due_date || params[:new_due_date] }.to_json, status: :ok
       end
 
       def destroy

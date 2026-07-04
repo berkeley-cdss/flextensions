@@ -100,7 +100,6 @@ class CoursesController < ApplicationController
     return redirect_to courses_path, alert: 'Extensions are enabled for this course.' if @course.requests_enabled?
 
     assignments = @course.assignments
-    Extension.where(assignment_id: assignments.select(:id)).destroy_all
     assignments.destroy_all
     CourseToLms.where(course_id: @course.id).destroy_all
     Enrollment.where(course_id: @course.id).destroy_all

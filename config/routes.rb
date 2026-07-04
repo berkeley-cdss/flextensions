@@ -33,7 +33,6 @@ Rails.application.routes.draw do
       get :enrollments
       delete :delete
     end
-    resources :extensions, only: [:create]
     resources :requests do
       member do
         post :approve

@@ -21,7 +21,6 @@ module API
 
       after do
         LmsCredential.destroy_all
-        Extension.destroy_all
         Assignment.destroy_all
         CourseToLms.destroy_all
         Enrollment.destroy_all
