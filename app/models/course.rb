@@ -29,12 +29,12 @@ class Course < ApplicationRecord
   has_many :assignments, dependent: :destroy
   has_many :course_to_lmss, dependent: :destroy
   has_many :lmss, through: :course_to_lmss
-  has_many :user_to_courses, dependent: :destroy
+  has_many :enrollments, dependent: :destroy
   has_one :form_setting, dependent: :destroy
   has_one :course_settings, dependent: :destroy
   has_many :requests, dependent: :destroy
 
-  has_many :users, through: :user_to_courses
+  has_many :users, through: :enrollments
 
   validates :course_name, presence: true
 
@@ -123,23 +123,23 @@ class Course < ApplicationRecord
   # TODO: Replace this with staff_role?(user) or student_role?(user)
   # Or is user.staff_role?(course) or user.student_role?(course) better?
   def user_role(user)
-    roles = UserToCourse.where(user_id: user.id, course_id: id).pluck(:role)
-    return 'instructor' if roles.intersect?(UserToCourse.staff_roles)
-    return 'student' if roles.include?(UserToCourse::STUDENT_ROLE)
+    roles = Enrollment.where(user_id: user.id, course_id: id).pluck(:role)
+    return 'instructor' if roles.intersect?(Enrollment.staff_roles)
+    return 'student' if roles.include?(Enrollment::STUDENT_ROLE)
 
     nil
   end
 
   def course_admin?(user)
-    user_to_courses.where(user_id: user.id).any?(&:course_admin?)
+    enrollments.where(user_id: user.id).any?(&:course_admin?)
   end
 
   def course_staff?(user)
-    user_to_courses.where(user_id: user.id).any?(&:staff?)
+    enrollments.where(user_id: user.id).any?(&:staff?)
   end
 
   def course_student?(user)
-    user_to_courses.where(user_id: user.id).any?(&:student?)
+    enrollments.where(user_id: user.id).any?(&:student?)
   end
 
   # TODO: This doesn't make sense actually.
@@ -159,15 +159,15 @@ class Course < ApplicationRecord
 
   # TODO: Add specs for these 3 simple methods
   def students
-    user_to_courses.where(role: UserToCourse::STUDENT_ROLE).map(&:user)
+    enrollments.where(role: Enrollment::STUDENT_ROLE).map(&:user)
   end
 
   def instructors
-    user_to_courses.where(role: UserToCourse::TEACHER_ROLE).map(&:user)
+    enrollments.where(role: Enrollment::TEACHER_ROLE).map(&:user)
   end
 
   def staff_users
-    user_to_courses.where(role: UserToCourse.staff_roles).map(&:user)
+    enrollments.where(role: Enrollment.staff_roles).map(&:user)
   end
 
   # Staff users with Canvas credentials on file, most recently refreshed
@@ -263,14 +263,14 @@ class Course < ApplicationRecord
     end
   end
 
-  # Fetch users for a course and create/find their User and UserToCourse records
+  # Fetch users for a course and create/find their User and Enrollment records
   # TODO: This may need to become a background job
   def sync_users_from_canvas(user, roles = [ 'student' ])
     SyncUsersFromCanvasJob.perform_now(id, user, roles)
   end
 
   def sync_all_enrollments_from_canvas(user)
-    sync_users_from_canvas(user, UserToCourse.roles)
+    sync_users_from_canvas(user, Enrollment.roles)
   end
 
   def regenerate_readonly_api_token_if_blank

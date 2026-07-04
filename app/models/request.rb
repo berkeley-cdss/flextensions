@@ -139,7 +139,7 @@ class Request < ApplicationRecord
     return false unless auto_approval_eligible_for_course?
     return false unless meets_min_hours_before_deadline?
 
-    enrollment = UserToCourse.find_by(user: user, course: course)
+    enrollment = Enrollment.find_by(user: user, course: course)
     return false if enrollment.nil?
     if enrollment.allow_extended_requests
       # Extended-request students get at least the standard window; a course

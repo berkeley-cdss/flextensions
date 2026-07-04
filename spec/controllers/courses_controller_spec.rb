@@ -9,7 +9,7 @@ RSpec.describe CoursesController, type: :controller do
 
   before do
     session[:user_id] = user.canvas_uid
-    UserToCourse.create!(user: user, course: course, role: 'student')
+    Enrollment.create!(user: user, course: course, role: 'student')
     user.lms_credentials.create!(
       lms_name: 'canvas',
       token: 'fake_token',
@@ -30,7 +30,7 @@ RSpec.describe CoursesController, type: :controller do
     end
 
     it 'includes Lead TA enrollments in staff courses' do
-      UserToCourse.create!(user: user, course: student_course, role: 'leadta')
+      Enrollment.create!(user: user, course: student_course, role: 'leadta')
 
       get :index
 
@@ -42,8 +42,8 @@ RSpec.describe CoursesController, type: :controller do
       let(:fall_course) { Course.create!(course_name: 'Fall Course', canvas_id: 'fa1', course_code: 'FA101', semester: 'Fall 2025') }
 
       before do
-        UserToCourse.create!(user: user, course: spring_course, role: 'teacher')
-        UserToCourse.create!(user: user, course: fall_course, role: 'teacher')
+        Enrollment.create!(user: user, course: spring_course, role: 'teacher')
+        Enrollment.create!(user: user, course: fall_course, role: 'teacher')
       end
 
       it 'groups teacher courses by semester, most-recent-first' do
@@ -60,8 +60,8 @@ RSpec.describe CoursesController, type: :controller do
         fall_student = Course.create!(course_name: 'Student Fall', canvas_id: 'sf1', course_code: 'SF101', semester: 'Fall 2025')
         spring_student.course_settings.update!(enable_extensions: true)
         fall_student.course_settings.update!(enable_extensions: true)
-        UserToCourse.create!(user: user, course: spring_student, role: 'student')
-        UserToCourse.create!(user: user, course: fall_student, role: 'student')
+        Enrollment.create!(user: user, course: spring_student, role: 'student')
+        Enrollment.create!(user: user, course: fall_student, role: 'student')
 
         get :index
 
@@ -94,7 +94,7 @@ RSpec.describe CoursesController, type: :controller do
       let!(:course_to_lms_record) { CourseToLms.create!(course: course, external_course_id: '456', lms_id: 1) }
 
       before do
-        UserToCourse.create!(user: user, course: course, role: 'teacher')
+        Enrollment.create!(user: user, course: course, role: 'teacher')
       end
 
       it 'renders the instructor show template' do
@@ -199,7 +199,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a teacher (course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'teacher')
+        Enrollment.create!(user: user, course: course, role: 'teacher')
       end
 
       it 'syncs enrollments and returns OK' do
@@ -214,7 +214,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a leadta (course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'leadta')
+        Enrollment.create!(user: user, course: course, role: 'leadta')
       end
 
       it 'syncs enrollments and returns OK' do
@@ -229,7 +229,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a TA (staff but not course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'ta')
+        Enrollment.create!(user: user, course: course, role: 'ta')
       end
 
       it 'syncs enrollments and returns OK' do
@@ -396,7 +396,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a teacher (course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'teacher')
+        Enrollment.create!(user: user, course: course, role: 'teacher')
       end
 
       it 'renders the enrollments view successfully' do
@@ -419,7 +419,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a TA (staff but not course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'ta')
+        Enrollment.create!(user: user, course: course, role: 'ta')
       end
 
       it 'renders the enrollments view successfully' do
@@ -456,7 +456,7 @@ RSpec.describe CoursesController, type: :controller do
 
     before do
       Extension.create!(assignment: assignment, student_email: user.email)
-      UserToCourse.create!(user: user, course: course, role: 'teacher')
+      Enrollment.create!(user: user, course: course, role: 'teacher')
       Request.create!(course: course, assignment: assignment, user: user, requested_due_date: Time.current, reason: 'Reason')
       FormSetting.create!(
         course: course,
@@ -473,7 +473,7 @@ RSpec.describe CoursesController, type: :controller do
                                    .and change(Assignment, :count).by(-1)
                                                                   .and change(Extension, :count).by(-1)
                                                                                                 .and change(CourseToLms, :count).by(-1)
-                                                                                                                                .and change(UserToCourse, :count).by(-2)
+                                                                                                                                .and change(Enrollment, :count).by(-2)
                                                                                                                                                                  .and change(Request, :count).by(-1)
                                                                                                                                                                                              .and change(CourseSettings, :count).by(-1)
                                                                                                                                                                                                                                 .and change(FormSetting,
