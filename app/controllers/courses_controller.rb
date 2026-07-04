@@ -11,9 +11,12 @@ class CoursesController < ApplicationController
     @staff_enrollments_by_semester = group_by_semester(staff_enrollments)
 
     # Only show courses to students if extensions are enabled at the course level
-    student_enrollments = Enrollment.includes(course: :course_settings).where(user: @user, role: Enrollment::STUDENT_ROLE)
-    visible_student_enrollments = student_enrollments.select { |enrollment| enrollment.course.visible_to_students? }
-    @student_enrollments_by_semester = group_by_semester(visible_student_enrollments)
+    student_courses = UserToCourse.includes(course: :course_settings).where(user: @user, role: 'student')
+    visible_student_courses = student_courses.select { |utc| utc.course.requests_enabled? }
+    @student_courses_by_semester = group_by_semester(visible_student_courses)
+    # Keep flat lists for conditional checks in the view
+    @teacher_courses = teacher_courses
+    @student_courses = visible_student_courses
   end
 
   def show
@@ -24,8 +27,7 @@ class CoursesController < ApplicationController
     @course.regenerate_readonly_api_token_if_blank
 
     if @role == 'student'
-      course_settings = @course.course_settings
-      return redirect_to courses_path, alert: 'Extensions are not enabled for this course.' unless course_settings&.enable_extensions
+      return redirect_to courses_path, alert: 'Extensions are not enabled for this course.' unless @course.requests_enabled?
 
       @assignments = @course.enabled_assignments
     else
@@ -96,9 +98,9 @@ class CoursesController < ApplicationController
 
   def delete
     return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
-    return redirect_to courses_path, alert: 'Extensions are enabled for this course.' if @course.course_settings&.enable_extensions
+    return redirect_to courses_path, alert: 'Extensions are enabled for this course.' if @course.requests_enabled?
 
-    assignments = Assignment.where(course_to_lms_id: CourseToLms.where(course_id: @course.id).select(:id))
+    assignments = @course.assignments
     Extension.where(assignment_id: assignments.select(:id)).destroy_all
     assignments.destroy_all
     CourseToLms.where(course_id: @course.id).destroy_all

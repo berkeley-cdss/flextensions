@@ -106,14 +106,39 @@ RSpec.describe User, type: :model do
 
       before { credential }
 
-      it 'refreshes token and returns it' do
+      it 'refreshes token and returns the new token' do
         allow(user).to receive(:token_expires_soon?).and_return(true)
 
         allow_any_instance_of(SessionController).to receive(:refresh_user_token).and_return('refreshed_token')
 
         result = user.ensure_fresh_canvas_token!
 
-        expect(result).to eq('stale_token') # Still returns the credential.token
+        expect(result).to eq('refreshed_token')
+      end
+    end
+
+    context 'when token expires soon and the refresh fails' do
+      before do
+        user.lms_credentials.create!(
+          lms_name: 'canvas',
+          token: 'stale_token',
+          refresh_token: 'revoked_refresh_token',
+          expire_time: 5.minutes.from_now
+        )
+      end
+
+      it 'returns nil so callers know the credentials are unusable' do
+        allow(user).to receive(:token_expires_soon?).and_return(true)
+
+        allow_any_instance_of(SessionController).to receive(:refresh_user_token).and_return(nil)
+
+        expect(user.ensure_fresh_canvas_token!).to be_nil
+      end
+    end
+
+    context 'when the user has no credentials' do
+      it 'returns nil' do
+        expect(user.ensure_fresh_canvas_token!).to be_nil
       end
     end
   end

@@ -82,6 +82,7 @@ class Request < ApplicationRecord
       slack_message, result = build_created_slack_and_result(:auto_approved, link)
     else
       slack_message, result = build_created_slack_and_result(:pending, link)
+      slack_message += auto_approval_breakdown_slack_note if auto_approval_breakdown
     end
 
     notify_slack(slack_message)
@@ -99,10 +100,11 @@ class Request < ApplicationRecord
       result = build_result_hash('Your request was updated and has been approved.')
     else
       slack_message = build_slack_message(:updated, link)
+      slack_message += auto_approval_breakdown_slack_note if auto_approval_breakdown
       result = build_result_hash('Request was successfully updated.')
     end
 
-    success = SlackNotifier.notify(slack_message, course.course_settings.slack_webhook_url) if notify_slack && course&.course_settings&.slack_webhook_url.present?
+    success = SlackNotifier.notify(slack_message, course.course_settings.slack_webhook_url) if notify_slack && course.course_settings.slack_webhook_url.present?
     Rails.logger.error "Failed to send Slack notification for request #{id} in course #{course.id}. Please check your webhook URL." unless success
     result
   end
@@ -111,22 +113,41 @@ class Request < ApplicationRecord
     (requested_due_date.to_date - assignment.due_date.to_date).to_i
   end
 
-  # Attempt to auto-approve by posting to the LMS.
+  # Set when a request met the auto-approval rules but could not be approved
+  # because no staff member's Canvas access worked; used to warn course staff.
+  attr_reader :auto_approval_breakdown
+
+  # Attempt to auto-approve by posting to the LMS. Credentials on file can be
+  # stale (Canvas revokes refresh tokens that go unused for months) and a
+  # staff member may have left the Canvas course, so when one staff user's
+  # token cannot be refreshed or the LMS rejects the approval, fall back to
+  # the next staff user rather than giving up.
   def try_auto_approval(_current_user)
     return false unless auto_approval_eligible_for_course?
     return false unless eligible_for_auto_approval?
 
-    approval_user = course.staff_user_for_auto_approval
-    approval_user.ensure_fresh_canvas_token!
-    return false if approval_user.canvas_credentials.blank?
+    candidates = course.staff_users_for_auto_approval
+    if candidates.empty?
+      flag_auto_approval_breakdown('no staff member has connected a Canvas account')
+      return false
+    end
 
-    lms_facade_from_user = assignment.lms_facade.from_user(approval_user)
-    auto_approve(lms_facade_from_user)
+    candidates.each do |approval_user|
+      if approval_user.ensure_fresh_canvas_token!.blank?
+        Rails.logger.warn "Auto-approval for request #{id}: could not refresh the Canvas token for staff user #{approval_user.id}; trying the next staff user."
+        next
+      end
+
+      return true if auto_approve(assignment.lms_facade.from_user(approval_user))
+
+      Rails.logger.warn "Auto-approval for request #{id}: the LMS rejected the approval as staff user #{approval_user.id}; trying the next staff user."
+    end
+
+    flag_auto_approval_breakdown("no staff member's Canvas access is currently working")
+    false
   end
 
   def auto_approval_eligible_for_course?
-    return false if course&.course_settings.blank?
-
     course.course_settings.automatic_approval_enabled?
   end
 
@@ -137,7 +158,11 @@ class Request < ApplicationRecord
     enrollment = Enrollment.find_by(user: user, course: course)
     return false if enrollment.nil?
     if enrollment.allow_extended_requests
-      max_days = course.course_settings.auto_approve_extended_request_days
+      # Extended-request students get at least the standard window; a course
+      # that leaves auto_approve_extended_request_days at 0 must not exclude
+      # them from the auto-approval every other student gets.
+      max_days = [ course.course_settings.auto_approve_extended_request_days,
+                   course.course_settings.auto_approve_days ].max
     else
       max_days = course.course_settings.auto_approve_days
     end
@@ -156,17 +181,17 @@ class Request < ApplicationRecord
   # least the configured number of hours before the assignment's deadline. With
   # a value of 0 (the default), this simply requires the deadline to not yet
   # have passed.
-  #
-  # Only called after auto_approval_eligible_for_course?, so course_settings is
-  # guaranteed present; an assignment always has a due_date. We intentionally do
-  # not guard those "impossible" cases with a permissive default -- letting them
-  # raise surfaces the bug rather than silently auto-approving.
   def meets_min_hours_before_deadline?
     settings = course.course_settings
     return true unless settings.enable_min_hours_before_deadline
 
     hours_until_deadline = (assignment.due_date - Time.current) / 1.hour
-    hours_until_deadline >= settings.min_hours_before_deadline.to_i
+    met = hours_until_deadline >= settings.min_hours_before_deadline.to_i
+    unless met
+      Rails.logger.info "Auto-approval skipped for request #{id}: #{hours_until_deadline.round(1)}h until deadline " \
+                        "is under the #{settings.min_hours_before_deadline.to_i}h minimum for course #{course.id}."
+    end
+    met
   end
 
   def auto_approve(lms_facade_from_user)
@@ -214,7 +239,7 @@ class Request < ApplicationRecord
       status: 'approved',
       last_processed_by_user_id: processed_user_id.id,
       external_extension_id: override&.id)
-    send_email_response if course.course_settings&.enable_emails
+    send_email_response if course.course_settings.enable_emails
     true
   end
 
@@ -237,7 +262,7 @@ class Request < ApplicationRecord
   def reject(processed_user_id)
     update(status: 'denied', last_processed_by_user_id: processed_user_id.id)
     # Only send email if the person processing is the same as the request's user
-    send_email_response if course.course_settings&.enable_emails && processed_user_id.id != user_id
+    send_email_response if course.course_settings.enable_emails && processed_user_id.id != user_id
     true
   end
 
@@ -261,7 +286,7 @@ class Request < ApplicationRecord
   end
 
   def send_email_response
-    return unless course.course_settings&.enable_emails
+    return unless course.course_settings.enable_emails
 
     cs = course.course_settings
     to = user.email
@@ -310,6 +335,17 @@ class Request < ApplicationRecord
 
   private
 
+  def flag_auto_approval_breakdown(reason)
+    @auto_approval_breakdown = reason
+    Rails.logger.warn "Auto-approval broken for request #{id} in course #{course.id}: #{reason}. " \
+                      'A staff member must log in to Flextensions to reconnect Canvas.'
+  end
+
+  def auto_approval_breakdown_slack_note
+    "\n:warning: This request met the auto-approval rules, but #{auto_approval_breakdown}. " \
+      'A staff member should log in to Flextensions to reconnect Canvas, then approve pending requests manually.'
+  end
+
   def build_slack_message(type, link)
     case type
     when :auto_approved
@@ -348,7 +384,7 @@ class Request < ApplicationRecord
   end
 
   def notify_slack(slack_message)
-    return if course&.course_settings&.slack_webhook_url.blank?
+    return if course.course_settings.slack_webhook_url.blank?
 
     success = SlackNotifier.notify(slack_message, course.course_settings.slack_webhook_url)
     Rails.logger.error "Failed to send Slack notification for request #{id} in course #{course.id}. Please check your webhook URL." unless success

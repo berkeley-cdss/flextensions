@@ -10,7 +10,7 @@ RSpec.describe AssignmentsController, type: :controller do
     let!(:user) { User.create!(name: 'Test User', email: 'test@example.com', canvas_uid: '123') }
     let!(:course) { Course.create!(course_name: 'Test Course', canvas_id: '123') }
     let!(:course_to_lms) { CourseToLms.create!(course: course, lms_id: 1, external_course_id: '123') }
-    let!(:course_settings) { CourseSettings.create!(course: course, enable_extensions: true) }
+    let!(:course_settings) { course.course_settings.tap { |cs| cs.update!(enable_extensions: true) } }
     let!(:assignment) do
       Assignment.create!(
         name: 'Test Assignment',

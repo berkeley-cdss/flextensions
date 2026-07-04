@@ -49,10 +49,8 @@ if Rails.env.development?
     utc.role = 'student'
   end
 
-  # Enable extensions for test course
-  CourseSettings.find_or_create_by!(course_id: test_course.id) do |cs|
-    cs.enable_extensions = true
-  end
+  # Enable extensions for test course (settings are created with the course)
+  test_course.course_settings.update!(enable_extensions: true)
 
   # Create form settings for test course
   FormSetting.find_or_create_by!(course_id: test_course.id) do |fs|
