@@ -37,19 +37,6 @@
 	}
 }
 
-// visually-hidden class for screen reader only content
-.visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border-width: 0;
-}
-
 code {
     // Loaded after Bootstrap, so this overrides --bs-code-color by source order.
     color: #be0303;
