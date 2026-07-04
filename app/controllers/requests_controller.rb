@@ -3,13 +3,12 @@
 class RequestsController < ApplicationController
   before_action :authenticate_user
   before_action :set_course
+  before_action :require_course_staff!, only: %i[create_for_student approve reject mass_approve mass_reject]
   before_action :set_form_settings
-  before_action :require_course_membership
-  before_action :set_pending_request_count
-  before_action :check_extensions_enabled_for_students
+  before_action :require_course_access
   before_action :set_request, only: %i[show edit update cancel approve reject]
+  before_action :set_pending_request_count
   before_action :ensure_request_is_pending, only: %i[update approve reject]
-  before_action :ensure_instructor_role, only: %i[create_for_student approve reject mass_approve mass_reject]
 
   def index
     @side_nav = 'requests'
@@ -36,7 +35,7 @@ class RequestsController < ApplicationController
     @side_nav = 'form'
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.has_canvas_linked?
 
-    return new_for_student if @course.course_staff?(@user)
+    return new_for_student if @course.staff_user?(current_user)
 
     redirected = prepare_student_new_request
     render :new unless redirected
@@ -161,19 +160,6 @@ class RequestsController < ApplicationController
     @course.staff_user?(current_user) ? @course.requests : @course.requests.for_user(current_user)
   end
 
-  # Every request action operates inside a course the user belongs to, so a
-  # user with no role in the course is bounced before reaching any action.
-  def require_course_membership
-    return if enrolled_in_course?
-
-    redirect_to course_path(@course), alert: 'You do not have access to this page.'
-  end
-
-  # A user is a member of the course if they are staff or an enrolled student.
-  def enrolled_in_course?
-    @course.course_staff?(@user) || @course.course_student?(@user)
-  end
-
   def handle_request_error
     flash.now[:alert] = 'There was a problem submitting your request.'
     @assignments = @course.enabled_assignments.order(:name)
@@ -229,9 +215,7 @@ class RequestsController < ApplicationController
     redirect_to course_path(@course), alert: 'This action can only be performed on pending requests.'
   end
 
-  # Students may only reach requests while the course has extensions enabled.
-  # Gate for every in-course request page (everything but the token-based
-  # #export). Three rules, in order:
+  # Gate for every in-course request page. Three rules, in order:
   #   1. You must have a role in the course. Anyone else is turned away.
   #   2. Staff are always allowed through so they can manage requests.
   #   3. Students may only proceed when the course has extensions enabled.

@@ -2,7 +2,7 @@ class CoursesController < ApplicationController
   before_action :authenticate_user
   before_action :set_course, only: %i[show edit sync_assignments sync_enrollments enrollments delete]
   # Currently exclude routes that expect JSON.
-  before_action :require_instructor_role!, only: %i[edit enrollments delete]
+  before_action :require_course_staff!, only: %i[edit enrollments delete]
   before_action :set_pending_request_count
 
   def index

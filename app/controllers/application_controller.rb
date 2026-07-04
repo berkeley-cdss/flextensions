@@ -123,7 +123,7 @@ class ApplicationController < ActionController::Base
     end
   end
 
-  def ensure_instructor_role
+  def require_course_staff!
     return unless @course && current_user
     return if @course.staff_user?(current_user)
 
