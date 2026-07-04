@@ -12,7 +12,7 @@ class ApplicationController < ActionController::Base
       'login' => [ 'canvas' ],
       'session' => %w[create omniauth_callback omniauth_failure],
       'rails/health' => [ 'show' ],
-      'requests' => [ 'export' ]
+      'requests/exports' => [ 'show' ]
     }
     controller = params[:controller]
     action = params[:action]
@@ -128,7 +128,7 @@ class ApplicationController < ActionController::Base
   end
 
   def ensure_instructor_role
-    return if @role == 'instructor'
+    return if @user && @course&.course_staff?(@user)
 
     flash[:alert] = 'You do not have access to this page.'
     redirect_to courses_path

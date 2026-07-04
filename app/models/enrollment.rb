@@ -1,6 +1,6 @@
 # == Schema Information
 #
-# Table name: user_to_courses
+# Table name: enrollments
 #
 #  id                      :bigint           not null, primary key
 #  allow_extended_requests :boolean          default(FALSE), not null
@@ -13,16 +13,15 @@
 #
 # Indexes
 #
-#  index_user_to_courses_on_course_id  (course_id)
-#  index_user_to_courses_on_user_id    (user_id)
+#  index_enrollments_on_course_id  (course_id)
+#  index_enrollments_on_user_id    (user_id)
 #
 # Foreign Keys
 #
 #  fk_rails_...  (course_id => courses.id)
 #  fk_rails_...  (user_id => users.id)
 #
-# TODO: In the future we should name this CourseEnrollment
-class UserToCourse < ApplicationRecord
+class Enrollment < ApplicationRecord
   STUDENT_ROLE = 'student'.freeze
   TEACHER_ROLE = 'teacher'.freeze
   TA_ROLE = 'ta'.freeze
@@ -45,11 +44,11 @@ class UserToCourse < ApplicationRecord
 
 
   def staff?
-    UserToCourse.staff_roles.include?(role)
+    Enrollment.staff_roles.include?(role)
   end
 
   def course_admin?
-    UserToCourse.course_admin_roles.include?(role)
+    Enrollment.course_admin_roles.include?(role)
   end
 
   def student?
@@ -57,11 +56,11 @@ class UserToCourse < ApplicationRecord
   end
 
   def display_role
-    UserToCourse.display_role(role)
+    Enrollment.display_role(role)
   end
 
   def self.roles
-    [ STUDENT_ROLE ] + UserToCourse.staff_roles
+    [ STUDENT_ROLE ] + Enrollment.staff_roles
   end
 
   def self.staff_roles
