@@ -172,7 +172,7 @@ class RequestsController < ApplicationController
   end
 
   def handle_request_error
-    flash.now[:alert] = 'There was a problem submitting your request.'
+    flash.now[:alert] = "There was a problem submitting your request. #{@request.errors.full_messages.join(', ')}"
     @assignments = @course.enabled_assignments.order(:name)
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]
     render :new
@@ -195,18 +195,10 @@ class RequestsController < ApplicationController
   # re-rendered with an error; an existing request keeps its (non-editable)
   # assignment, so a failure here means a tampered id and is treated as a 404.
   def ensure_assignment_in_course
-    return true if assignment_in_course?(@request.assignment_id)
+    return true if @course.assignments.exists?(id: @request.assignment_id)
 
     @request.new_record? ? handle_request_error : head(:not_found)
     false
-  end
-
-  # Confirms the assignment belongs to one of this course's linked LMSs,
-  # preventing a request from referencing an assignment in another course.
-  def assignment_in_course?(assignment_id)
-    return false if assignment_id.blank?
-
-    @course.assignments.exists?(id: assignment_id)
   end
 
   # Runs after set_request, so @request is already loaded and scoped; a missing
