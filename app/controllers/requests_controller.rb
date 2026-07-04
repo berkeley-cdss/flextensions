@@ -6,12 +6,12 @@ class RequestsController < ApplicationController
   # Consider moving export, approve/reject to a separate controller?
   before_action :authenticate_user, except: [ :export ]
   before_action :set_course, except: [ :export ]
+  before_action :require_course_staff, only: %i[create_for_student approve reject mass_approve mass_reject]
   before_action :set_form_settings, except: [ :export ]
-  before_action :set_pending_request_count, except: [ :export ]
   before_action :check_extensions_enabled_for_students, except: [ :export ]
   before_action :set_request, only: %i[show edit update cancel approve reject]
+  before_action :set_pending_request_count, except: [ :export ]
   before_action :ensure_request_is_pending, only: %i[update approve reject]
-  before_action :require_course_staff, only: %i[create_for_student approve reject mass_approve mass_reject]
 
   def index
     @side_nav = 'requests'

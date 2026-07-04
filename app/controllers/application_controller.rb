@@ -86,7 +86,7 @@ class ApplicationController < ActionController::Base
   def set_pending_request_count
     return unless defined?(@course) && @course.present? && current_user.present?
     # only calculating pending requests count if the role is instructor so we don't show it to students
-    return unless @course.staff_user?(current_user) == 'instructor'
+    return unless @course.staff_user?(current_user)
 
     @pending_requests_count = @course.requests.where(status: 'pending').count
   end
