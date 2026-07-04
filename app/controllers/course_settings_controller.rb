@@ -2,7 +2,7 @@ class CourseSettingsController < ApplicationController
   before_action :authenticated!
   before_action :authenticate_user
   before_action :set_course
-  before_action :ensure_instructor_role
+  before_action :require_course_staff!
   before_action :set_pending_request_count
 
   # Default template settings
@@ -78,9 +78,5 @@ class CourseSettingsController < ApplicationController
         :slack_webhook_url
       ]
     )
-  end
-
-  def set_pending_request_count
-    @pending_requests_count = Request.where(course_id: @course&.id, status: 'pending').count
   end
 end
