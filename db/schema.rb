@@ -11,8 +11,6 @@
 # It's strongly recommended that you check this file into your version control system.
 
 ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
-  create_schema "hypershield"
-
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -22,6 +20,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
   create_enum "request_status", ["pending", "approved", "denied"]
 
   create_table "assignments", force: :cascade do |t|
+    t.bigint "course_id", null: false
     t.bigint "course_to_lms_id", null: false
     t.datetime "created_at", null: false
     t.datetime "due_date"
@@ -30,7 +29,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
     t.datetime "late_due_date"
     t.string "name"
     t.datetime "updated_at", null: false
-    t.bigint "course_id", null: false
     t.index ["course_id"], name: "index_assignments_on_course_id"
   end
 
@@ -129,6 +127,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
     t.string "course_code"
     t.string "course_name"
     t.datetime "created_at", null: false
+    t.boolean "demo_course", default: false, null: false
     t.string "readonly_api_token"
     t.string "semester"
     t.datetime "updated_at", null: false
@@ -137,20 +136,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
   end
 
   create_table "enrollments", force: :cascade do |t|
-    t.bigint "user_id"
-    t.bigint "course_id"
-    t.string "role"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.boolean "removed", default: false, null: false
     t.boolean "allow_extended_requests", default: false, null: false
+    t.bigint "course_id"
+    t.datetime "created_at", null: false
+    t.boolean "removed", default: false, null: false
+    t.string "role"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
     t.index ["course_id"], name: "index_enrollments_on_course_id"
     t.index ["user_id"], name: "index_enrollments_on_user_id"
   end
 
   create_table "extensions", force: :cascade do |t|
     t.bigint "assignment_id"
-<<<<<<< HEAD
     t.datetime "created_at", null: false
     t.string "external_extension_id"
     t.datetime "initial_due_date"
@@ -158,20 +156,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
     t.datetime "new_due_date"
     t.string "student_email"
     t.datetime "updated_at", null: false
-=======
-    t.string "student_email"
-    t.datetime "initial_due_date"
-    t.datetime "new_due_date"
-    t.bigint "last_processed_by_id"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "external_extension_id"
->>>>>>> main
     t.index ["assignment_id"], name: "index_extensions_on_assignment_id"
     t.index ["last_processed_by_id"], name: "index_extensions_on_last_processed_by_id"
   end
 
-<<<<<<< HEAD
   create_table "faultline_error_contexts", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "error_occurrence_id", null: false
@@ -261,32 +249,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
   create_table "form_settings", force: :cascade do |t|
     t.bigint "course_id", null: false
     t.datetime "created_at", null: false
-=======
-  create_table "form_settings", force: :cascade do |t|
-    t.bigint "course_id", null: false
-    t.text "reason_desc"
-    t.text "documentation_desc"
-    t.enum "documentation_disp", enum_type: "form_display_status"
->>>>>>> main
     t.string "custom_q1"
     t.text "custom_q1_desc"
     t.enum "custom_q1_disp", enum_type: "form_display_status"
     t.string "custom_q2"
     t.text "custom_q2_desc"
     t.enum "custom_q2_disp", enum_type: "form_display_status"
-<<<<<<< HEAD
     t.text "documentation_desc"
     t.enum "documentation_disp", enum_type: "form_display_status"
     t.text "reason_desc"
-=======
-    t.datetime "created_at", null: false
->>>>>>> main
     t.datetime "updated_at", null: false
     t.index ["course_id"], name: "index_form_settings_on_course_id"
   end
 
   create_table "lms_credentials", force: :cascade do |t|
-<<<<<<< HEAD
     t.datetime "created_at", null: false
     t.datetime "expire_time"
     t.string "external_user_id"
@@ -297,23 +273,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.string "username"
-=======
-    t.bigint "user_id"
-    t.string "lms_name"
-    t.string "username"
-    t.string "password"
-    t.string "token"
-    t.string "refresh_token"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "external_user_id"
-    t.datetime "expire_time"
->>>>>>> main
     t.index ["user_id"], name: "index_lms_credentials_on_user_id"
   end
 
   create_table "lmss", force: :cascade do |t|
-<<<<<<< HEAD
     t.datetime "created_at", null: false
     t.string "lms_base_url"
     t.string "lms_name"
@@ -336,30 +299,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
     t.enum "status", default: "pending", null: false, enum_type: "request_status"
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
-=======
-    t.string "lms_name"
-    t.boolean "use_auth_token"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "lms_base_url"
-  end
-
-  create_table "requests", force: :cascade do |t|
-    t.datetime "requested_due_date"
-    t.text "reason"
-    t.text "documentation"
-    t.text "custom_q1"
-    t.text "custom_q2"
-    t.string "external_extension_id"
-    t.bigint "course_id", null: false
-    t.bigint "assignment_id", null: false
-    t.bigint "user_id", null: false
-    t.bigint "last_processed_by_user_id"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.enum "status", default: "pending", null: false, enum_type: "request_status"
-    t.boolean "auto_approved", default: false, null: false
->>>>>>> main
     t.index ["assignment_id"], name: "index_requests_on_assignment_id"
     t.index ["auto_approved"], name: "index_requests_on_auto_approved"
     t.index ["course_id"], name: "index_requests_on_course_id"
