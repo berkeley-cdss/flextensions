@@ -106,6 +106,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
     t.string "gradescope_course_url"
     t.integer "max_auto_approve", default: 0
     t.integer "min_hours_before_deadline", default: 0, null: false
+    t.string "pending_notification_email"
+    t.string "pending_notification_frequency"
     t.string "reply_email"
     t.string "slack_webhook_url"
     t.datetime "updated_at", null: false
@@ -267,7 +269,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
     t.datetime "created_at", null: false
     t.datetime "expire_time"
     t.string "external_user_id"
-    t.string "lms_name"
+    t.bigint "lms_id"
     t.string "password"
     t.string "refresh_token"
     t.string "token"
@@ -332,6 +334,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
   add_foreign_key "faultline_error_occurrences", "faultline_error_groups", column: "error_group_id"
   add_foreign_key "faultline_request_profiles", "faultline_request_traces", column: "request_trace_id", on_delete: :cascade
   add_foreign_key "form_settings", "courses"
+  add_foreign_key "lms_credentials", "lmss"
   add_foreign_key "lms_credentials", "users"
   add_foreign_key "requests", "assignments"
   add_foreign_key "requests", "courses"

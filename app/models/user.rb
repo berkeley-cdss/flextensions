@@ -38,9 +38,8 @@ class User < ApplicationRecord
   has_many :enrollments
   has_many :courses, through: :enrollments
 
-  # TODO: We should probably use lms_id over lms_name
   def canvas_credentials
-    lms_credentials.find_by(lms_name: 'canvas')
+    lms_credentials.find_by(lms_id: Lms.CANVAS_LMS.id)
   end
 
   # Returns a Canvas access token that is valid for at least the next few

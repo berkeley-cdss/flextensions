@@ -13,8 +13,9 @@ RSpec.describe 'lms_credentials:purge', type: :task do
 
   def create_credential(email, lms_name)
     user = User.create!(email: email, canvas_uid: email)
+    lms = Lms.find_by('LOWER(lms_name) = ?', lms_name.downcase) || Lms.create!(lms_name: lms_name)
     user.lms_credentials.create!(
-      lms_name: lms_name,
+      lms: lms,
       token: 'token',
       refresh_token: 'refresh_token',
       expire_time: 1.hour.from_now
