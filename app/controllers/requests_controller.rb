@@ -13,7 +13,7 @@ class RequestsController < ApplicationController
 
   def index
     @side_nav = 'requests'
-    if @course.course_staff?(@user)
+    if @coursestaff_user?(@user)
       scope = @course.requests.includes(:assignment)
       @requests = params[:show_all] == 'true' ? scope : scope.pending
     else
@@ -36,7 +36,7 @@ class RequestsController < ApplicationController
     @side_nav = 'form'
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.has_canvas_linked?
 
-    return new_for_student if @course.course_staff?(@user)
+    return new_for_student if @coursestaff_user?(@user)
 
     redirected = prepare_student_new_request
     render :new unless redirected
@@ -158,7 +158,7 @@ class RequestsController < ApplicationController
   # Staff may act on any request in the course; everyone else is limited to
   # the requests they own.
   def requests_visible_to_user
-    @course.course_staff?(@user) ? @course.requests : @course.requests.for_user(@user)
+    @coursestaff_user?(@user) ? @course.requests : @course.requests.for_user(@user)
   end
 
   # Every request action operates inside a course the user belongs to, so a
@@ -171,7 +171,7 @@ class RequestsController < ApplicationController
 
   # A user is a member of the course if they are staff or an enrolled student.
   def enrolled_in_course?
-    @course.course_staff?(@user) || @course.course_student?(@user)
+    @coursestaff_user?(@user) || @course.course_student?(@user)
   end
 
   def handle_request_error

@@ -130,7 +130,7 @@ class ApplicationController < ActionController::Base
   end
 
   def ensure_instructor_role
-    return if @user && @course&.course_staff?(@user)
+    return if @user && @course&staff_user?(@user)
 
     flash[:alert] = 'You do not have access to this page.'
     redirect_to courses_path
