@@ -69,7 +69,7 @@ RSpec.describe Request, type: :model do
   end
 
   before do
-    UserToCourse.create!(user: user, course: course, role: 'student')
+    Enrollment.create!(user: user, course: course, role: 'student')
     user.lms_credentials.create!(
       lms_name: 'canvas',
       token: 'fake_token',
@@ -323,7 +323,7 @@ RSpec.describe Request, type: :model do
     context 'when student has allow_extended_requests and requests more than auto_approve_days' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7)
-        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+        Enrollment.find_by(user: user, course: course).update!(allow_extended_requests: true)
       end
 
       it 'returns true when within extended request days' do
@@ -340,7 +340,7 @@ RSpec.describe Request, type: :model do
     context 'when student has allow_extended_requests but extended days are disabled (0)' do
       before do
         course_settings.update(auto_approve_days: 2, auto_approve_extended_request_days: 0)
-        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+        Enrollment.find_by(user: user, course: course).update!(allow_extended_requests: true)
       end
 
       it 'falls back to the standard auto_approve_days window' do
@@ -357,7 +357,7 @@ RSpec.describe Request, type: :model do
     context 'when student does not have allow_extended_requests' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7)
-        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: false)
+        Enrollment.find_by(user: user, course: course).update!(allow_extended_requests: false)
       end
 
       it 'returns false when exceeding standard auto_approve_days' do
@@ -374,7 +374,7 @@ RSpec.describe Request, type: :model do
     context 'when student requests exactly the max extended days' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7)
-        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+        Enrollment.find_by(user: user, course: course).update!(allow_extended_requests: true)
       end
 
       it 'returns true at the boundary' do
@@ -396,7 +396,7 @@ RSpec.describe Request, type: :model do
     context 'when user has no enrollment record' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7)
-        UserToCourse.find_by(user: user, course: course).destroy
+        Enrollment.find_by(user: user, course: course).destroy
       end
 
       it 'returns false for all requests' do
@@ -408,7 +408,7 @@ RSpec.describe Request, type: :model do
     context 'when extended student hits max_auto_approve limit' do
       before do
         course_settings.update(auto_approve_days: 3, auto_approve_extended_request_days: 7, max_auto_approve: 1)
-        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+        Enrollment.find_by(user: user, course: course).update!(allow_extended_requests: true)
         described_class.create!(
           user: user,
           course: course,

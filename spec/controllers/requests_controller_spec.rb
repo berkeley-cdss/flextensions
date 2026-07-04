@@ -25,7 +25,7 @@ RSpec.describe RequestsController, type: :controller do
       custom_q1_disp: 'hidden',
       custom_q2_disp: 'hidden'
     )
-    UserToCourse.create!(user: user, course: course, role: 'student')
+    Enrollment.create!(user: user, course: course, role: 'student')
     CourseToLms.create!(course:, lms_id: 1)
 
     user.lms_credentials.create!(
@@ -44,7 +44,7 @@ RSpec.describe RequestsController, type: :controller do
 
     it 'renders instructor request index' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: teacher_course, role: 'teacher') # or use 'ta'
+      Enrollment.create!(user: instructor, course: teacher_course, role: 'teacher') # or use 'ta'
       FormSetting.create!(course: teacher_course, documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden')
       get :index, params: { course_id: teacher_course.id }
 
@@ -54,7 +54,7 @@ RSpec.describe RequestsController, type: :controller do
 
     it 'assigns @search_query from params[:search]' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: teacher_course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: teacher_course, role: 'teacher')
       FormSetting.create!(course: teacher_course, documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden')
 
       get :index, params: { course_id: teacher_course.id, search: '12345', show_all: 'true' }
@@ -64,7 +64,7 @@ RSpec.describe RequestsController, type: :controller do
 
     it 'assigns @search_query as nil when no search param is provided' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: teacher_course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: teacher_course, role: 'teacher')
       FormSetting.create!(course: teacher_course, documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden')
 
       get :index, params: { course_id: teacher_course.id }
@@ -316,7 +316,7 @@ RSpec.describe RequestsController, type: :controller do
   describe 'POST #cancel' do
     before do
       session[:user_id] = user.canvas_uid
-      UserToCourse.create!(user: user, course: course, role: 'student')
+      Enrollment.create!(user: user, course: course, role: 'student')
     end
 
     it 'cancels the request and updates its status to denied' do
@@ -348,7 +348,7 @@ RSpec.describe RequestsController, type: :controller do
   describe 'POST #approve' do
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
       instructor.lms_credentials.create!(
         lms_name: 'canvas',
         token: 'instructor_token',
@@ -420,7 +420,7 @@ RSpec.describe RequestsController, type: :controller do
   describe 'POST #reject' do
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
       FormSetting.create!(course: course, documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden')
     end
 
@@ -484,7 +484,7 @@ RSpec.describe RequestsController, type: :controller do
 
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
       instructor.lms_credentials.create!(
         lms_name: 'canvas',
         token: 'instructor_token',
@@ -550,7 +550,7 @@ RSpec.describe RequestsController, type: :controller do
 
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
     end
 
     it 'rejects selected requests and returns processed IDs' do
@@ -591,7 +591,7 @@ RSpec.describe RequestsController, type: :controller do
 
     before do
       session[:user_id] = user.canvas_uid
-      UserToCourse.create!(user: user, course: course, role: 'student')
+      Enrollment.create!(user: user, course: course, role: 'student')
 
       # Configure course settings for auto-approval
       course.course_settings.update!(
@@ -693,7 +693,7 @@ RSpec.describe RequestsController, type: :controller do
 
     before do
       session[:user_id] = user.canvas_uid
-      UserToCourse.create!(user: user, course: course, role: 'student')
+      Enrollment.create!(user: user, course: course, role: 'student')
 
       # Configure course settings for auto-approval
       course.course_settings.update!(
@@ -830,7 +830,7 @@ RSpec.describe RequestsController, type: :controller do
         Request.create!(user: other_student, course: course, assignment: assignment, reason: 'Theirs', requested_due_date: 3.days.from_now)
       end
 
-      before { UserToCourse.create!(user: other_student, course: course, role: 'student') }
+      before { Enrollment.create!(user: other_student, course: course, role: 'student') }
 
       it 'is not viewable via #show' do
         get :show, params: { course_id: course.id, id: others_request.id }
@@ -866,7 +866,7 @@ RSpec.describe RequestsController, type: :controller do
 
       before do
         session[:user_id] = instructor.canvas_uid
-        UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
       end
 
       it 'rejects filing on behalf of a student who is not enrolled in the course' do
@@ -903,7 +903,7 @@ RSpec.describe RequestsController, type: :controller do
       end
 
       it 'creates a request for an enrolled student' do
-        UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
+        Enrollment.create!(user: enrolled_student, course: course, role: 'student')
 
         post :create_for_student, params: {
           course_id: course.id,
@@ -920,7 +920,7 @@ RSpec.describe RequestsController, type: :controller do
       end
 
       it 'treats an assignment from another course as an invalid request' do
-        UserToCourse.create!(user: enrolled_student, course: course, role: 'student')
+        Enrollment.create!(user: enrolled_student, course: course, role: 'student')
 
         post :create_for_student, params: {
           course_id: course.id,
