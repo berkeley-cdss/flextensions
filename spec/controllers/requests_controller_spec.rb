@@ -88,7 +88,7 @@ RSpec.describe RequestsController, type: :controller do
 
     it 'renders the on-behalf-of form for staff' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
 
       get :new, params: { course_id: course.id }
 
@@ -942,7 +942,7 @@ RSpec.describe RequestsController, type: :controller do
 
   describe 'staff-only actions' do
     before do
-      UserToCourse.create!(user: user, course: course, role: 'student')
+      Enrollment.create!(user: user, course: course, role: 'student')
     end
 
     it 'forbids a student from approving a request' do
@@ -999,7 +999,7 @@ RSpec.describe RequestsController, type: :controller do
     it 'still allows staff when extensions are disabled' do
       course.course_settings.update!(enable_extensions: false)
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
 
       get :index, params: { course_id: course.id }
 
