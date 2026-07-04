@@ -89,6 +89,8 @@ class ApplicationController < ActionController::Base
     @pending_requests_count = @course.requests.where(status: 'pending').count
   end
 
+
+  protected
   # Renders a view based on user role, defaulting to current controller and action.
   #
   # You can override the controller or action like so:
@@ -111,8 +113,6 @@ class ApplicationController < ActionController::Base
       redirect_to courses_path, alert: 'You do not have access to this view.'
     end
   end
-
-  protected
 
   def set_course
     @course = Course.find_by(id: params[:course_id])
