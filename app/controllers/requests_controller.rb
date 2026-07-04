@@ -15,7 +15,7 @@ class RequestsController < ApplicationController
 
   def index
     @side_nav = 'requests'
-    if @course.course_staff?(@user)
+    if @course.staff?(@user)
       scope = @course.requests.includes(:assignment)
       @requests = params[:show_all] == 'true' ? scope : scope.pending
     else
@@ -41,7 +41,7 @@ class RequestsController < ApplicationController
     course_to_lms_ids = @course.all_linked_lmss.pluck(:id)
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless course_to_lms_ids.any?
 
-    return new_for_students if @course.course_staff?(@user)
+    return new_for_students if @course.staff?(@user)
 
     redirected = prepare_student_new_request
     render :new unless redirected
@@ -176,13 +176,13 @@ class RequestsController < ApplicationController
   # Staff may act on any request in the course; everyone else is limited to
   # the requests they own.
   def requests_visible_to_user
-    @course.course_staff?(@user) ? @course.requests : @course.requests.for_user(@user)
+    @course.staff?(@user) ? @course.requests : @course.requests.for_user(@user)
   end
 
   # Staff-only actions (approve/reject and their mass variants). @role is left
   # to the view layer; access decisions ask the course directly.
   def require_course_staff
-    return if @course.course_staff?(@user)
+    return if @course.staff?(@user)
 
     redirect_to course_path(@course), alert: 'You do not have permission to perform this action.'
   end
@@ -262,7 +262,7 @@ class RequestsController < ApplicationController
 
   # A user must be enrolled (as staff or a student) to reach the request forms.
   def enrolled_in_course?
-    @course.course_staff?(@user) || @course.course_student?(@user)
+    @course.staff?(@user) || @course.course_student?(@user)
   end
 
   # Prepares and renders the form staff use to submit a request on behalf of a

@@ -1,6 +1,8 @@
 class CoursesController < ApplicationController
   before_action :authenticate_user
   before_action :set_course, only: %i[show edit sync_assignments sync_enrollments enrollments delete]
+  # Currently exclude routes that expect JSON.
+  before_action :require_instructor_role!, only: %i[edit enrollments delete]
   before_action :set_pending_request_count
   before_action :determine_user_role
 
@@ -63,7 +65,6 @@ class CoursesController < ApplicationController
 
   def edit
     @side_nav = 'edit'
-    redirect_to course_path(@course.id), alert: 'You do not have access to this page.' unless @role == 'instructor'
   end
 
   def create
@@ -83,7 +84,7 @@ class CoursesController < ApplicationController
 
   def sync_enrollments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
-    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.course_staff?(@user)
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.staff?(@user)
 
     @course.sync_all_enrollments_from_canvas(@user.id)
     render json: { message: 'Users synced successfully.' }, status: :ok
@@ -91,15 +92,11 @@ class CoursesController < ApplicationController
 
   def enrollments
     @side_nav = 'enrollments'
-    return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
-
     @enrollments = @course.enrollments.includes(:user)
-    @is_course_admin = @course.course_admin?(@user)
     @enrollments_last_synced_at = enrollments_last_synced_at
   end
 
   def delete
-    return redirect_to courses_path, alert: 'You do not have access to this page.' unless @role == 'instructor'
     return redirect_to courses_path, alert: 'Extensions are enabled for this course.' if @course.requests_enabled?
 
     assignments = @course.assignments
@@ -140,11 +137,6 @@ class CoursesController < ApplicationController
   def set_course
     @course = Course.find_by(id: params[:id])
     redirect_to courses_path, alert: 'Course not found.' unless @course
-  end
-
-  def determine_user_role
-    @role = @course&.user_role(@user)
-    @is_course_admin = @course&.course_admin?(@user) || false
   end
 
   # Groups Enrollment records by their course's semester, sorted most-recent-first.

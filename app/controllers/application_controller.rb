@@ -119,18 +119,14 @@ class ApplicationController < ActionController::Base
   def set_course
     @course = Course.find_by(id: params[:course_id])
     if @course.nil?
-      flash[:alert] = 'Course not found.'
-      redirect_to courses_path
-      return
+      redirect_to courses_path, alert: 'Course not found.' and return
     end
-    @role = @course.user_role(@user) if @user
   end
 
   def require_instructor_role!
     return unless @course && current_user
     return if @course.staff_user?(current_user)
 
-    flash[:alert] = 'You do not have access to this page.'
-    redirect_to courses_path
+    redirect_to courses_path, alert: 'You do not have access to this page.'
   end
 end

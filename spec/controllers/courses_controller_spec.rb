@@ -411,11 +411,6 @@ RSpec.describe CoursesController, type: :controller do
         enrollment_user_ids = assigns(:enrollments).map(&:user_id)
         expect(enrollment_user_ids).to include(user.id)
       end
-
-      it 'sets @is_course_admin to true' do
-        get :enrollments, params: { id: course.id }
-        expect(assigns(:is_course_admin)).to be true
-      end
     end
 
     context 'when user is a TA (staff but not course admin)' do
@@ -429,11 +424,6 @@ RSpec.describe CoursesController, type: :controller do
         expect(response).to have_http_status(:ok)
         expect(response).to render_template(:enrollments)
         expect(assigns(:enrollments)).not_to be_nil
-      end
-
-      it 'sets @is_course_admin to false' do
-        get :enrollments, params: { id: course.id }
-        expect(assigns(:is_course_admin)).to be false
       end
     end
 

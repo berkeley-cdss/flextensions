@@ -3,7 +3,7 @@ class AssignmentsController < ApplicationController
     @assignment = Assignment.find(params[:id])
     course = @assignment.course_to_lms.course
 
-    unless course&.course_staff?(current_user)
+    unless course&.staff?(current_user)
       flash.now[:alert] = 'You do not have permission to perform this action.'
       return render json: { redirect_to: course_path(course) }, status: :forbidden
     end
