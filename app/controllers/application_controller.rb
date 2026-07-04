@@ -77,6 +77,8 @@ class ApplicationController < ActionController::Base
 
   def handle_lms_api_error(error)
     Rails.logger.error "LMS API Error: #{error.message}"
+    Rails.error.report(error, handled: true,
+                       context: { component: 'lms_api', controller: controller_name, action: action_name })
     # Truncate to 1K characters so we are well short of cookie limits.
     error_message = error.message.truncate(1000)
     flash[:alert] = "An error occurred while communicating with the LMS. Please reach out to flextension@berkeley.edu if you continue to have trouble. Error: #{error_message}"

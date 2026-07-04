@@ -76,6 +76,8 @@ class LmsCredential < ApplicationRecord
       destroy
     else
       Rails.logger.error "Failed to refresh #{lms_name} token for user #{user_id}: #{e.message}"
+      Rails.error.report(e, handled: true,
+                         context: { component: 'token_refresh', lms: lms_name, user_id: user_id })
     end
     nil
   end

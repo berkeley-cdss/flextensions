@@ -57,6 +57,9 @@ gem 'omniauth-oauth2'
 # Audit for potentially unsafe database migrations
 gem 'strong_migrations'
 
+# Self-hosted error tracking.
+gem 'faultline', git: 'https://github.com/dlt/faultline.git'
+
 # Logging Customization
 gem 'lograge'
 
