@@ -13,7 +13,10 @@ RSpec.describe 'lms_credentials:purge', type: :task do
 
   def create_credential(email, lms_name)
     user = User.create!(email: email, canvas_uid: email)
-    lms = Lms.find_by('LOWER(lms_name) = ?', lms_name.downcase) || Lms.create!(lms_name: lms_name)
+    # Explicit id: the seeded Lms rows use fixed ids without advancing the
+    # sequence, so a sequence-assigned id would collide with them.
+    lms = Lms.find_by('LOWER(lms_name) = ?', lms_name.downcase) ||
+          Lms.create!(id: (Lms.maximum(:id) || 0) + 1, lms_name: lms_name)
     user.lms_credentials.create!(
       lms: lms,
       token: 'token',
