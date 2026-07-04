@@ -2,10 +2,10 @@
 	<div class="row">
 		<div class="col-12">
 			<%= render "courses/course_title" %>
-			<h1 class="sr-only">Edit Form Settings</h1>
-			
+			<h1 class="visually-hidden">Edit Form Settings</h1>
+
 			<%= render "shared/extension_status_warning", course: @course %>
-			
+
 			<div class="card dark-form-section rounded-0 mb-4">
 				<div class="card-header">
 					<h2 class="card-title mb-0 h5">Form Settings</h2>
@@ -36,7 +36,7 @@
 					</div>
 				</div>
 			</div>
-						
+
 		<%= form_with(model: [@course, @form_setting], url: course_form_setting_path(@course), method: :patch, local: true) do |f| %>
 			<% if @form_setting.errors.any? %>
 				<div id="error_explanation" class="alert alert-danger">
@@ -58,8 +58,8 @@
 					<%= f.text_area :reason_desc, class: "form-control", id: "form_setting_reason_desc" %>
 				</div>
 			</div>
-			
-			
+
+
 			<div class="card dark-form-section rounded-0 mb-4">
 				<div class="card-header">
 					<h2 class="card-title mb-0 h5">Additional Documentation</h2>
@@ -72,12 +72,12 @@
 									<label for="form_setting_documentation_disp" class="form-label accessible-text">Display</label>
 								</div>
 								<div class="col-8">
-									<%= f.select :documentation_disp, 
-										options_for_select([["Required", "required"], 
-															["Optional", "optional"], 
-															["Hidden", "hidden"]], @form_setting.documentation_disp.presence || 'hidden'), 
-										{}, 
-										class: "form-select", 
+									<%= f.select :documentation_disp,
+										options_for_select([["Required", "required"],
+															["Optional", "optional"],
+															["Hidden", "hidden"]], @form_setting.documentation_disp.presence || 'hidden'),
+										{},
+										class: "form-select",
 										id: "form_setting_documentation_disp" %>
 								</div>
 							</div>
@@ -101,12 +101,12 @@
 									<label for="form_setting_custom_q1_disp" class="form-label accessible-text">Display</label>
 								</div>
 								<div class="col-8">
-									<%= f.select :custom_q1_disp, 
-										options_for_select([["Required", "required"], 
-															["Optional", "optional"], 
-															["Hidden", "hidden"]], @form_setting.custom_q1_disp.presence || 'hidden'), 
-										{}, 
-										class: "form-select", 
+									<%= f.select :custom_q1_disp,
+										options_for_select([["Required", "required"],
+															["Optional", "optional"],
+															["Hidden", "hidden"]], @form_setting.custom_q1_disp.presence || 'hidden'),
+										{},
+										class: "form-select",
 										id: "form_setting_custom_q1_disp" %>
 								</div>
 							</div>
@@ -131,12 +131,12 @@
 									<label for="form_setting_custom_q2_disp" class="form-label accessible-text">Display</label>
 								</div>
 								<div class="col-8">
-									<%= f.select :custom_q2_disp, 
-										options_for_select([["Required", "required"], 
-															["Optional", "optional"], 
-															["Hidden", "hidden"]], @form_setting.custom_q2_disp.presence || 'hidden'), 
-										{}, 
-										class: "form-select", 
+									<%= f.select :custom_q2_disp,
+										options_for_select([["Required", "required"],
+															["Optional", "optional"],
+															["Hidden", "hidden"]], @form_setting.custom_q2_disp.presence || 'hidden'),
+										{},
+										class: "form-select",
 										id: "form_setting_custom_q2_disp" %>
 								</div>
 							</div>
@@ -148,7 +148,7 @@
 					<%= f.text_area :custom_q2_desc, class: "form-control", id: "form_setting_custom_q2_desc" %>
 				</div>
 			</div>
-			
+
 			<div class="text-center mb-4">
 				<%= f.submit 'Update', class: "btn btn-success" %>
 			</div>

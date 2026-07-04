@@ -2,7 +2,7 @@
   <div class="row justify-content-center">
     <div class="col-12">
       <%= render "courses/course_title" %>
-      <h1 class="sr-only">Edit Extension Request</h1>
+      <h1 class="visually-hidden">Edit Extension Request</h1>
 
       <div class="card mb-4 rounded-0">
         <div class="card-header bg-light">
@@ -51,7 +51,7 @@
                     }
                   }
                 %>
-              
+
               <div class="row">
                 <div class="col-md-6 mb-2">
                   <p><strong>Original Due Date: </strong><span id="due-date"><%= @selected_assignment.due_date.strftime('%a, %b %-d, %Y %-I:%M%P') if @selected_assignment %></span></p>
@@ -73,7 +73,7 @@
                     class: "form-control",
                     id: "edit-request-requested-due-date",
                     required: true,
-                    data: { 
+                    data: {
                       extension_form_target: "dueDateInput",
                       "original-due-date" => (@selected_assignment.due_date.strftime('%Y-%m-%d') if @selected_assignment),
                       action: "input->extension-form#updateDays"
@@ -95,8 +95,8 @@
               <% end %>
               <div class="form-group">
                 <%= f.label :reason, "Reason for Extension", for: "reason", class: "form-label" %>
-                <%= f.text_area :reason, class: "form-control", id: "reason", rows: 3, required: true, 
-                               aria: { describedby: @form_settings.reason_desc.present? ? "reason-desc" : nil, 
+                <%= f.text_area :reason, class: "form-control", id: "reason", rows: 3, required: true,
+                               aria: { describedby: @form_settings.reason_desc.present? ? "reason-desc" : nil,
                                       labelledby: "reason-heading" } %>
               </div>
             </div>
@@ -112,14 +112,14 @@
                 <% end %>
                 <div class="form-group">
                   <%= f.label :documentation, "Additional Documentation", for: "documentation", class: "form-label" %>
-                  <%= f.text_area :documentation, class: "form-control", id: "documentation", rows: 3, 
-                                 required: (@form_settings.documentation_disp == 'required'), 
-                                 aria: { describedby: @form_settings.documentation_desc.present? ? "documentation-desc" : nil, 
+                  <%= f.text_area :documentation, class: "form-control", id: "documentation", rows: 3,
+                                 required: (@form_settings.documentation_disp == 'required'),
+                                 aria: { describedby: @form_settings.documentation_desc.present? ? "documentation-desc" : nil,
                                         labelledby: "documentation-heading" } %>
                 </div>
               </div>
             <% end %>
-            
+
             <% if ['required', 'optional'].include?(@form_settings.custom_q1_disp) && @form_settings.custom_q1.present? %>
               <div class="mb-4">
                 <h6 class="mb-2">

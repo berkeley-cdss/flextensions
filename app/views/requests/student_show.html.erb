@@ -2,8 +2,8 @@
 	<div class="row justify-content-center">
 		<div class="col-12">
 			<%= render "courses/course_title" %>
-			<h1 class="sr-only">Extension Request Details</h1>
-			
+			<h1 class="visually-hidden">Extension Request Details</h1>
+
 			<div class="card mb-4 rounded-0">
 				<div class="card-header bg-light d-flex justify-content-between">
 					<h2 class="mb-0 bg-blue h5">Extension Request Details</h2>
@@ -88,7 +88,7 @@
 							</div>
 						</div>
 					<% end %>
-					
+
 					<!-- Display Custom Question 1 if applicable -->
 					<% if ['required', 'optional'].include?(@form_settings.custom_q1_disp) && @form_settings.custom_q1.present? %>
 						<div class="mb-4">
@@ -101,7 +101,7 @@
 							</div>
 						</div>
 					<% end %>
-					
+
 					<!-- Display Custom Question 2 if applicable -->
 					<% if ['required', 'optional'].include?(@form_settings.custom_q2_disp) && @form_settings.custom_q2.present? %>
 						<div class="mb-4">
