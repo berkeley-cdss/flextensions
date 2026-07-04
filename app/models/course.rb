@@ -150,11 +150,20 @@ class Course < ApplicationRecord
   # end
 
   def canvas_id
-    CourseToLms.find_by(course_id: id, lms_id: CANVAS_LMS_ID)&.external_course_id
+    external_course_id_for(CANVAS_LMS_ID)
   end
 
   def gradescope_id
-    CourseToLms.find_by(course_id: id, lms_id: GRADESCOPE_LMS_ID)&.external_course_id
+    external_course_id_for(GRADESCOPE_LMS_ID)
+  end
+
+  # Returns the external course id for the given LMS. A course should have at
+  # most one link per LMS, but when several exist we deterministically prefer a
+  # link that actually carries an external id (ordered by id) so callers never
+  # get an arbitrary nil back.
+  def external_course_id_for(lms_id)
+    links = CourseToLms.where(course_id: id, lms_id: lms_id).order(:id)
+    (links.where.not(external_course_id: nil).first || links.first)&.external_course_id
   end
 
   # TODO: Add specs for these 3 simple methods

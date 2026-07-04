@@ -33,6 +33,8 @@
 #  fk_rails_...  (last_processed_by_user_id => users.id)
 #  fk_rails_...  (user_id => users.id)
 #
+require 'csv'
+
 class Request < ApplicationRecord
   belongs_to :course
   belongs_to :assignment
@@ -42,6 +44,7 @@ class Request < ApplicationRecord
   delegate :form_setting, to: :course, allow_nil: true
   validates :requested_due_date, :reason, presence: true
 
+  scope :pending, -> { where(status: 'pending') }
   scope :for_user, ->(user) { where(user: user).includes(:assignment) }
   scope :approved_for_user_in_course, lambda { |user, course|
     where(user: user, course: course, status: 'approved')
@@ -49,6 +52,21 @@ class Request < ApplicationRecord
   scope :auto_approved_for_user_in_course, lambda { |user, course|
     where(user: user, course: course, status: 'approved', auto_approved: true)
   }
+
+  def pending?
+    status == 'pending'
+  end
+
+  # Provisions the extension for this request through the assignment's LMS,
+  # acting on behalf of acting_user. Returns false when the assignment has no
+  # LMS facade. Shared by the single approve action and mass-approval so the
+  # facade lookup lives on the model rather than in the controller.
+  def approve_by(acting_user)
+    facade = assignment&.lms_facade
+    return false unless facade
+
+    approve(facade.from_user(acting_user), acting_user)
+  end
 
   # Class methods
   def self.merge_date_and_time!(request_params)

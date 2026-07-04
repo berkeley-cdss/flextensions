@@ -44,7 +44,7 @@ Rails.application.routes.draw do
         post :create_for_student
         post :mass_approve
         post :mass_reject
-        get :export, defaults: { format: :csv }
+        get :export, to: 'requests/exports#show', defaults: { format: :csv }
       end
     end
     resources :enrollments, only: [] do

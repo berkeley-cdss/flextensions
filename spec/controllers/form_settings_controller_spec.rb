@@ -24,6 +24,7 @@ RSpec.describe FormSettingsController, type: :controller do
   before do
     session[:user_id] = user.canvas_uid
     allow_any_instance_of(Course).to receive(:user_role).and_return('instructor')
+    allow_any_instance_of(Course).to receive(:course_staff?).and_return(true)
     course.create_form_setting!(
       documentation_disp: 'hidden',
       custom_q1_disp: 'optional',
@@ -116,6 +117,7 @@ RSpec.describe FormSettingsController, type: :controller do
     context 'when user is a student' do
       before do
         allow_any_instance_of(Course).to receive(:user_role).and_return('student')
+        allow_any_instance_of(Course).to receive(:course_staff?).and_return(false)
       end
 
       it 'denies access and redirects to courses path' do
