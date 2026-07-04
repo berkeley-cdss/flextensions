@@ -33,12 +33,13 @@ class RequestsController < ApplicationController
 
   def new
     @side_nav = 'form'
-    return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.has_canvas_linked?
-
-    return new_for_student if @course.staff_user?(current_user)
-
-    redirected = prepare_student_new_request
-    render :new unless redirected
+    if @course.staff_user?(current_user)
+      prepare_instructor_new_request
+      render :new_for_student
+    else
+      redirected = prepare_student_new_request
+      render :new unless redirected
+    end
   end
 
   def edit
@@ -65,19 +66,29 @@ class RequestsController < ApplicationController
   end
 
   def create_for_student
+    @side_nav = 'form'
+    prepare_instructor_new_request
     student = User.find_by(id: params[:request][:user_id])
-    return redirect_to new_course_request_path(@course), alert: 'Student is not enrolled in this course.' unless student_enrolled_in_course?(student)
+
+    unless @course.student_user?(student)
+      return render :new_for_student, alert: 'The selected student is not enrolled in this course.'
+    end
 
     Request.merge_date_and_time!(params[:request])
-    @request = @course.requests.new(request_params.merge(user: student))
-    return render_new_for_student_error unless assignment_in_course?(@request.assignment_id)
+    @request.assign_attributes(request_params.merge(user: student))
+    unless @course.enabled_assignments.exists?(id: @request.assignment_id)
+      return render :new_for_student,
+                    alert: 'The selected assignment is not enabled or in this course.'
+    end
 
+    # TODO: Move this logic or remove it. (Shouldn't instructors just edit or reject the existing request instead of creating a new one?)
     reject_other_student_requests(student, @request.assignment_id)
 
     if @request.save
       handle_successful_student_request(student)
     else
-      render_new_for_student_error
+      render :new_for_student,
+              alert: "There was a problem submitting the request. #{@request.errors.full_messages.join(', ')}"
     end
   end
 
@@ -198,15 +209,6 @@ class RequestsController < ApplicationController
     @course.assignments.exists?(id: assignment_id)
   end
 
-  # Confirms the target student is actually enrolled in this course before an
-  # instructor can file a request on their behalf. A missing student (bad or
-  # absent user_id) is simply not enrolled.
-  def student_enrolled_in_course?(student)
-    return false unless student
-
-    @course.student_user?(student)
-  end
-
   # Runs after set_request, so @request is already loaded and scoped; a missing
   # request has already been redirected as "not found" by set_request.
   def ensure_request_is_pending
@@ -230,15 +232,6 @@ class RequestsController < ApplicationController
       # rule 1: not enrolled in this course at all.
       redirect_to course_path(@course), alert: 'You do not have access to this page.'
     end
-  end
-
-  # Prepares and renders the form staff use to submit a request on behalf of a
-  # student. Not a routed action -- it is reached only from #new once the
-  # caller has been confirmed as course staff and the course has a linked LMS.
-  def new_for_student
-    @side_nav = 'form'
-    prepare_instructor_new_request
-    render :new_for_student
   end
 
   def prepare_instructor_new_request
@@ -269,12 +262,6 @@ class RequestsController < ApplicationController
   def handle_successful_student_request(student)
     result = @request.process_created_request(current_user)
     redirect_to result[:redirect_to], notice: "Request created for #{student.name}. #{result[:notice]}"
-  end
-
-  def render_new_for_student_error
-    prepare_instructor_new_request
-    flash.now[:alert] = 'There was a problem submitting the request.'
-    render :new_for_student
   end
 
   def process_mass_action(action)
