@@ -1,9 +1,9 @@
 class AssignmentsController < ApplicationController
   def toggle_enabled
     @assignment = Assignment.find(params[:id])
-    course = @assignment.course_to_lms.course
+    course = @assignment.course
 
-    unless course&staff_user?(current_user)
+    unless course.staff_user?(current_user)
       flash.now[:alert] = 'You do not have permission to perform this action.'
       return render json: { redirect_to: course_path(course) }, status: :forbidden
     end

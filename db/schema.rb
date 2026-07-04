@@ -131,6 +131,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
     t.string "course_code"
     t.string "course_name"
     t.datetime "created_at", null: false
+    t.boolean "demo_course", default: false, null: false
     t.string "readonly_api_token"
     t.string "semester"
     t.datetime "updated_at", null: false

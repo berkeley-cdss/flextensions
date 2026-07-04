@@ -61,4 +61,30 @@ RSpec.describe Enrollment, type: :model do
       expect(enrollment.display_role).to eq('Lead TA')
     end
   end
+
+  describe '.keep_highest_role' do
+    let(:user) { create(:user) }
+    let(:course) { create(:course) }
+
+    it 'keeps only the highest-ranked role when a user has several in one course' do
+      create(:enrollment, user: user, course: course, role: 'ta')
+      create(:enrollment, user: user, course: course, role: 'teacher')
+
+      result = described_class.where(user: user, course: course).keep_highest_role
+
+      expect(result.map(&:role)).to eq([ 'teacher' ])
+    end
+
+    it 'keeps one enrollment per course' do
+      other_course = create(:course)
+      create(:enrollment, user: user, course: course, role: 'ta')
+      create(:enrollment, user: user, course: course, role: 'leadta')
+      create(:enrollment, user: user, course: other_course, role: 'student')
+
+      result = described_class.where(user: user).keep_highest_role
+
+      expect(result.map(&:course_id)).to contain_exactly(course.id, other_course.id)
+      expect(result.find { |e| e.course_id == course.id }.role).to eq('leadta')
+    end
+  end
 end

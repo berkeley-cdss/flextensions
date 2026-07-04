@@ -24,9 +24,9 @@ class ApplicationController < ActionController::Base
   helper_method :current_user
   def current_user
     if defined?(@current_user)
-  @current_user
+      @current_user
     else
-  @current_user = User.find_by(canvas_uid: session[:user_id])
+      @current_user = User.find_by(canvas_uid: session[:user_id])
     end
     # TODO: Remove this line after refactoring all auth methods,
     # and remove other instances of @user in controllers + views
@@ -86,13 +86,13 @@ class ApplicationController < ActionController::Base
   end
 
   def set_pending_request_count
-    return unless defined?(@course) && @course.present? && defined?(@user) && @user.present?
-    # only calculating pending requests count if the role is instructor so we don't show it to students
-    return unless @course.user_role(@user) == 'instructor'
+    return unless @course.present? && current_user.present? && @course.staff_user?(current_user)
 
     @pending_requests_count = @course.requests.where(status: 'pending').count
   end
 
+
+  protected
   # Renders a view based on user role, defaulting to current controller and action.
   #
   # You can override the controller or action like so:
@@ -107,32 +107,26 @@ class ApplicationController < ActionController::Base
     instructor_view = "#{ctrl}/instructor_#{act}"
     student_view = "#{ctrl}/student_#{act}"
 
-    case @role
-    when 'instructor'
+    if @course.staff_user?(current_user)
       render instructor_view
-    when 'student'
+    elsif @course.student_user?(current_user)
       render student_view
     else
       redirect_to courses_path, alert: 'You do not have access to this view.'
     end
   end
 
-  protected
-
   def set_course
     @course = Course.find_by(id: params[:course_id])
     if @course.nil?
-      flash[:alert] = 'Course not found.'
-      redirect_to courses_path
-      return
+      redirect_to courses_path, alert: 'Course not found.' and return
     end
-    @role = @course.user_role(@user) if @user
   end
 
-  def ensure_instructor_role
-    return if @user && @course&staff_user?(@user)
+  def require_course_staff!
+    return unless @course && current_user
+    return if @course.staff_user?(current_user)
 
-    flash[:alert] = 'You do not have access to this page.'
-    redirect_to courses_path
+    redirect_to courses_path, alert: 'You do not have access to this page.'
   end
 end
