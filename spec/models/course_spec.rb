@@ -105,42 +105,50 @@ RSpec.describe Course, type: :model do
   end
 
   describe '#staff_user_for_auto_approval' do
-    it 'returns the correct user for auto approval' do
-      course = described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101')
-      user = User.create!(email: 'test@example.com', canvas_uid: '123')
-      user.lms_credentials.create!(
-        lms_name: 'canvas',
-        token: 'valid_token',
-        refresh_token: 'refresh_token',
-        expire_time: 1.hour.from_now
-      )
-      Enrollment.create!(user: user, course: course, role: 'ta')
+    let(:course) { described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101') }
 
-      staff_user = course.staff_user_for_auto_approval
-      expect(staff_user).to eq(user)
+    def create_staff(email, canvas_uid, role, with_credentials: true)
+      user = User.create!(email: email, canvas_uid: canvas_uid)
+      if with_credentials
+        user.lms_credentials.create!(
+          lms_name: 'canvas',
+          token: 'valid_token',
+          refresh_token: 'refresh_token',
+          expire_time: 1.hour.from_now
+        )
+      end
+      Enrollment.create!(user: user, course: course, role: role)
+      user
     end
 
-    it 'skips staff users without Canvas credentials' do
-      course = described_class.create!(canvas_id: 'canvas_124', course_name: 'Test', course_code: 'TEST101')
-      synced_ta = User.create!(email: 'synced_ta@example.com', canvas_uid: '124')
-      Enrollment.create!(user: synced_ta, course: course, role: 'ta')
+    it 'returns a staff user who has Canvas credentials' do
+      user = create_staff('test@example.com', '123', 'ta')
 
-      instructor = User.create!(email: 'instructor2@example.com', canvas_uid: '125')
-      instructor.lms_credentials.create!(
-        lms_name: 'canvas',
-        token: 'valid_token',
-        refresh_token: 'refresh_token',
-        expire_time: 1.hour.from_now
-      )
-      Enrollment.create!(user: instructor, course: course, role: 'teacher')
+      expect(course.staff_user_for_auto_approval).to eq(user)
+    end
 
-      expect(course.staff_user_for_auto_approval).to eq(instructor)
+    it 'skips staff without Canvas credentials, such as users synced from the Canvas roster' do
+      create_staff('synced-ta@example.com', '124', 'ta', with_credentials: false)
+      credentialed = create_staff('logged-in-teacher@example.com', '125', 'teacher')
+
+      expect(course.staff_user_for_auto_approval).to eq(credentialed)
+    end
+
+    it 'ignores non-Canvas credentials' do
+      user = create_staff('other-lms@example.com', '126', 'ta', with_credentials: false)
+      user.lms_credentials.create!(lms_name: 'other_lms', token: 't', refresh_token: 'r', expire_time: 1.hour.from_now)
+
+      expect(course.staff_user_for_auto_approval).to be_nil
     end
 
     it 'returns nil when no staff user has Canvas credentials' do
-      course = described_class.create!(canvas_id: 'canvas_125', course_name: 'Test', course_code: 'TEST101')
-      synced_ta = User.create!(email: 'synced_ta2@example.com', canvas_uid: '126')
-      Enrollment.create!(user: synced_ta, course: course, role: 'ta')
+      create_staff('synced-ta@example.com', '127', 'ta', with_credentials: false)
+
+      expect(course.staff_user_for_auto_approval).to be_nil
+    end
+
+    it 'ignores students with Canvas credentials' do
+      create_staff('student@example.com', '128', 'student')
 
       expect(course.staff_user_for_auto_approval).to be_nil
     end
