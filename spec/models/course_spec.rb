@@ -103,7 +103,7 @@ RSpec.describe Course, type: :model do
     it 'skips staff users without Canvas credentials' do
       course = described_class.create!(canvas_id: 'canvas_124', course_name: 'Test', course_code: 'TEST101')
       synced_ta = User.create!(email: 'synced_ta@example.com', canvas_uid: '124')
-      UserToCourse.create!(user: synced_ta, course: course, role: 'ta')
+      Enrollment.create!(user: synced_ta, course: course, role: 'ta')
 
       instructor = User.create!(email: 'instructor2@example.com', canvas_uid: '125')
       instructor.lms_credentials.create!(
@@ -112,7 +112,7 @@ RSpec.describe Course, type: :model do
         refresh_token: 'refresh_token',
         expire_time: 1.hour.from_now
       )
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
 
       expect(course.staff_user_for_auto_approval).to eq(instructor)
     end
@@ -120,7 +120,7 @@ RSpec.describe Course, type: :model do
     it 'returns nil when no staff user has Canvas credentials' do
       course = described_class.create!(canvas_id: 'canvas_125', course_name: 'Test', course_code: 'TEST101')
       synced_ta = User.create!(email: 'synced_ta2@example.com', canvas_uid: '126')
-      UserToCourse.create!(user: synced_ta, course: course, role: 'ta')
+      Enrollment.create!(user: synced_ta, course: course, role: 'ta')
 
       expect(course.staff_user_for_auto_approval).to be_nil
     end
@@ -133,14 +133,14 @@ RSpec.describe Course, type: :model do
         lms_name: 'canvas', token: 'stale', refresh_token: 'stale',
         expire_time: 6.months.ago, updated_at: 6.months.ago
       )
-      UserToCourse.create!(user: idle_ta, course: course, role: 'ta')
+      Enrollment.create!(user: idle_ta, course: course, role: 'ta')
 
       active_teacher = User.create!(email: 'active_teacher@example.com', canvas_uid: '128')
       active_teacher.lms_credentials.create!(
         lms_name: 'canvas', token: 'fresh', refresh_token: 'fresh',
         expire_time: 1.hour.from_now
       )
-      UserToCourse.create!(user: active_teacher, course: course, role: 'teacher')
+      Enrollment.create!(user: active_teacher, course: course, role: 'teacher')
 
       expect(course.staff_users_for_auto_approval).to eq([ active_teacher, idle_ta ])
     end
@@ -156,23 +156,23 @@ RSpec.describe Course, type: :model do
     end
   end
 
-  describe '#extensions_enabled?' do
+  describe '#requests_enabled?' do
     let(:course) { described_class.create!(canvas_id: 'canvas_ext', course_name: 'Test', course_code: 'TEST101') }
 
     it 'is false when the course has no settings (fails closed)' do
-      expect(course.extensions_enabled?).to be(false)
+      expect(course.requests_enabled?).to be(false)
     end
 
     it 'is true when the settings enable extensions' do
       CourseSettings.create!(course: course, enable_extensions: true)
 
-      expect(course.extensions_enabled?).to be(true)
+      expect(course.requests_enabled?).to be(true)
     end
 
     it 'is false when the settings disable extensions' do
       CourseSettings.create!(course: course, enable_extensions: false)
 
-      expect(course.extensions_enabled?).to be(false)
+      expect(course.requests_enabled?).to be(false)
       end
   end
 

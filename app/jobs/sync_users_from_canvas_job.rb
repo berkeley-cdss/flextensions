@@ -46,8 +46,8 @@ class SyncUsersFromCanvasJob < ApplicationJob
                                            .where(course_id: course.id, role: role)
                                            .select('enrollments.*, users.canvas_uid')
 
-    enrollments_to_remove = existing_role_enrollments.reject do |utc|
-      current_canvas_user_ids.include?(utc.canvas_uid)
+    enrollments_to_remove = existing_role_enrollments.reject do |enrollment|
+      current_canvas_user_ids.include?(enrollment.canvas_uid)
     end
 
     if enrollments_to_remove.any?

@@ -340,7 +340,7 @@ RSpec.describe Request, type: :model do
     context 'when student has allow_extended_requests but extended days are disabled (0)' do
       before do
         course_settings.update(auto_approve_days: 2, auto_approve_extended_request_days: 0)
-        UserToCourse.find_by(user: user, course: course).update!(allow_extended_requests: true)
+        Enrollment.find_by(user: user, course: course).update!(allow_extended_requests: true)
       end
 
       it 'falls back to the standard auto_approve_days window' do

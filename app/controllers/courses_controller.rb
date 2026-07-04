@@ -13,8 +13,8 @@ class CoursesController < ApplicationController
     @staff_enrollments_by_semester = group_by_semester(staff_enrollments)
 
     # Only show courses to students if extensions are enabled at the course level
-    student_courses = UserToCourse.includes(course: :course_settings).where(user: @user, role: 'student')
-    visible_student_courses = student_courses.select { |utc| utc.course.requests_enabled? }
+    student_courses = Enrollment.includes(course: :course_settings).where(user: @user, role: 'student')
+    visible_student_courses = student_courses.select { |enrollment| enrollment.course.requests_enabled? }
     @student_courses_by_semester = group_by_semester(visible_student_courses)
     # Keep flat lists for conditional checks in the view
     @teacher_courses = teacher_courses

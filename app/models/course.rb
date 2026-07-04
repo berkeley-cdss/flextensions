@@ -146,13 +146,6 @@ class Course < ApplicationRecord
     enrollments.where(user_id: user.id).any?(&:student?)
   end
 
-  # Extensions are enabled only when the course has settings that turn them on.
-  # A course should always have settings (built on creation), so a nil here is
-  # unexpected; we fail closed rather than treat the absence as "enabled".
-  def extensions_enabled?
-    !!course_settings&.enable_extensions?
-  end
-
   # TODO: This doesn't make sense actually.
   # A course can be linked to many LMSs.
   # def lms_facade

@@ -255,7 +255,7 @@ class RequestsController < ApplicationController
   # Staff are always allowed through so they can manage existing requests.
   def check_extensions_enabled_for_students
     return unless @course.course_student?(@user)
-    return if @course.extensions_enabled?
+    return if @course.requests_enabled?
 
     redirect_to courses_path, alert: 'Extensions are not enabled for this course.'
   end
