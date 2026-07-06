@@ -11,7 +11,6 @@ class RequestsController < ApplicationController
   before_action :ensure_request_is_pending, only: %i[update approve reject]
 
   def index
-    @side_nav = 'requests'
     if @course.staff_user?(current_user)
       scope = @course.requests.includes(:assignment)
       @requests = params[:show_all] == 'true' ? scope : scope.pending
@@ -32,7 +31,6 @@ class RequestsController < ApplicationController
   end
 
   def new
-    @side_nav = 'form'
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.has_canvas_linked?
 
     return new_for_student if @course.staff_user?(current_user)
@@ -149,7 +147,6 @@ class RequestsController < ApplicationController
   # their own requests; anything outside the caller's scope is reported as
   # "not found" rather than leaking that it exists.
   def set_request
-    @side_nav = 'requests'
     @request = requests_visible_to_user.includes(:assignment).find_by(id: params[:id])
     redirect_to course_path(@course), alert: 'Request not found.' unless @request
   end

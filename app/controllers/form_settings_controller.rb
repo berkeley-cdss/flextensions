@@ -6,12 +6,10 @@ class FormSettingsController < ApplicationController
   before_action :set_pending_request_count
 
   def edit
-    @side_nav = 'form_settings'
     @form_setting = @course.form_setting
   end
 
   def update
-    @side_nav = 'form_settings'
     @form_setting = @course.form_setting || @course.build_form_setting
 
     permitted = form_setting_params.to_h

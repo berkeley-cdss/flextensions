@@ -35,8 +35,9 @@
 
 class CourseSettings < ApplicationRecord
   # TODO: Remove the db default text, and use an AR validation.
-  DEFAULT_EMAIL_TEMPLATE = <<~LIQUID.freeze
-    Hello {{student_name}},
+  DEFAULT_EMAIL_SUBJECT = 'Extension Request Status: {{status}} - {{course_code}}'.freeze
+  DEFAULT_EMAIL_TEMPLATE = <<~TEMPLATE.freeze
+    Dear {{student_name}},
 
     Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
 
@@ -45,11 +46,11 @@ class CourseSettings < ApplicationRecord
     - New Due Date: {{new_due_date}}
     - Extension Days: {{extension_days}}
 
-    If you have any questions, please reach out to your course staff.
+    If you have any questions, please contact the course staff.
 
-    Thank you,
+    Best regards,
     {{course_name}} Staff
-  LIQUID
+  TEMPLATE
 
   belongs_to :course
 
@@ -65,6 +66,17 @@ class CourseSettings < ApplicationRecord
     return false unless enable_extensions?
 
     auto_approve_days.positive? || auto_approve_extended_request_days.positive?
+  end
+
+  # True when this save just turned on the Slack webhook, so callers know to
+  # send a confirmation ping.
+  def slack_webhook_just_enabled?
+    enable_slack_webhook_url && slack_webhook_url.present? && saved_change_to_slack_webhook_url?
+  end
+
+  def slack_enabled_message
+    ":wave: Slack notifications have been enabled for *#{course.course_name}* " \
+      "(#{course.course_code}). You will now receive updates here!"
   end
 
   def ensure_system_user_for_auto_approval

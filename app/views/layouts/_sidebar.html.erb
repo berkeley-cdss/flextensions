@@ -15,50 +15,42 @@
 		<% end %>
 		</li>
 
-		<%= render 'layouts/components/sidebar_menu_item',
-			path: course_path(@course.id),
-			icon: 'fas fa-tasks',
-			text: 'Assignments',
-			active: @side_nav == 'show' %>
+		<%= sidebar_nav_item path: course_path(@course.id), icon: 'fas fa-tasks', nav: 'show', text: 'Assignments' %>
 
-		<%= render 'layouts/components/sidebar_menu_item',
-			path: course_requests_path(@course.id),
-			icon: 'fas fa-clock',
-			text: "Requests <span class=\"badge rounded-pill float-end text-bg-danger ms-2\">#{@pending_requests_count}</span>",
-			active: @side_nav == 'requests' %>
+		<%= sidebar_nav_item path: course_requests_path(@course.id), icon: 'fas fa-clock', nav: 'requests' do %>
+			Requests <span class="badge rounded-pill float-end text-bg-danger ms-2"><%= @pending_requests_count %></span>
+		<% end %>
 
 		<% if @course.staff_user?(current_user) %>
-			<%= render 'layouts/components/sidebar_menu_item',
-				path: enrollments_course_path(@course.id),
-				icon: 'fas fa-users',
-				text: 'Enrollments',
-				active: @side_nav == 'enrollments' %>
+			<%= sidebar_nav_item path: enrollments_course_path(@course.id), icon: 'fas fa-users', nav: 'enrollments', text: 'Enrollments' %>
 
-			<%= render 'layouts/components/sidebar_menu_item',
-				path: course_settings_path(@course.id),
-				icon: 'fas fa-cog',
-				text: 'Settings',
-				active: @side_nav == 'edit' %>
+			<% settings_open = %w[course_details approvals emails form_settings].include?(current_nav_page) %>
+			<li class="nav-item p-2">
+				<a class="nav-link d-flex align-items-center link-body-emphasis<%= ' collapsed' unless settings_open %>"
+					data-bs-toggle="collapse"
+					href="#settingsSubmenu"
+					role="button"
+					aria-expanded="<%= settings_open %>"
+					aria-controls="settingsSubmenu">
+					<div class="sidebar-icon-container ms-3">
+						<i class="fas fa-cog fa-fw me-3"></i>
+					</div>
+					<span class="nav-text ms-2">Course Settings</span>
+					<i class="fas fa-chevron-down fa-xs ms-auto"></i>
+				</a>
+				<ul class="nav flex-column collapse <%= 'show' if settings_open %>" id="settingsSubmenu">
+					<%= sidebar_nav_item path: edit_course_path(@course.id), icon: 'fas fa-circle-info', nav: 'course_details', text: 'Course Details' %>
+					<%= sidebar_nav_item path: approvals_course_settings_path(@course.id), icon: 'fas fa-circle-check', nav: 'approvals', text: 'Automatic Approvals' %>
+					<%= sidebar_nav_item path: emails_course_settings_path(@course.id), icon: 'fas fa-envelope', nav: 'emails', text: 'Email Templates' %>
+					<%= sidebar_nav_item path: edit_course_form_setting_path(@course.id), icon: 'fas fa-file-alt', nav: 'form_settings', text: 'Request Form' %>
+				</ul>
+			</li>
 
-			<%= render 'layouts/components/sidebar_menu_item',
-				path: edit_course_form_setting_path(@course.id),
-				icon: 'fas fa-file-alt',
-				text: 'Form',
-				active: @side_nav == 'form_settings' %>
-
-			<%= render 'layouts/components/sidebar_menu_item',
-				path: new_course_request_path(@course.id),
-				icon: 'fas fa-user-plus',
-				text: 'Request for Student',
-				active: @side_nav == 'form' %>
+			<%= sidebar_nav_item path: new_course_request_path(@course.id), icon: 'fas fa-user-plus', nav: 'form', text: 'Request for Student' %>
 		<% end %>
 
 		<% if @course.student_user?(current_user) %>
-			<%= render 'layouts/components/sidebar_menu_item',
-				path: new_course_request_path(@course.id),
-				icon: 'fas fa-file-pen',
-				text: 'Request Extension',
-				active: @side_nav == 'form' %>
+			<%= sidebar_nav_item path: new_course_request_path(@course.id), icon: 'fas fa-file-pen', nav: 'form', text: 'Request Extension' %>
 		<% end %>
 	</ul>
 </nav>

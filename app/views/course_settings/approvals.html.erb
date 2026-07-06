@@ -1,0 +1,112 @@
+<div class="container-fluid mb-5">
+    <div class="row">
+        <div class="col-12">
+            <%= render "courses/course_title" %>
+            <h1 class="sr-only">Automatic Approvals</h1>
+            <%= form_with url: course_settings_path(@course), method: :patch do |form| %>
+                <div class="card rounded-0 mb-4">
+                    <div class="card-header bg-light">
+                        <h2 class="card-title mb-0 h5">Automatic Approvals</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3 row">
+                            <label for="auto-approve" class="col-sm-4 col-form-label">Auto approve within days</label>
+                            <div class="col-sm-8">
+                                <%= number_field_tag 'course_settings[auto_approve_days]',
+                                                   @course.course_settings&.auto_approve_days,
+                                                   min: 0,
+                                                   step: 1,
+                                                   class: 'form-control',
+                                                   id: 'auto-approve',
+                                                   placeholder: 'Number of days' %>
+                                <small class="text-muted">Extensions requested within this many days will be automatically approved, subject to the maximum limit below.</small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row">
+                            <label for="auto-approve-dsp" class="col-sm-4 col-form-label">
+                                Auto approve extended requests within days
+                            </label>
+                            <div class="col-sm-8">
+                                <%= number_field_tag 'course_settings[auto_approve_extended_request_days]',
+                                                   @course.course_settings&.auto_approve_extended_request_days,
+                                                   min: 0,
+                                                   step: 1,
+                                                   class: 'form-control',
+                                                   id: 'auto-approve-dsp',
+                                                   placeholder: 'Number of days' %>
+                                <small class="text-muted">
+                                    This allows students who have 'Allow Extended Requests' checked to have requests automatically approved within an extended timeframe. Use this for students who have extenuating circumstances.
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row pb-3">
+                            <label for="max-auto-approve" class="col-sm-4 col-form-label">Maximum requests to auto approve</label>
+                            <div class="col-sm-8">
+                                <%= number_field_tag 'course_settings[max_auto_approve]',
+                                                   @course.course_settings&.max_auto_approve,
+                                                   min: 0,
+                                                   step: 1,
+                                                   class: 'form-control',
+                                                   id: 'max-auto-approve',
+                                                   placeholder: 'Number' %>
+                                <small class="text-muted">This limit applies per student per course. Set to zero for no limit on auto-approved requests.</small>
+                            </div>
+                        </div>
+
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <%= hidden_field_tag 'course_settings[enable_min_hours_before_deadline]', false %>
+                                <%= check_box_tag 'course_settings[enable_min_hours_before_deadline]',
+                                                 true,
+                                                 @course.course_settings&.enable_min_hours_before_deadline.nil? ? true : @course.course_settings&.enable_min_hours_before_deadline,
+                                                 class: 'form-check-input',
+                                                 id: 'enable-min-hours-before-deadline' %>
+                                <label class="form-check-label" for="enable-min-hours-before-deadline">Require minimum hours before deadline for auto-approval</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row border-bottom pb-3">
+                            <label for="min-hours-before-deadline" class="col-sm-4 col-form-label">Approval minimum hours before deadline</label>
+                            <div class="col-sm-8">
+                                <%= number_field_tag 'course_settings[min_hours_before_deadline]',
+                                                   @course.course_settings&.min_hours_before_deadline || 0,
+                                                   min: 0,
+                                                   step: 1,
+                                                   class: 'form-control',
+                                                   id: 'min-hours-before-deadline',
+                                                   placeholder: 'Number of hours' %>
+                                <small class="text-muted">
+                                    When enabled, a request is only auto-approved if it is made at least this many hours before the assignment's deadline; otherwise it is held for manual review.
+                                    A value of <code>0</code> still requires the deadline to not have passed. Recommended values are <code>0</code> or <code>24</code>.
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <%= hidden_field_tag 'course_settings[extend_late_due_date]', false %>
+                                <%= check_box_tag 'course_settings[extend_late_due_date]',
+                                                 true,
+                                                 @course.course_settings&.extend_late_due_date.nil? ? true : @course.course_settings&.extend_late_due_date,
+                                                 class: 'form-check-input',
+                                                 id: 'extend-late-due-date' %>
+                                <label class="form-check-label" for="extend-late-due-date">Extend Late Due Date Automatically</label>
+                            </div>
+                            <small class="text-muted">
+                                When enabled, the late due date (if present) will be shifted by the same amount as the extension.
+                                When disabled, the new late due date will be set to the later of the original late due date and the extended due date.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mb-4">
+                    <%= form.submit 'Save Settings', class: 'btn btn-success px-4' %>
+                </div>
+            <% end %>
+        </div>
+    </div>
+</div>

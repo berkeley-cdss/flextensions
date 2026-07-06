@@ -1,0 +1,76 @@
+<div class="container-fluid mb-5">
+    <div class="row">
+        <div class="col-12">
+            <%= render "courses/course_title" %>
+            <h1 class="sr-only">Email Templates</h1>
+            <%= form_with url: course_settings_path(@course), method: :patch do |form| %>
+                <div class="card rounded-0 mb-4">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h2 class="card-title mb-0 h5">Email Template</h2>
+                        <%= button_tag "Reset to Default",
+                                      name: "reset_email_template",
+                                      value: "true",
+                                      class: "btn btn-secondary btn-sm",
+                                      type: "submit" %>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="email-subject" class="form-label">Email Subject</label>
+                            <%= text_field_tag 'course_settings[email_subject]',
+                                             @course.course_settings&.email_subject || CourseSettings::DEFAULT_EMAIL_SUBJECT,
+                                             class: 'form-control',
+                                             id: 'email-subject' %>
+                            <small class="text-muted">Use {{variable_name}} to insert dynamic values</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email-template" class="form-label">Email Body</label>
+                            <%= text_area_tag 'course_settings[email_template]',
+                                            @course.course_settings&.email_template || CourseSettings::DEFAULT_EMAIL_TEMPLATE,
+                                            class: 'form-control',
+                                            id: 'email-template',
+                                            rows: 10 %>
+                        </div>
+
+                        <div class="card bg-light mt-3">
+                            <div class="card-body">
+                                <h3 class="card-title h5">Available Variables</h3>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <p class="mb-1 fw-bold">Student Information:</p>
+                                        <ul class="list-unstyled">
+                                            <li><code>{{student_name}}</code> - Full name</li>
+                                            <li><code>{{student_email}}</code> - Email</li>
+                                            <li><code>{{student_id}}</code> - ID number</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <p class="mb-1 fw-bold">Course Information:</p>
+                                        <ul class="list-unstyled">
+                                            <li><code>{{course_name}}</code> - Course name</li>
+                                            <li><code>{{course_code}}</code> - Course code</li>
+                                            <li><code>{{assignment_name}}</code> - Assignment</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <p class="mb-1 fw-bold">Extension Information:</p>
+                                        <ul class="list-unstyled">
+                                            <li><code>{{original_due_date}}</code> - Original due date</li>
+                                            <li><code>{{new_due_date}}</code> - New due date</li>
+                                            <li><code>{{extension_days}}</code> - Days extended</li>
+                                            <li><code>{{status}}</code> - Status (Approved/Denied)</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mb-4">
+                    <%= form.submit 'Save Settings', class: 'btn btn-success px-4' %>
+                </div>
+            <% end %>
+        </div>
+    </div>
+</div>
