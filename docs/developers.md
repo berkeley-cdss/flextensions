@@ -21,10 +21,10 @@ cd flextensions
 
 Install `mise`, such as `brew install mise` or any other ruby language manager.
 
-Make sure you are using Ruby 3.3.0:
+Make sure you are using Ruby 3.4:
 
 ```
-mise use ruby@3.3
+mise use ruby@3.4
 ```
 
 ### Install dependencies:
