@@ -58,13 +58,11 @@ class Assignment < ApplicationRecord
   end
 
   # TODO: Arguably we should get the base URL from the course
+  # Canvas and Gradescope share the /courses/:id/assignments/:id URL shape, so
+  # there is no per-LMS branching here.
   def external_url
-    base_lms_url = course_to_lms.lms.lms_base_url if course_to_lms
-    case lms_id
-    when CANVAS_LMS_ID
-      "#{base_lms_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
-    when GRADESCOPE_LMS_ID
-      "#{base_lms_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
-    end
+    return unless course_to_lms
+
+    "#{course_to_lms.lms.lms_base_url}/courses/#{course_to_lms.external_course_id}/assignments/#{external_assignment_id}"
   end
 end
