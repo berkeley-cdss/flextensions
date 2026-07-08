@@ -95,15 +95,9 @@ class CoursesController < ApplicationController
   def delete
     return redirect_to courses_path, alert: 'Extensions are enabled for this course.' if @course.requests_enabled?
 
-    assignments = @course.assignments
-    Extension.where(assignment_id: assignments.select(:id)).destroy_all
-    assignments.destroy_all
-    CourseToLms.where(course_id: @course.id).destroy_all
-    Enrollment.where(course_id: @course.id).destroy_all
-    Request.where(course_id: @course.id).destroy_all
-    CourseSettings.where(course_id: @course.id).destroy_all
-    FormSetting.where(course_id: @course.id).destroy_all
-    Course.where.missing(:enrollments).destroy_all
+    # Destroys just this course; its assignments, extensions, enrollments,
+    # requests, settings, and LMS links all cascade via `dependent: :destroy`.
+    @course.destroy
 
     redirect_to courses_path, notice: 'Course deleted successfully.'
   end

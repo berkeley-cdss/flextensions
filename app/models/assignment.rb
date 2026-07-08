@@ -27,6 +27,7 @@ class Assignment < ApplicationRecord
   belongs_to :course
   belongs_to :course_to_lms
   has_many :requests, dependent: :destroy
+  has_many :extensions, dependent: :destroy
 
   # course_id is denormalized from course_to_lms so course-scoped queries
   # don't need a join; default it so callers only have to set course_to_lms.
