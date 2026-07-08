@@ -70,11 +70,13 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
         name: 'Orphaned Assignment'
       )
 
+      result = nil
       expect {
-        described_class.perform_now(course_to_lms.id, sync_user.id)
+        result = described_class.perform_now(course_to_lms.id, sync_user.id)
       }.to change(Assignment, :count).by(1) # 2 new, 1 deleted = +1
 
       expect(Assignment.find_by(id: orphaned_assignment.id)).to be_nil
+      expect(result[:deleted_assignments]).to eq(1)
     end
 
     it 'returns sync results' do

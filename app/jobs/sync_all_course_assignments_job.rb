@@ -28,12 +28,12 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
       sync_assignment(course_to_lms, lms_assignment, results)
     end
 
-    # Delete assignments that no longer exist in LMS
+    # Delete assignments that no longer exist in LMS. destroy_all returns the
+    # array of destroyed records; count it directly rather than re-querying the
+    # (now-empty) relation afterwards, which would always report 0.
     deleted_assignments = Assignment.where(course_to_lms_id: course_to_lms.id)
                                     .where.not(external_assignment_id: external_assignment_ids)
-    deleted_assignments.destroy_all
-
-    results[:deleted_assignments] = deleted_assignments.count
+    results[:deleted_assignments] = deleted_assignments.destroy_all.count
     results[:synced_at] = Time.current
 
     course_to_lms.recent_assignment_sync = results
