@@ -26,7 +26,7 @@ module API
         if @request.save
           render json: @request, status: :created
         else
-          render json: { error: @request.errors.full_messages.join(', ') }, status: :unprocessable_entity
+          render json: { error: @request.errors.full_messages.join(', ') }, status: :unprocessable_content
         end
       end
 
@@ -44,9 +44,9 @@ module API
       end
 
       def find_request_params
-        @lms = Lms.find(params[:lms_id])
-        @course = Course.find(params[:course_id])
-        @assignment = Assignment.find(params[:assignment_id])
+        @lms = Lms.find(params.expect(:lms_id))
+        @course = Course.find(params.expect(:course_id))
+        @assignment = Assignment.find(params.expect(:assignment_id))
         @course_to_lms = CourseToLms.find(@assignment.course_to_lms_id)
       end
     end
