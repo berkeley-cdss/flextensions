@@ -147,13 +147,6 @@ class Course < ApplicationRecord
     enrollments.where(user_id: user.id).any?(&:student?)
   end
 
-  # TODO: This doesn't make sense actually.
-  # A course can be linked to many LMSs.
-  # def lms_facade
-  #   course_to_lms = CourseToLms.find_by(id: course_to_lms_id)
-  #   Lms.facade_class(course_to_lms.lms_id)
-  # end
-
   def canvas_id
     external_course_id_for(CANVAS_LMS_ID)
   end

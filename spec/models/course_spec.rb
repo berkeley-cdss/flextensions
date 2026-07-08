@@ -111,7 +111,7 @@ RSpec.describe Course, type: :model do
       user = User.create!(email: email, canvas_uid: canvas_uid)
       if with_credentials
         user.lms_credentials.create!(
-          lms_name: 'canvas',
+          lms_id: 1,
           token: 'valid_token',
           refresh_token: 'refresh_token',
           expire_time: 1.hour.from_now
@@ -135,8 +135,9 @@ RSpec.describe Course, type: :model do
     end
 
     it 'ignores non-Canvas credentials' do
+      other_lms = Lms.find_or_create_by(id: 3) { |l| l.lms_name = 'other_lms'; l.use_auth_token = true }
       user = create_staff('other-lms@example.com', '126', 'ta', with_credentials: false)
-      user.lms_credentials.create!(lms_name: 'other_lms', token: 't', refresh_token: 'r', expire_time: 1.hour.from_now)
+      user.lms_credentials.create!(lms: other_lms, token: 't', refresh_token: 'r', expire_time: 1.hour.from_now)
 
       expect(course.staff_user_for_auto_approval).to be_nil
     end
@@ -158,14 +159,14 @@ RSpec.describe Course, type: :model do
 
       idle_ta = User.create!(email: 'idle_ta@example.com', canvas_uid: '127')
       idle_ta.lms_credentials.create!(
-        lms_name: 'canvas', token: 'stale', refresh_token: 'stale',
+        lms_id: 1, token: 'stale', refresh_token: 'stale',
         expire_time: 6.months.ago, updated_at: 6.months.ago
       )
       Enrollment.create!(user: idle_ta, course: course, role: 'ta')
 
       active_teacher = User.create!(email: 'active_teacher@example.com', canvas_uid: '128')
       active_teacher.lms_credentials.create!(
-        lms_name: 'canvas', token: 'fresh', refresh_token: 'fresh',
+        lms_id: 1, token: 'fresh', refresh_token: 'fresh',
         expire_time: 1.hour.from_now
       )
       Enrollment.create!(user: active_teacher, course: course, role: 'teacher')

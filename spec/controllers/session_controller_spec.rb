@@ -233,14 +233,14 @@ RSpec.describe SessionController, type: :controller do
         expect(enrollment.role).to eq('student')
       end
 
-      it 'stores fake refresh token for developer provider' do
+      it 'stores credentials for developer provider with nil refresh token' do
         get :omniauth_callback, params: { provider: 'developer' }
 
         user = User.find_by(canvas_uid: 'test@example.com')
         creds = user.lms_credentials.first
 
-        expect(creds.refresh_token).to be_present
         expect(creds.token).to be_present
+        expect(creds.refresh_token).to be_nil
       end
     end
   end

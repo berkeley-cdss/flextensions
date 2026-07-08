@@ -1,25 +1,37 @@
 class EnrollmentsController < ApplicationController
-  before_action :authenticate_user
+  # `authenticated!` from ApplicationController runs before this filter
   before_action :set_course
-  before_action :ensure_course_admin
+  before_action :ensure_course_staff!
+  before_action :set_enrollment
 
   def toggle_allow_extended_requests
-    @enrollment = @course.enrollments.find(params[:id])
-
     if @enrollment.update(allow_extended_requests: params[:allow_extended_requests])
       render json: { success: true }, status: :ok
     else
-      flash[:alert] = "Failed to update enrollment: #{@enrollment.errors.full_messages.to_sentence}"
-      render json: { redirect_to: course_path(@course) }, status: :unprocessable_content
+      render json: {
+        success: false,
+        errors: @enrollment.errors.full_messages,
+        redirect_to: courses_path
+      }, status: :unprocessable_content
     end
   end
 
   private
 
-  def ensure_course_admin
-    enrollment = @course.enrollments.find_by(user: @user)
-    return if enrollment&.course_admin?
+  def set_enrollment
+    @enrollment = @course.enrollments.find(params[:id])
+  end
 
-    render json: { error: 'You must be an instructor or Lead TA.', redirect_to: course_path(@course) }, status: :forbidden
+  # ApplicationController#ensure_instructor_role would redirect with a flash,
+  # which breaks the JSON fetch from the course-settings UI. Respond with 403
+  # JSON so the client can surface the failure inline.
+  def ensure_course_staff!
+    return if @course.staff_user?(current_user)
+
+    render json: {
+      success: false,
+      error: 'Forbidden',
+      redirect_to: courses_path
+    }, status: :forbidden
   end
 end
