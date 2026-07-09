@@ -1,4 +1,7 @@
 class SessionController < ApplicationController
+  # The OmniAuth callbacks run before a session exists, so they must be public.
+  skip_before_action :authenticated!, only: %i[omniauth_callback omniauth_failure]
+
   ## Login work flow explained here
   # Currently the login only supports third-party authentication with Canvas.
   # But the structure to support multiple login methods is largely in place.
@@ -170,6 +173,11 @@ class SessionController < ApplicationController
   def persist_login!(user, auth_token)
     user.save!
     update_user_credential(user, auth_token)
+
+    # Guard against session fixation: issue a fresh session before storing the
+    # authenticated user's identity, so any session id an attacker may have
+    # fixated is discarded at the moment of login.
+    reset_session
 
     # Store user ID in session for authentication
     session[:username] = user.name

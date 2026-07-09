@@ -1,36 +1,19 @@
 class ApplicationController < ActionController::Base
   include TokenRefreshable
 
-  before_action :authenticated!, unless: -> { excluded_controller_action? }
+  # Authentication is required everywhere by default. Controllers/actions that
+  # are legitimately public opt out with `skip_before_action :authenticated!`
+  # (see HomeController, SessionController, StatusController,
+  # Requests::ExportsController).
+  before_action :authenticated!
 
   rescue_from LmsFacade::LmsAPIError, with: :handle_lms_api_error
 
-  def excluded_controller_action?
-    # Actions and controllers that do NOT require authentication
-    excluded_actions = {
-      'home' => [ 'index' ],
-      'login' => [ 'canvas' ],
-      'session' => %w[create omniauth_callback omniauth_failure],
-      'rails/health' => [ 'show' ],
-      'requests/exports' => [ 'show' ]
-    }
-    controller = params[:controller]
-    action = params[:action]
-
-    excluded_actions[controller]&.include?(action)
-  end
-
-  # TODO: Refactor all auth methods
   helper_method :current_user
   def current_user
-    if defined?(@current_user)
-      @current_user
-    else
-      @current_user = User.find_by(canvas_uid: session[:user_id])
-    end
-    # TODO: Remove this line after refactoring all auth methods,
-    # and remove other instances of @user in controllers + views
-    @user ||= @current_user
+    return @current_user if defined?(@current_user)
+
+    @current_user = User.find_by(canvas_uid: session[:user_id])
   end
 
   # Because blazer is mounted as a module, `root_path` doesn't seem to work appropriately.
@@ -42,27 +25,28 @@ class ApplicationController < ActionController::Base
   end
 
   private
-  def authenticate_user
-    return true if current_user.present?
 
-    redirect_to root_path, alert: 'You must be logged in to access that page.'
-  end
-
-  # TODO: This needs to be refactored.
+  # The single authentication gate for the app. Runs on every controller by
+  # default (see the before_action above); public endpoints opt out with
+  # `skip_before_action :authenticated!`.
   def authenticated!
-    if session[:user_id].blank? || !Rails.env.test?
-      if current_user.nil?
-        return handle_authentication_failure('You must be logged in to access that page.')
-      elsif current_user.lms_credentials.empty?
-        return handle_authentication_failure('User has no credentials.')
-      elsif current_user.lms_credentials.first.expire_time < Time.zone.now
-        # The Canvas access token has expired. Rather than logging the user out
-        # immediately, try to use the stored (long-lived) refresh token to obtain
-        # a fresh access token so the session can continue. We only log the user
-        # out when there is no refresh token or the refresh actually fails.
-        return handle_authentication_failure('You have been logged out.') unless refresh_user_token(current_user)
-      end
+    return handle_authentication_failure('You must be logged in to access that page.') if current_user.nil?
+
+    # In the test environment a valid session user is treated as fully
+    # authenticated so specs don't have to stand up LMS credentials. Production
+    # always verifies the Canvas token below.
+    return true if Rails.env.test?
+
+    if current_user.lms_credentials.empty?
+      return handle_authentication_failure('User has no credentials.')
+    elsif current_user.lms_credentials.first.expire_time < Time.zone.now
+      # The Canvas access token has expired. Rather than logging the user out
+      # immediately, try to use the stored (long-lived) refresh token to obtain
+      # a fresh access token so the session can continue. We only log the user
+      # out when there is no refresh token or the refresh actually fails.
+      return handle_authentication_failure('You have been logged out.') unless refresh_user_token(current_user)
     end
+
     true
   rescue StandardError
     handle_authentication_failure('An unexpected error occurred.')

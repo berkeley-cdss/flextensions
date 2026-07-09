@@ -4,6 +4,9 @@ module Requests
   # membership before_actions, authenticating solely via the course's
   # read-only API token.
   class ExportsController < ApplicationController
+    # Authenticated by the course's read-only API token, not a user session.
+    skip_before_action :authenticated!, only: :show
+
     def show
       course = Course.find_by(id: params[:course_id])
       token = params[:readonly_api_token]

@@ -1,5 +1,4 @@
 class EnrollmentsController < ApplicationController
-  before_action :authenticate_user
   before_action :set_course
   before_action :ensure_course_admin
 
@@ -17,7 +16,7 @@ class EnrollmentsController < ApplicationController
   private
 
   def ensure_course_admin
-    enrollment = @course.enrollments.find_by(user: @user)
+    enrollment = @course.enrollments.find_by(user: current_user)
     return if enrollment&.course_admin?
 
     render json: { error: 'You must be an instructor or Lead TA.', redirect_to: course_path(@course) }, status: :forbidden
