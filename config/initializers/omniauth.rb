@@ -34,9 +34,6 @@ end
 #   Rails.logger.debug "AUTH URL: #{env['omniauth.strategy'].client.auth_code.authorize_url(authorize_params: env['omniauth.strategy'].authorize_params)}"
 # end
 
-OmniAuth.config.allowed_request_methods = [:get, :post]
-OmniAuth.config.silence_get_warning = true
-
 OmniAuth.config.on_failure = Proc.new do |env|
   OmniAuth::FailureEndpoint.new(env).redirect_to_failure
 end

@@ -31,9 +31,6 @@ class User < ApplicationRecord
   # Associations
   has_many :lms_credentials, dependent: :destroy
 
-  # Relationship with Extension
-  has_many :extensions
-
   # Relationship with Course (and Enrollment)
   has_many :enrollments
   has_many :courses, through: :enrollments

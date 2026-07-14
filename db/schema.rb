@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_04_000002) do
   create_schema "hypershield"
 
   # These are extensions that must be enabled in order to support this database
@@ -151,18 +151,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
     t.index ["user_id"], name: "index_enrollments_on_user_id"
   end
 
-  create_table "extensions", force: :cascade do |t|
-    t.bigint "assignment_id"
-    t.datetime "created_at", null: false
-    t.string "external_extension_id"
-    t.datetime "initial_due_date"
-    t.bigint "last_processed_by_id"
-    t.datetime "new_due_date"
-    t.string "student_email"
-    t.datetime "updated_at", null: false
-    t.index ["assignment_id"], name: "index_extensions_on_assignment_id"
-    t.index ["last_processed_by_id"], name: "index_extensions_on_last_processed_by_id"
-  end
 
   create_table "faultline_error_contexts", force: :cascade do |t|
     t.datetime "created_at", null: false
@@ -250,6 +238,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
     t.index ["endpoint"], name: "index_faultline_request_traces_on_endpoint"
   end
 
+
   create_table "form_settings", force: :cascade do |t|
     t.bigint "course_id", null: false
     t.datetime "created_at", null: false
@@ -329,8 +318,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000001) do
   add_foreign_key "course_to_lmss", "lmss"
   add_foreign_key "enrollments", "courses"
   add_foreign_key "enrollments", "users"
-  add_foreign_key "extensions", "assignments"
-  add_foreign_key "extensions", "users", column: "last_processed_by_id"
   add_foreign_key "faultline_error_contexts", "faultline_error_occurrences", column: "error_occurrence_id"
   add_foreign_key "faultline_error_occurrences", "faultline_error_groups", column: "error_group_id"
   add_foreign_key "faultline_request_profiles", "faultline_request_traces", column: "request_trace_id", on_delete: :cascade

@@ -33,6 +33,21 @@ end
 
 Capybara.default_max_wait_time = 10
 
+# Accessibility scenarios must run in a real browser so axe-core can execute
+# against a fully rendered DOM. Ensure a JavaScript-capable driver even if the
+# scenario is tagged @a11y without @javascript.
+Before('@a11y') do
+  Capybara.current_driver = Capybara.javascript_driver
+end
+
+# After-hook: automatically audit the final rendered page of every @a11y
+# scenario with axe-core. This reuses the same matcher that backs the
+# "the page should be axe clean" step from axe-core-cucumber, so scenarios get
+# an accessibility check for free without adding an explicit audit step.
+After('@a11y') do
+  AxeCucumber::Step.create_for(self).assert_accessibility
+end
+
 Around('@a11y') do |_scenario, block|
   block.call
 rescue Selenium::WebDriver::Error::JavascriptError => e

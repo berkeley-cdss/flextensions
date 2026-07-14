@@ -449,7 +449,6 @@ RSpec.describe CoursesController, type: :controller do
     end
 
     before do
-      Extension.create!(assignment: assignment, student_email: user.email)
       Enrollment.create!(user: user, course: course, role: 'teacher')
       Request.create!(course: course, assignment: assignment, user: user, requested_due_date: Time.current, reason: 'Reason')
       FormSetting.create!(
@@ -465,13 +464,12 @@ RSpec.describe CoursesController, type: :controller do
         delete :delete, params: { id: course.id }
       end.to change(Course, :count).by(-1)
                                    .and change(Assignment, :count).by(-1)
-                                                                  .and change(Extension, :count).by(-1)
-                                                                                                .and change(CourseToLms, :count).by(-1)
-                                                                                                                                .and change(Enrollment, :count).by(-2)
-                                                                                                                                                                 .and change(Request, :count).by(-1)
-                                                                                                                                                                                             .and change(CourseSettings, :count).by(-1)
-                                                                                                                                                                                                                                .and change(FormSetting,
-                                                                                                                                                                                                                                            :count).by(-1)
+                                                                  .and change(CourseToLms, :count).by(-1)
+                                                                                                  .and change(Enrollment, :count).by(-2)
+                                                                                                                                   .and change(Request, :count).by(-1)
+                                                                                                                                                               .and change(CourseSettings, :count).by(-1)
+                                                                                                                                                                                                  .and change(FormSetting,
+                                                                                                                                                                                                              :count).by(-1)
 
       expect(response).to redirect_to(courses_path)
       expect(flash[:notice]).to eq('Course deleted successfully.')

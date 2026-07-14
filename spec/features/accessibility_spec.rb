@@ -1,4 +1,4 @@
-# rubocop:disable RSpec/MultipleMemoizedHelpers, RSpec/IndexedLet, RSpec/LetSetup
+# rubocop:disable RSpec/MultipleMemoizedHelpers, RSpec/IndexedLet, RSpec/LetSetup, RSpec/NoExpectationExample
 require 'rails_helper'
 require 'rack_session_access/capybara'
 
@@ -106,10 +106,6 @@ RSpec.describe 'Accessibility', :a11y, :js, type: :feature do
   let!(:course_settings2) { course2.course_settings.tap { |cs| cs.update!(auto_approve_days: 1) } }
   let!(:course_settings3) { course3.course_settings.tap { |cs| cs.update!(auto_approve_days: 3) } }
 
-  let!(:extension1) { create(:extension, assignment: c1_assignment1, student_email: student1.email, initial_due_date: c1_assignment1.due_date, new_due_date: 12.days.from_now) }
-  let!(:extension2) { create(:extension, assignment: c2_assignment1, student_email: student1.email, initial_due_date: c2_assignment1.due_date, new_due_date: 13.days.from_now) }
-  let!(:extension3) { create(:extension, assignment: c3_assignment1, student_email: student2.email, initial_due_date: c3_assignment1.due_date, new_due_date: 14.days.from_now) }
-
   def mock_teacher_login
     page.set_rack_session(user_id: teacher1.canvas_uid)
   end
@@ -172,119 +168,94 @@ RSpec.describe 'Accessibility', :a11y, :js, type: :feature do
       .to_return(status: 200, body: [].to_json)
   end
 
-  after do
-    begin
-      Capybara.reset_sessions!
-    rescue Selenium::WebDriver::Error::NoSuchWindowError, Selenium::WebDriver::Error::InvalidSessionIdError,
-           Selenium::WebDriver::Error::UnknownError
-
-    end
-    WebMock.disable_net_connect!(allow_localhost: true)
-  end
+  # Session teardown, WebMock reset, and the axe-core audit itself are handled
+  # by the shared `:a11y` `after` hooks in spec/support/accessibility_helper.rb.
+  # Each example below only needs to navigate to the page under test; the after
+  # hook audits the final rendered page automatically.
 
   # Test with both themes
   %w[light dark].each do |theme|
     context "with #{theme} theme" do
       it 'Home page should be accessible for teacher', :a11y do
         test_page_accessibility('/', :teacher, theme, "home_#{theme}_teacher.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Home page should be accessible for student', :a11y do
         test_page_accessibility('/', :student, theme, "home_#{theme}_student.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Courses page should be accessible for teacher', :a11y do
         test_page_accessibility('/courses', :teacher, theme, "courses_#{theme}_teacher.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Courses page should be accessible for student', :a11y do
         test_page_accessibility('/courses', :student, theme, "courses_#{theme}_student.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Course details page should be accessible for teacher', :a11y do
         test_page_accessibility("/courses/#{course1.id}", :teacher, theme, "course_details_#{theme}_teacher.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Course details page should be accessible for student', :a11y do
         test_page_accessibility("/courses/#{course1.id}", :student, theme, "course_details_#{theme}_student.png")
-        expect(page).to be_axe_clean
       end
 
       it 'New course page should be accessible for teacher', :a11y do
         test_page_accessibility('/courses/new', :teacher, theme, "new_course_#{theme}_teacher.png")
-        expect(page).to be_axe_clean
       end
 
       it 'New course page should be accessible for student', :a11y do
         test_page_accessibility('/courses/new', :student, theme, "new_course_#{theme}_student.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Course settings page should be accessible for teacher', :a11y do
         test_page_accessibility("/courses/#{course1.id}/edit?tab=general", :teacher, theme, "course_settings_#{theme}_teacher.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Course Email settings page should be accessible for teacher', :a11y do
         test_page_accessibility("/courses/#{course1.id}/edit?tab=email", :teacher, theme, "course_email_settings_#{theme}_teacher.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Course enrollments page should be accessible for teacher', :a11y do
         test_page_accessibility("/courses/#{course1.id}/enrollments", :teacher, theme, "course_enrollments_#{theme}_teacher.png")
-        expect(page).to be_axe_clean
       end
 
       it 'New extension request page should be accessible for student', :a11y do
         test_page_accessibility("/courses/#{course1.id}/requests/new", :student, theme, "new_extension_request_#{theme}_student.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Extension requests page should be accessible for teacher', :a11y do
         test_page_accessibility("/courses/#{course1.id}/requests", :teacher, theme, "extension_requests_#{theme}_teacher.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Extension requests page should be accessible for student', :a11y do
         test_page_accessibility("/courses/#{course1.id}/requests", :student, theme, "extension_requests_#{theme}_student.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Extension request details page should be accessible for teacher', :a11y do
         test_page_accessibility("/courses/#{course1.id}/requests/#{c1_request1.id}", :teacher, theme, "extension_request_details_#{theme}_teacher.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Extension request details page should be accessible for student', :a11y do
         test_page_accessibility("/courses/#{course1.id}/requests/#{c1_request1.id}", :student, theme, "extension_request_details_#{theme}_student.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Edit extension request page should be accessible for student', :a11y do
         test_page_accessibility("/courses/#{course1.id}/requests/#{c1_request1.id}/edit", :student, theme, "edit_extension_request_#{theme}_student.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Edit form settings page should be accessible for teacher', :a11y do
         test_page_accessibility("/courses/#{course1.id}/form_setting/edit", :teacher, theme, "edit_form_settings_#{theme}_teacher.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Assignments page should be accessible for teacher', :a11y do
         test_page_accessibility("/courses/#{course1.id}", :teacher, theme, "assignments_#{theme}_teacher.png")
-        expect(page).to be_axe_clean
       end
 
       it 'Assignments page should be accessible for student', :a11y do
         test_page_accessibility("/courses/#{course1.id}", :student, theme, "assignments_#{theme}_student.png")
-        expect(page).to be_axe_clean
       end
     end
   end
 end
-# rubocop:enable RSpec/MultipleMemoizedHelpers, RSpec/IndexedLet, RSpec/LetSetup
+# rubocop:enable RSpec/MultipleMemoizedHelpers, RSpec/IndexedLet, RSpec/LetSetup, RSpec/NoExpectationExample

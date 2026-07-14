@@ -1,5 +1,4 @@
 class CoursesController < ApplicationController
-  before_action :authenticate_user
   before_action :set_course, only: %i[show edit sync_assignments sync_enrollments enrollments delete]
   # Currently exclude routes that expect JSON.
   before_action :require_course_staff!, only: %i[edit enrollments delete]
@@ -47,7 +46,7 @@ class CoursesController < ApplicationController
 
     # TODO: Add spec for when a course is created, but the user is not enrolled in it.
     # TODO: Why do some courses have empty enrollments?
-    existing_canvas_ids = @user.courses.pluck(:canvas_id)
+    existing_canvas_ids = current_user.courses.pluck(:canvas_id)
     @courses_teacher = filter_courses(@courses, Enrollment.staff_roles, existing_canvas_ids)
     # Track if any teacher courses, so we still show the semester filter even if the selected semester filters out all courses.
     @has_any_teacher_courses = @courses_teacher.any?
@@ -64,25 +63,25 @@ class CoursesController < ApplicationController
   end
 
   def create
-    token = @user.lms_credentials.first.token
+    token = current_user.lms_credentials.first.token
     filter_courses(Course.fetch_courses(token), Enrollment.staff_roles)
       .select { |c| params[:courses]&.include?(c['id'].to_s) }
-      .each { |course_api| Course.create_or_update_from_canvas(course_api, token, @user) }
+      .each { |course_api| Course.create_or_update_from_canvas(course_api, token, current_user) }
     redirect_to courses_path, notice: 'Selected courses and their assignments have been imported successfully.'
   end
 
   def sync_assignments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
 
-    @course.sync_assignments(@user)
+    @course.sync_assignments(current_user)
     render json: { message: 'Assignments synced successfully.' }, status: :ok
   end
 
   def sync_enrollments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
-    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.staff_user?(@user)
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.staff_user?(current_user)
 
-    @course.sync_all_enrollments_from_canvas(@user.id)
+    @course.sync_all_enrollments_from_canvas(current_user.id)
     render json: { message: 'Users synced successfully.' }, status: :ok
   end
 
@@ -95,8 +94,6 @@ class CoursesController < ApplicationController
   def delete
     return redirect_to courses_path, alert: 'Extensions are enabled for this course.' if @course.requests_enabled?
 
-    # Destroys just this course; its assignments, extensions, enrollments,
-    # requests, settings, and LMS links all cascade via `dependent: :destroy`.
     @course.destroy
 
     redirect_to courses_path, notice: 'Course deleted successfully.'
