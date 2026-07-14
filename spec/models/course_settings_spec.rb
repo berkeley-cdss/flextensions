@@ -72,6 +72,13 @@ RSpec.describe CourseSettings, type: :model do
         expect(course_settings.errors[:gradescope_course_url]).to include('must be a valid Gradescope course URL like https://gradescope.com/courses/123456')
       end
 
+      it 'rejects a blank gradescope_course_url' do
+        course_settings.enable_gradescope = true
+        course_settings.gradescope_course_url = nil
+        expect(course_settings).not_to be_valid
+        expect(course_settings.errors[:gradescope_course_url]).to include('must be a valid Gradescope course URL like https://gradescope.com/courses/123456')
+      end
+
       it 'accepts gradescope.com without www' do
         course_settings.enable_gradescope = true
         course_settings.gradescope_course_url = 'https://gradescope.com/courses/789012'
