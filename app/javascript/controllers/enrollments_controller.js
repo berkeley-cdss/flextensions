@@ -24,7 +24,7 @@ export default class extends Controller {
 				ordering: true,
 				info: true,
 				responsive: true,
-				pageLength: 500,
+				pageLength: 100,
 				lengthMenu: [[-1, 25, 50, 100, 500], ["All", 25, 50, 100, 500]],
 				columns: document.querySelectorAll('#enrollments-table thead th').length === 6
 					? [null, null, null, { orderDataType: 'role-pre' }, null, null]
