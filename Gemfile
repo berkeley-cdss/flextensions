@@ -53,6 +53,8 @@ gem 'ostruct'
 gem 'omniauth'
 gem 'omniauth-canvas'
 gem 'omniauth-oauth2'
+# CSRF protection for the OmniAuth request phase (mitigates CVE-2015-9284)
+gem 'omniauth-rails_csrf_protection'
 
 # Audit for potentially unsafe database migrations
 gem 'strong_migrations'

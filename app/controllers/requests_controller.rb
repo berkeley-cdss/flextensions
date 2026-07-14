@@ -1,7 +1,6 @@
 # We really should get a handle on this.
 # rubocop:disable Metrics/ClassLength
 class RequestsController < ApplicationController
-  before_action :authenticate_user
   before_action :set_course
   before_action :require_course_staff!, only: %i[create_for_student approve reject mass_approve mass_reject]
   before_action :set_form_settings
@@ -359,7 +358,7 @@ class RequestsController < ApplicationController
   rescue StandardError => e
     Rails.logger.error("Mass approve failed for request #{request.id}: #{e.message}")
     Rails.error.report(e, handled: true,
-                       context: { component: 'mass_approve', request_id: request.id, actor_id: @user&.id })
+                       context: { component: 'mass_approve', request_id: request.id, actor_id: current_user&.id })
     false
   end
 

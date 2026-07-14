@@ -29,42 +29,28 @@ RSpec.describe ApplicationController, type: :controller do
     allow(controller).to receive_messages(courses_path: '/courses', root_path: '/')
   end
 
-  describe '#excluded_controller_action?' do
-    subject(:controller_instance) { controller }
-
-    {
-      'home' => 'index',
-      'login' => 'canvas',
-      'session' => 'create',
-      'rails/health' => 'show'
-    }.each do |controller, action|
-      it "excludes #{controller}##{action} from authentication" do
-        allow_any_instance_of(described_class).to receive(:params)
-          .and_return({ controller: controller, action: action })
-
-        expect(controller_instance.excluded_controller_action?).to be true
-      end
-    end
-
-    it 'does not exclude unknown controller/action' do
-      allow(controller).to receive(:params).and_return({ controller: 'courses', action: 'index' })
-
-      expect(controller.send(:excluded_controller_action?)).to be_nil
-    end
-  end
-
   describe '#authenticated!' do
     before do
       allow(Rails.env).to receive(:test?).and_return(false)
     end
 
     context 'when in test environment' do
-      it 'returns true if session user_id is set' do
+      it 'authenticates a valid session user without requiring LMS credentials' do
+        allow(Rails.env).to receive(:test?).and_return(true)
+        credential_free_user = User.create!(email: 'nocreds@example.com', canvas_uid: '999')
+        session[:user_id] = credential_free_user.canvas_uid
+
+        get :index
+        expect(response.body).to eq('OK')
+      end
+
+      it 'still rejects a session whose user does not exist' do
         allow(Rails.env).to receive(:test?).and_return(true)
         session[:user_id] = 'some-id'
 
         get :index
-        expect(response.body).to eq('OK')
+        expect(response).to redirect_to(root_path)
+        expect(flash[:alert]).to eq('You must be logged in to access that page.')
       end
     end
 
