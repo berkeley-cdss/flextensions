@@ -104,7 +104,7 @@ class CourseSettings < ApplicationRecord
   end
 
   def gradescope_url_is_valid
-    return if gradescope_course_url.match?(VALID_GRADESCOPE_URL)
+    return if gradescope_course_url&.match?(VALID_GRADESCOPE_URL)
 
     errors.add(:gradescope_course_url, 'must be a valid Gradescope course URL like https://gradescope.com/courses/123456')
   end

@@ -41,18 +41,24 @@ class SyncUsersFromCanvasJob < ApplicationJob
     users_removed = 0
     users_updated = 0
 
-    # Handle removals - only for the current role
-    existing_role_enrollments = Enrollment.joins(:user)
-                                           .where(course_id: course.id, role: role)
-                                           .select('enrollments.*, users.canvas_uid')
+    # Handle removals - only for the current role.
+    # Skip removals entirely when Canvas returns an empty roster: a bad or
+    # partial response should not wipe every enrollment for the role.
+    if canvas_users.any?
+      existing_role_enrollments = Enrollment.joins(:user)
+                                             .where(course_id: course.id, role: role)
+                                             .select('enrollments.*, users.canvas_uid')
 
-    enrollments_to_remove = existing_role_enrollments.reject do |enrollment|
-      current_canvas_user_ids.include?(enrollment.canvas_uid)
-    end
+      enrollments_to_remove = existing_role_enrollments.reject do |enrollment|
+        current_canvas_user_ids.include?(enrollment.canvas_uid)
+      end
 
-    if enrollments_to_remove.any?
-      Enrollment.where(id: enrollments_to_remove.map(&:id)).destroy_all
-      users_removed = enrollments_to_remove.size
+      if enrollments_to_remove.any?
+        Enrollment.where(id: enrollments_to_remove.map(&:id)).destroy_all
+        users_removed = enrollments_to_remove.size
+      end
+    else
+      Rails.logger.warn "SyncUsersFromCanvasJob: Canvas returned no #{role} users for course #{course.id}; skipping enrollment removal"
     end
 
     valid_canvas_users = canvas_users.reject { |user_data| user_data['email'].blank? }
