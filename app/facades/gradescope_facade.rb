@@ -15,8 +15,6 @@ class GradescopeFacade < LmsFacade
     new
   end
 
-  # See LmsFacade.assignment_url. Gradescope currently mirrors Canvas's URL
-  # shape, but owning it here lets the two diverge without touching callers.
   def self.assignment_url(base_url, external_course_id, external_assignment_id)
     "#{base_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
   end
