@@ -37,6 +37,17 @@ module API
       private
 
       def validate_write_token
+        # This endpoint is not ready for production. The check below only
+        # verifies that *some* Authorization header is present, which is not
+        # real authentication, so any fake token would be able to write data.
+        # Until proper token validation is implemented, refuse every request
+        # outside the test environment. Specs run in the test environment and
+        # continue to exercise the controller's behavior.
+        unless Rails.env.test?
+          render json: { error: 'This endpoint is not available' }, status: :forbidden
+          return
+        end
+
         token = request.headers['Authorization']
         return if token.present?
 
