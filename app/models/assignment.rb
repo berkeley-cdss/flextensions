@@ -58,11 +58,15 @@ class Assignment < ApplicationRecord
   end
 
   # TODO: Arguably we should get the base URL from the course
-  # Canvas and Gradescope share the /courses/:id/assignments/:id URL shape, so
-  # there is no per-LMS branching here.
+  # The per-LMS URL structure lives on each facade, so this just supplies the
+  # base URL and external ids and lets the facade assemble the link.
   def external_url
     return unless course_to_lms
 
-    "#{course_to_lms.lms.lms_base_url}/courses/#{course_to_lms.external_course_id}/assignments/#{external_assignment_id}"
+    lms_facade.assignment_url(
+      course_to_lms.lms.lms_base_url,
+      course_to_lms.external_course_id,
+      external_assignment_id
+    )
   end
 end
