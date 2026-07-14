@@ -1,5 +1,5 @@
 FactoryBot.define do
-  factory :user_to_course do
+  factory :enrollment do
     association :user
     association :course
     role { 'student' }

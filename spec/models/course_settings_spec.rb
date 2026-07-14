@@ -10,10 +10,14 @@
 #  enable_emails                      :boolean          default(FALSE)
 #  enable_extensions                  :boolean          default(FALSE)
 #  enable_gradescope                  :boolean          default(FALSE)
+#  enable_min_hours_before_deadline   :boolean          default(TRUE), not null
 #  enable_slack_webhook_url           :boolean
 #  extend_late_due_date               :boolean          default(TRUE), not null
 #  gradescope_course_url              :string
 #  max_auto_approve                   :integer          default(0)
+#  min_hours_before_deadline          :integer          default(0), not null
+#  pending_notification_email         :string
+#  pending_notification_frequency     :string
 #  reply_email                        :string
 #  slack_webhook_url                  :string
 #  created_at                         :datetime         not null
@@ -22,7 +26,7 @@
 #
 # Indexes
 #
-#  index_course_settings_on_course_id  (course_id)
+#  index_course_settings_on_course_id  (course_id) UNIQUE
 #
 # Foreign Keys
 #
@@ -38,6 +42,19 @@ RSpec.describe CourseSettings, type: :model do
     it 'belongs to course' do
       expect(course_settings.course).to eq(course)
     end
+
+    it 'does not allow a second settings record for the same course' do
+      duplicate = described_class.new(course: course)
+      expect(duplicate).not_to be_valid
+      expect(duplicate.errors[:course_id]).to include('has already been taken')
+    end
+  end
+
+  describe 'minimum hours before deadline defaults' do
+    it 'defaults to enabled with zero hours' do
+      expect(course_settings.enable_min_hours_before_deadline).to be true
+      expect(course_settings.min_hours_before_deadline).to eq(0)
+    end
   end
 
   describe 'validations' do
@@ -51,6 +68,13 @@ RSpec.describe CourseSettings, type: :model do
       it 'rejects invalid gradescope_course_url' do
         course_settings.enable_gradescope = true
         course_settings.gradescope_course_url = 'https://example.com/invalid'
+        expect(course_settings).not_to be_valid
+        expect(course_settings.errors[:gradescope_course_url]).to include('must be a valid Gradescope course URL like https://gradescope.com/courses/123456')
+      end
+
+      it 'rejects a blank gradescope_course_url' do
+        course_settings.enable_gradescope = true
+        course_settings.gradescope_course_url = nil
         expect(course_settings).not_to be_valid
         expect(course_settings.errors[:gradescope_course_url]).to include('must be a valid Gradescope course URL like https://gradescope.com/courses/123456')
       end
@@ -299,8 +323,7 @@ RSpec.describe CourseSettings, type: :model do
   describe 'extend_late_due_date setting' do
     it 'defaults to true for new course settings' do
       new_course = create(:course, canvas_id: 'canvas_new', course_name: 'New Course', course_code: 'NEW101')
-      new_settings = described_class.create!(course: new_course)
-      expect(new_settings.extend_late_due_date).to be true
+      expect(new_course.course_settings.extend_late_due_date).to be true
     end
 
     it 'can be set to false' do

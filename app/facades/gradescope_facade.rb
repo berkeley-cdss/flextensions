@@ -44,6 +44,8 @@ class GradescopeFacade < LmsFacade
       raise e
     rescue => e
       Rails.logger.error "Failed to fetch Gradescope assignments: #{e.message}"
+      Rails.error.report(e, handled: true,
+                         context: { component: 'gradescope', operation: 'get_all_assignments', course_id: course_id })
       []
     end
   end
@@ -70,6 +72,8 @@ class GradescopeFacade < LmsFacade
       overrides_data.map { |data| Lmss::Gradescope::Override.new(data) }
     rescue => e
       Rails.logger.error "Failed to fetch assignment extensions: #{e.message}"
+      Rails.error.report(e, handled: true,
+                         context: { component: 'gradescope', operation: 'get_assignment_overrides', course_id: course_id, assignment_id: assignment_id })
       []
     end
   end

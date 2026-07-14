@@ -120,7 +120,7 @@
 			<!-- Student Notes -->
 			<% if @student_enrollment.present? %>
 				<div class="mb-4" data-controller="student-notes"
-					data-student-notes-url-value="<%= update_notes_course_user_to_course_path(@course, @student_enrollment) %>">
+					data-student-notes-url-value="<%= update_notes_course_enrollment_path(@course, @student_enrollment) %>">
 					<h3 class="mb-2 h6">Staff Notes for <%= @request.user.name %></h3>
 					<div data-student-notes-target="display">
 						<div class="p-3 bg-light rounded" data-student-notes-target="content">
