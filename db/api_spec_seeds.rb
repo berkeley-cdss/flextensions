@@ -6,7 +6,7 @@ LmsCredential.destroy_all
 Extension.destroy_all
 Assignment.destroy_all
 CourseToLms.destroy_all
-UserToCourse.destroy_all
+Enrollment.destroy_all
 Course.destroy_all
 User.destroy_all
 
@@ -33,7 +33,7 @@ test_user = User.create!({
   email: "testuser@example.com",
 })
 
-test_user_to_course = UserToCourse.create!({
+test_enrollment = Enrollment.create!({
   user_id: test_user.id,
   course_id: test_course.id,
   role: "test",

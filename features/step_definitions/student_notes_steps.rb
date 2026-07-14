@@ -8,7 +8,7 @@ end
 
 # Set notes on the student's enrollment in the course
 Given(/^the student for the course has notes "([^"]*)"$/) do |notes_text|
-  student = User.joins(:user_to_courses).find_by(user_to_courses: { course: @course, role: 'student' })
-  enrollment = UserToCourse.find_by(user: student, course: @course, role: 'student')
+  student = User.joins(:enrollments).find_by(enrollments: { course: @course, role: 'student' })
+  enrollment = Enrollment.find_by(user: student, course: @course, role: 'student')
   enrollment.update!(notes: notes_text)
 end

@@ -25,7 +25,10 @@ Rails.application.configure do
     config.lograge.custom_payload do |controller|
       {
         request_id: controller.request.uuid,
-        user_id: controller.respond_to?(:current_user) ? controller.current_user.try(:id) : nil
+        # Guard the method call itself: mounted engine controllers (e.g.
+        # Faultline::ErrorGroupsController) inherit from ActionController::Base
+        # and do not define `current_user`, so calling it directly would raise.
+        user_id: controller.try(:current_user).try(:id)
       }
     end
 

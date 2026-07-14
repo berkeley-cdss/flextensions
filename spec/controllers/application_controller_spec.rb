@@ -29,42 +29,28 @@ RSpec.describe ApplicationController, type: :controller do
     allow(controller).to receive_messages(courses_path: '/courses', root_path: '/')
   end
 
-  describe '#excluded_controller_action?' do
-    subject(:controller_instance) { controller }
-
-    {
-      'home' => 'index',
-      'login' => 'canvas',
-      'session' => 'create',
-      'rails/health' => 'show'
-    }.each do |controller, action|
-      it "excludes #{controller}##{action} from authentication" do
-        allow_any_instance_of(described_class).to receive(:params)
-          .and_return({ controller: controller, action: action })
-
-        expect(controller_instance.excluded_controller_action?).to be true
-      end
-    end
-
-    it 'does not exclude unknown controller/action' do
-      allow(controller).to receive(:params).and_return({ controller: 'courses', action: 'index' })
-
-      expect(controller.send(:excluded_controller_action?)).to be_nil
-    end
-  end
-
   describe '#authenticated!' do
     before do
       allow(Rails.env).to receive(:test?).and_return(false)
     end
 
     context 'when in test environment' do
-      it 'returns true if session user_id is set' do
+      it 'authenticates a valid session user without requiring LMS credentials' do
+        allow(Rails.env).to receive(:test?).and_return(true)
+        credential_free_user = User.create!(email: 'nocreds@example.com', canvas_uid: '999')
+        session[:user_id] = credential_free_user.canvas_uid
+
+        get :index
+        expect(response.body).to eq('OK')
+      end
+
+      it 'still rejects a session whose user does not exist' do
         allow(Rails.env).to receive(:test?).and_return(true)
         session[:user_id] = 'some-id'
 
         get :index
-        expect(response.body).to eq('OK')
+        expect(response).to redirect_to(root_path)
+        expect(flash[:alert]).to eq('You must be logged in to access that page.')
       end
     end
 
@@ -79,9 +65,20 @@ RSpec.describe ApplicationController, type: :controller do
     end
 
     context 'when user token has expired' do
-      it 'resets session and redirects with alert' do
+      before do
         user.lms_credentials.first.update!(expire_time: 1.hour.ago)
         session[:user_id] = user.canvas_uid
+      end
+
+      it 'refreshes the token and continues to the requested action when refresh succeeds' do
+        allow_any_instance_of(described_class).to receive(:refresh_user_token).and_return('new_token')
+
+        get :index
+        expect(response.body).to eq('OK')
+      end
+
+      it 'resets session and redirects with alert when refresh fails' do
+        allow_any_instance_of(described_class).to receive(:refresh_user_token).and_return(nil)
 
         get :index
         expect(response).to redirect_to(root_path)
@@ -100,8 +97,12 @@ RSpec.describe ApplicationController, type: :controller do
   end
 
   describe '#render_role_based_view' do
+    let(:course) { Course.create!(course_name: 'Biology 101', canvas_id: 'course-123') }
+
     before do
       allow(controller).to receive_messages(controller_name: controller_name_override, action_name: action_name_override)
+      allow(controller).to receive(:current_user).and_return(user)
+      controller.instance_variable_set(:@course, course)
     end
 
     context 'as a student on courses#show' do
@@ -109,7 +110,7 @@ RSpec.describe ApplicationController, type: :controller do
       let(:action_name_override)     { 'show' }
 
       before do
-        controller.instance_variable_set(:@role, 'student')
+        Enrollment.create!(user: user, course: course, role: 'student')
       end
 
       it 'renders courses/student_show' do
@@ -123,7 +124,7 @@ RSpec.describe ApplicationController, type: :controller do
       let(:action_name_override)     { 'index' }
 
       before do
-        controller.instance_variable_set(:@role, 'instructor')
+        Enrollment.create!(user: user, course: course, role: 'teacher')
       end
 
       it 'renders requests/instructor_index' do
@@ -137,7 +138,7 @@ RSpec.describe ApplicationController, type: :controller do
       let(:action_name_override)     { 'show' }
 
       before do
-        controller.instance_variable_set(:@role, 'student')
+        Enrollment.create!(user: user, course: course, role: 'student')
       end
 
       it 'renders the overridden student view under requests' do

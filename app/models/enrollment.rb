@@ -1,9 +1,10 @@
 # == Schema Information
 #
-# Table name: user_to_courses
+# Table name: enrollments
 #
 #  id                      :bigint           not null, primary key
 #  allow_extended_requests :boolean          default(FALSE), not null
+#  notes                   :text
 #  removed                 :boolean          default(FALSE), not null
 #  role                    :string
 #  created_at              :datetime         not null
@@ -13,16 +14,15 @@
 #
 # Indexes
 #
-#  index_user_to_courses_on_course_id  (course_id)
-#  index_user_to_courses_on_user_id    (user_id)
+#  index_enrollments_on_course_id  (course_id)
+#  index_enrollments_on_user_id    (user_id)
 #
 # Foreign Keys
 #
 #  fk_rails_...  (course_id => courses.id)
 #  fk_rails_...  (user_id => users.id)
 #
-# TODO: In the future we should name this CourseEnrollment
-class UserToCourse < ApplicationRecord
+class Enrollment < ApplicationRecord
   STUDENT_ROLE = 'student'.freeze
   TEACHER_ROLE = 'teacher'.freeze
   TA_ROLE = 'ta'.freeze
@@ -30,14 +30,16 @@ class UserToCourse < ApplicationRecord
   STAFF_ROLES = [ TEACHER_ROLE, TA_ROLE, LEAD_TA_ROLE ].freeze
   COURSE_ADMIN_ROLES = [ TEACHER_ROLE, LEAD_TA_ROLE ].freeze
   ROLE_LABELS = {
+    TEACHER_ROLE => 'Instructor',
     LEAD_TA_ROLE => 'Lead TA'
   }.freeze
+  # Role ranking from lowest to highest, used to pick a single role when a
+  # user holds more than one in the same course.
+  ROLE_PRIORITY = [ STUDENT_ROLE, TA_ROLE, LEAD_TA_ROLE, TEACHER_ROLE ].freeze
 
-  # Associations
   belongs_to :user
   belongs_to :course
 
-  # Validations
   # NOTE: Validations are skipped when a User is created by SyncUsersFromCanvasJob
   # You should update that job if these validations become complex.
   # In the meantime, we can trust that the data coming from Canvas is valid.
@@ -45,11 +47,11 @@ class UserToCourse < ApplicationRecord
 
 
   def staff?
-    UserToCourse.staff_roles.include?(role)
+    Enrollment.staff_roles.include?(role)
   end
 
   def course_admin?
-    UserToCourse.course_admin_roles.include?(role)
+    Enrollment.course_admin_roles.include?(role)
   end
 
   def student?
@@ -57,15 +59,26 @@ class UserToCourse < ApplicationRecord
   end
 
   def display_role
-    UserToCourse.display_role(role)
+    Enrollment.display_role(role)
   end
 
-  def teacher?
-    role == 'teacher'
+  # Rank of this enrollment's role; higher wins. Unknown roles rank lowest.
+  def role_priority
+    ROLE_PRIORITY.index(role) || -1
+  end
+
+  # Collapses a set of enrollments (typically one user's enrollments across
+  # courses) to at most one per course, keeping the highest-ranked role. This
+  # prevents a user who holds multiple roles in the same course from appearing
+  # more than once in a course list.
+  def self.keep_highest_role
+    all.group_by(&:course_id).map do |_course_id, enrollments|
+      enrollments.max_by(&:role_priority)
+    end
   end
 
   def self.roles
-    [ STUDENT_ROLE ] + UserToCourse.staff_roles
+    [ STUDENT_ROLE ] + Enrollment.staff_roles
   end
 
   def self.staff_roles
@@ -95,6 +108,6 @@ class UserToCourse < ApplicationRecord
   end
 
   def self.display_role(role)
-    ROLE_LABELS.fetch(role.to_s, role.to_s.capitalize)
+    ROLE_LABELS.fetch(role, role.capitalize)
   end
 end

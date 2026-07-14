@@ -3,7 +3,7 @@ require 'rake'
 
 RSpec.describe 'notifications:send_pending_digests' do # rubocop:disable RSpec/DescribeClass
   before(:all) do
-    Rails.application.load_tasks
+    Rails.application.load_tasks unless Rake::Task.task_defined?('notifications:send_pending_digests')
   end
 
   it 'invokes PendingRequestsNotificationJob with valid frequency' do

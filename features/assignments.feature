@@ -17,10 +17,11 @@ Feature: Course Assignments
 		Then I should not see "Homework 1"
 		Then I should see "Homework 2"
 
-	Scenario: Instructor sees the Sync Assignments button
+	Scenario: Instructor sees the Sync Assignments button and last synced time
 		Given I'm logged in as a teacher
 		When I go to the Course page
-		Then I should see a "Sync Assignments" button
+		Then I should see "Sync Assignments"
+		And I should see "Assignments last synced at"
 
 	@javascript
 	Scenario: Clicking Sync Assignments disables the button and shows a spinner

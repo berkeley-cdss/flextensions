@@ -70,19 +70,19 @@ RSpec.describe SyncUsersFromCanvasJob, type: :job do
         allow(canvas_facade_double).to receive(:get_all_course_users).and_return(canvas_data)
       end
 
-      it 'creates UserToCourse enrollments for synced users' do
+      it 'creates Enrollment enrollments for synced users' do
         expect {
           described_class.perform_now(course.id, sync_user.id, 'student')
-        }.to change(UserToCourse, :count).by(2)
+        }.to change(Enrollment, :count).by(2)
 
-        expect(UserToCourse.exists?(user: first_student, course: course, role: 'student')).to be true
-        expect(UserToCourse.exists?(user: second_student, course: course, role: 'student')).to be true
+        expect(Enrollment.exists?(user: first_student, course: course, role: 'student')).to be true
+        expect(Enrollment.exists?(user: second_student, course: course, role: 'student')).to be true
       end
 
       it 'assigns the correct role to enrollments' do
         described_class.perform_now(course.id, sync_user.id, 'ta')
 
-        expect(UserToCourse.find_by(user: first_student, course: course).role).to eq('ta')
+        expect(Enrollment.find_by(user: first_student, course: course).role).to eq('ta')
       end
 
       it 'does not duplicate enrollments on re-run' do
@@ -90,7 +90,7 @@ RSpec.describe SyncUsersFromCanvasJob, type: :job do
 
         expect {
           described_class.perform_now(course.id, sync_user.id, 'student')
-        }.not_to change(UserToCourse, :count)
+        }.not_to change(Enrollment, :count)
       end
     end
 
@@ -99,7 +99,7 @@ RSpec.describe SyncUsersFromCanvasJob, type: :job do
       let(:removed)   { create(:user) }
 
       before do
-        create(:user_to_course, user: removed, course: course, role: 'student')
+        create(:enrollment, user: removed, course: course, role: 'student')
         allow(canvas_facade_double).to receive(:get_all_course_users)
           .and_return([ { 'id' => remaining.canvas_uid, 'name' => remaining.name,
                          'email' => remaining.email, 'sis_user_id' => remaining.student_id } ])
@@ -107,22 +107,22 @@ RSpec.describe SyncUsersFromCanvasJob, type: :job do
 
       it 'removes enrollments for users no longer returned by Canvas' do
         # Also pre-enroll `remaining` so the job's insert doesn't offset the removal
-        create(:user_to_course, user: remaining, course: course, role: 'student')
+        create(:enrollment, user: remaining, course: course, role: 'student')
 
         expect {
           described_class.perform_now(course.id, sync_user.id, 'student')
-        }.to change(UserToCourse, :count).by(-1)
+        }.to change(Enrollment, :count).by(-1)
 
-        expect(UserToCourse.exists?(user: removed, course: course)).to be false
+        expect(Enrollment.exists?(user: removed, course: course)).to be false
       end
 
       it 'does not remove enrollments for other roles' do
         teacher = create(:user)
-        create(:user_to_course, user: teacher, course: course, role: 'teacher')
+        create(:enrollment, user: teacher, course: course, role: 'teacher')
 
         described_class.perform_now(course.id, sync_user.id, 'student')
 
-        expect(UserToCourse.exists?(user: teacher, course: course, role: 'teacher')).to be true
+        expect(Enrollment.exists?(user: teacher, course: course, role: 'teacher')).to be true
       end
     end
 
@@ -140,8 +140,8 @@ RSpec.describe SyncUsersFromCanvasJob, type: :job do
       it 'syncs each role independently' do
         described_class.perform_now(course.id, sync_user.id, %w[student ta])
 
-        expect(UserToCourse.exists?(user: student, course: course, role: 'student')).to be true
-        expect(UserToCourse.exists?(user: ta,      course: course, role: 'ta')).to be true
+        expect(Enrollment.exists?(user: student, course: course, role: 'student')).to be true
+        expect(Enrollment.exists?(user: ta,      course: course, role: 'ta')).to be true
       end
     end
 
