@@ -40,19 +40,17 @@ if Rails.env.development?
   end
 
   # Enroll teacher as instructor
-  UserToCourse.find_or_create_by!(user_id: teacher_user.id, course_id: test_course.id) do |utc|
-    utc.role = 'teacher'
+  Enrollment.find_or_create_by!(user_id: teacher_user.id, course_id: test_course.id) do |enrollment|
+    enrollment.role = 'teacher'
   end
 
   # Enroll student as student
-  UserToCourse.find_or_create_by!(user_id: student_user.id, course_id: test_course.id) do |utc|
-    utc.role = 'student'
+  Enrollment.find_or_create_by!(user_id: student_user.id, course_id: test_course.id) do |enrollment|
+    enrollment.role = 'student'
   end
 
-  # Enable extensions for test course
-  CourseSettings.find_or_create_by!(course_id: test_course.id) do |cs|
-    cs.enable_extensions = true
-  end
+  # Enable extensions for test course (settings are created with the course)
+  test_course.course_settings.update!(enable_extensions: true)
 
   # Create form settings for test course
   FormSetting.find_or_create_by!(course_id: test_course.id) do |fs|

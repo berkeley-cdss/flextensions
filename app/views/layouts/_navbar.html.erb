@@ -42,7 +42,7 @@
 					<% else %>
 						<%# TODO: Need a test case for this. %>
 						<li class="nav-item">
-							<%= link_to 'Login', '/auth/canvas', class: 'btn btn-primary', id: 'login-button-index' %>
+							<%= button_to 'Login', '/auth/canvas', method: :post, class: 'btn btn-primary', id: 'login-button-index' %>
 						</li>
 					<% end %>
 					<li>

@@ -5,6 +5,7 @@
 #  id                 :bigint           not null, primary key
 #  course_code        :string
 #  course_name        :string
+#  demo_course        :boolean          default(FALSE), not null
 #  readonly_api_token :string
 #  semester           :string
 #  created_at         :datetime         not null
@@ -37,21 +38,140 @@ RSpec.describe Course, type: :model do
     { "id": 240, "name": "Sherri Johnson", "created_at": "2025-05-05T11:57:36-07:00", "sortable_name": "Johnson, Sherri", "short_name": "Sherri Johnson", "sis_user_id": "216573718", "integration_id": "sherri.johnson53", "sis_import_id": 5, "login_id": "sherri.johnson53@example.com", "email": "sherri.johnson53@example.com", "has_non_collaborative_groups": false }
   ]
 
+  describe 'course settings creation' do
+    it 'automatically creates course settings with defaults when a course is created' do
+      course = described_class.create!(course_name: 'Settings Test', canvas_id: 'canvas_settings', course_code: 'SET101')
+
+      expect(course.course_settings).to be_persisted
+      expect(course.course_settings.enable_extensions).to be false
+      expect(course.course_settings.extend_late_due_date).to be true
+    end
+
+    it 'keeps settings built before the course is saved' do
+      course = described_class.new(course_name: 'Prebuilt Settings', canvas_id: 'canvas_prebuilt', course_code: 'PRE101')
+      course.build_course_settings(enable_extensions: true)
+      course.save!
+
+      expect(course.course_settings.reload.enable_extensions).to be true
+      expect(CourseSettings.where(course_id: course.id).count).to eq(1)
+    end
+  end
+
+  describe '#requests_enabled?' do
+    it 'is true when extensions are enabled in the course settings' do
+      course = create(:course)
+      course.course_settings.update!(enable_extensions: true)
+
+      expect(course.requests_enabled?).to be true
+    end
+
+    it 'is false when extensions are disabled in the course settings' do
+      course = create(:course)
+      course.course_settings.update!(enable_extensions: false)
+
+      expect(course.requests_enabled?).to be false
+    end
+  end
+
+  describe '#canvas_id' do
+    let(:course) { described_class.create!(canvas_id: 'canvas_cid', course_name: 'Test', course_code: 'TEST101') }
+
+    it 'returns the external course id of the Canvas link' do
+      CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: '456')
+
+      expect(course.canvas_id).to eq('456')
+    end
+
+    it 'prefers a populated link even when a blank duplicate exists' do
+      # Order of creation is intentionally "blank first" to guard against the
+      # non-deterministic find_by that previously returned an arbitrary row.
+      CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: nil)
+      CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: '456')
+
+      expect(course.canvas_id).to eq('456')
+    end
+  end
+
+  describe '#enabled_assignments' do
+    it 'returns only enabled assignments belonging to the course' do
+      course = create(:course)
+      other_course = create(:course)
+      enabled = create(:assignment, course_to_lms: course.course_to_lms(1), enabled: true)
+      create(:assignment, course_to_lms: course.course_to_lms(1), enabled: false)
+      create(:assignment, course_to_lms: other_course.course_to_lms(1), enabled: true)
+
+      expect(course.enabled_assignments).to contain_exactly(enabled)
+    end
+  end
+
   describe '#staff_user_for_auto_approval' do
-    it 'returns the correct user for auto approval' do
-      course = described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101')
-      user = User.create!(email: 'test@example.com', canvas_uid: '123')
-      Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }
-      user.lms_credentials.create!(
-        lms_id: 1,
-        token: 'valid_token',
-        refresh_token: 'refresh_token',
+    let(:course) { described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101') }
+
+    def create_staff(email, canvas_uid, role, with_credentials: true)
+      user = User.create!(email: email, canvas_uid: canvas_uid)
+      if with_credentials
+        user.lms_credentials.create!(
+          lms_id: 1,
+          token: 'valid_token',
+          refresh_token: 'refresh_token',
+          expire_time: 1.hour.from_now
+        )
+      end
+      Enrollment.create!(user: user, course: course, role: role)
+      user
+    end
+
+    it 'returns a staff user who has Canvas credentials' do
+      user = create_staff('test@example.com', '123', 'ta')
+
+      expect(course.staff_user_for_auto_approval).to eq(user)
+    end
+
+    it 'skips staff without Canvas credentials, such as users synced from the Canvas roster' do
+      create_staff('synced-ta@example.com', '124', 'ta', with_credentials: false)
+      credentialed = create_staff('logged-in-teacher@example.com', '125', 'teacher')
+
+      expect(course.staff_user_for_auto_approval).to eq(credentialed)
+    end
+
+    it 'ignores non-Canvas credentials' do
+      other_lms = Lms.find_or_create_by(id: 3) { |l| l.lms_name = 'other_lms'; l.use_auth_token = true }
+      user = create_staff('other-lms@example.com', '126', 'ta', with_credentials: false)
+      user.lms_credentials.create!(lms: other_lms, token: 't', refresh_token: 'r', expire_time: 1.hour.from_now)
+
+      expect(course.staff_user_for_auto_approval).to be_nil
+    end
+
+    it 'returns nil when no staff user has Canvas credentials' do
+      create_staff('synced-ta@example.com', '127', 'ta', with_credentials: false)
+
+      expect(course.staff_user_for_auto_approval).to be_nil
+    end
+
+    it 'ignores students with Canvas credentials' do
+      create_staff('student@example.com', '128', 'student')
+
+      expect(course.staff_user_for_auto_approval).to be_nil
+    end
+
+    it 'prefers the staff user whose credentials were refreshed most recently' do
+      course = described_class.create!(canvas_id: 'canvas_126', course_name: 'Test', course_code: 'TEST101')
+
+      idle_ta = User.create!(email: 'idle_ta@example.com', canvas_uid: '127')
+      idle_ta.lms_credentials.create!(
+        lms_id: 1, token: 'stale', refresh_token: 'stale',
+        expire_time: 6.months.ago, updated_at: 6.months.ago
+      )
+      Enrollment.create!(user: idle_ta, course: course, role: 'ta')
+
+      active_teacher = User.create!(email: 'active_teacher@example.com', canvas_uid: '128')
+      active_teacher.lms_credentials.create!(
+        lms_id: 1, token: 'fresh', refresh_token: 'fresh',
         expire_time: 1.hour.from_now
       )
-      UserToCourse.create!(user: user, course: course, role: 'ta')
+      Enrollment.create!(user: active_teacher, course: course, role: 'teacher')
 
-      staff_user = course.staff_user_for_auto_approval
-      expect(staff_user).to eq(user)
+      expect(course.staff_users_for_auto_approval).to eq([ active_teacher, idle_ta ])
     end
   end
 
@@ -59,7 +179,7 @@ RSpec.describe Course, type: :model do
     it 'treats leadta enrollments as instructors' do
       course = described_class.create!(canvas_id: 'canvas_leadta', course_name: 'Test', course_code: 'TEST101')
       user = User.create!(email: 'leadta@example.com', canvas_uid: 'leadta_123')
-      UserToCourse.create!(user: user, course: course, role: 'leadta')
+      Enrollment.create!(user: user, course: course, role: 'leadta')
 
       expect(course.user_role(user)).to eq('instructor')
     end
@@ -140,6 +260,33 @@ RSpec.describe Course, type: :model do
       expect(course.semester).to be_nil
     end
 
+    it 'derives semester from term start_at when the name is blank' do
+      stub_request(:get, %r{api/v1/courses/canvas_123})
+        .to_return(status: 200, body: {
+          name: 'Intro to RSpec',
+          course_code: 'RSPEC101',
+          term: { name: nil, start_at: '2026-05-26T07:00:00Z' }
+        }.to_json)
+
+      course = described_class.find_or_create_course(course_data, token)
+
+      expect(course.semester).to eq('Summer 2026')
+    end
+
+    it 'derives semester from created_at when there is no term or start date' do
+      stub_request(:get, %r{api/v1/courses/canvas_123})
+        .to_return(status: 200, body: {
+          name: 'Computational Structures in Data Science (Spring 2026)',
+          course_code: 'DATA C88C SP26',
+          start_at: nil,
+          created_at: '2026-01-14T10:36:13Z'
+        }.to_json)
+
+      course = described_class.find_or_create_course(course_data, token)
+
+      expect(course.semester).to eq('Spring 2026')
+    end
+
     it 'updates semester on existing course when Canvas term changes' do
       described_class.create!(canvas_id: 'canvas_123', course_name: 'Intro to RSpec',
                               course_code: 'RSPEC101', semester: 'Fall 2025')
@@ -212,6 +359,61 @@ end
     it 'returns [-1, -1] for nil or blank' do
       expect(described_class.semester_sort_key(nil)).to eq([ -1, -1 ])
       expect(described_class.semester_sort_key('')).to eq([ -1, -1 ])
+    end
+  end
+
+  describe '.semester_from_term' do
+    it 'returns the term name when present' do
+      expect(described_class.semester_from_term({ 'name' => 'Spring 2026' })).to eq('Spring 2026')
+    end
+
+    it 'prefers the term name over the start date' do
+      term = { 'name' => 'Spring 2026', 'start_at' => '2026-05-26T07:00:00Z' }
+      expect(described_class.semester_from_term(term)).to eq('Spring 2026')
+    end
+
+    it 'derives Summer from a late-May start date when the name is blank' do
+      term = { 'name' => '', 'start_at' => '2026-05-26T07:00:00Z' }
+      expect(described_class.semester_from_term(term)).to eq('Summer 2026')
+    end
+
+    it 'derives Spring from a January start date' do
+      term = { 'start_at' => '2026-01-13T08:00:00Z' }
+      expect(described_class.semester_from_term(term)).to eq('Spring 2026')
+    end
+
+    it 'derives Fall from an August start date' do
+      term = { 'start_at' => '2026-08-20T07:00:00Z' }
+      expect(described_class.semester_from_term(term)).to eq('Fall 2026')
+    end
+
+    it 'returns nil when term is nil' do
+      expect(described_class.semester_from_term(nil)).to be_nil
+    end
+
+    it 'returns nil when name and start_at are missing and no created_at is given' do
+      expect(described_class.semester_from_term({})).to be_nil
+    end
+
+    it 'returns nil when start_at is unparseable' do
+      expect(described_class.semester_from_term({ 'start_at' => 'not-a-date' })).to be_nil
+    end
+
+    it 'falls back to created_at when the term has no name or start date' do
+      expect(described_class.semester_from_term({}, '2026-01-14T10:36:13Z')).to eq('Spring 2026')
+    end
+
+    it 'falls back to created_at when the term is nil' do
+      expect(described_class.semester_from_term(nil, '2026-08-20T07:00:00Z')).to eq('Fall 2026')
+    end
+
+    it 'prefers the term start date over created_at' do
+      term = { 'start_at' => '2026-05-26T07:00:00Z' }
+      expect(described_class.semester_from_term(term, '2026-01-14T10:36:13Z')).to eq('Summer 2026')
+    end
+
+    it 'returns nil when created_at is also unparseable' do
+      expect(described_class.semester_from_term(nil, 'not-a-date')).to be_nil
     end
   end
 

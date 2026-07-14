@@ -3,14 +3,14 @@ Given(/^a course exists$/) do
   @course = create(:course, course_name: 'Physics 110A', canvas_id: 'Phys110A', course_code: 'PHYS110A')
 
   teacher = create(:teacher, email: 'user1@berkeley.edu', canvas_uid: 'canvas_uid_1')
-  create(:user_to_course, user: teacher, course: @course, role: 'teacher')
+  create(:enrollment, user: teacher, course: @course, role: 'teacher')
 
   ta = create(:ta, email: 'user2@berkeley.edu', canvas_uid: 'canvas_uid_2')
-  create(:user_to_course, user: ta, course: @course, role: 'ta')
+  create(:enrollment, user: ta, course: @course, role: 'ta')
 
   3.times do |i|
     student = create(:student, email: "user#{i + 3}@berkeley.edu", canvas_uid: "canvas_uid_#{i + 3}")
-    create(:user_to_course, user: student, course: @course, role: 'student')
+    create(:enrollment, user: student, course: @course, role: 'student')
   end
 end
 
@@ -138,7 +138,7 @@ end
 # Then the enrollment for "User 3" should allow/disallow extended requests
 Then(/^the enrollment for "([^"]*)" should (allow|disallow) extended requests$/) do |user_name, state|
   user = User.find_by!(name: user_name)
-  enrollment = UserToCourse.find_by!(user: user, course: @course, role: 'student')
+  enrollment = Enrollment.find_by!(user: user, course: @course, role: 'student')
   expected = (state == 'allow')
   expect(enrollment.reload.allow_extended_requests).to eq(expected)
 end
@@ -147,7 +147,7 @@ end
 # Given the enrollment for "User 3" allows extended requests
 Given(/^the enrollment for "([^"]*)" allows extended requests$/) do |user_name|
   user = User.find_by!(name: user_name)
-  enrollment = UserToCourse.find_by!(user: user, course: @course, role: 'student')
+  enrollment = Enrollment.find_by!(user: user, course: @course, role: 'student')
   enrollment.update!(allow_extended_requests: true)
 end
 
@@ -201,7 +201,7 @@ Then(/^the requests table search should be filtered$/) do
 end
 
 Given(/^a pending request exists$/) do
-  student = User.joins(:user_to_courses).find_by(user_to_courses: { course: @course, role: 'student' })
+  student = User.joins(:enrollments).find_by(enrollments: { course: @course, role: 'student' })
   assignment = Assignment.first
   @pending_request = create(:request, user: student, course: @course, assignment: assignment)
 end

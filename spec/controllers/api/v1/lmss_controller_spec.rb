@@ -15,10 +15,9 @@ module API
       after do
         # Clean up the specifically created data
         LmsCredential.destroy_all
-        Extension.destroy_all
         Assignment.destroy_all
         CourseToLms.destroy_all
-        UserToCourse.destroy_all
+        Enrollment.destroy_all
         Course.destroy_all
         Lms.destroy_all
         User.destroy_all
@@ -29,7 +28,7 @@ module API
           it 'returns status :bad_request' do
             post :create, params: { course_id: @course.id, external_course_id: @external_course_id }
             expect(response).to have_http_status(:bad_request)
-            expect(response.body).to include('param is missing or the value is empty: lms_id')
+            expect(response.body).to include('param is missing or the value is empty or invalid: lms_id')
           end
         end
 

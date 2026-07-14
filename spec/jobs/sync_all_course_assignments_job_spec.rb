@@ -63,18 +63,37 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
       expect(existing_assignment.name).to eq('Assignment 1')
     end
 
-    it 'deletes assignments that no longer exist in Canvas' do
+    it 'disables assignments that no longer exist in Canvas without deleting them' do
       orphaned_assignment = create(:assignment,
         course_to_lms: course_to_lms,
         external_assignment_id: '999',
-        name: 'Orphaned Assignment'
+        name: 'Orphaned Assignment',
+        due_date: 1.week.from_now,
+        enabled: true
       )
 
       expect {
         described_class.perform_now(course_to_lms.id, sync_user.id)
-      }.to change(Assignment, :count).by(1) # 2 new, 1 deleted = +1
+      }.to change(Assignment, :count).by(2) # 2 new, orphan kept
 
-      expect(Assignment.find_by(id: orphaned_assignment.id)).to be_nil
+      expect(orphaned_assignment.reload.enabled).to be(false)
+    end
+
+    context 'when Canvas returns no assignments' do
+      let(:canvas_assignments) { [] }
+
+      it 'does not disable existing assignments' do
+        existing_assignment = create(:assignment,
+          course_to_lms: course_to_lms,
+          external_assignment_id: '999',
+          due_date: 1.week.from_now,
+          enabled: true
+        )
+
+        described_class.perform_now(course_to_lms.id, sync_user.id)
+
+        expect(existing_assignment.reload.enabled).to be(true)
+      end
     end
 
     it 'returns sync results' do
@@ -84,70 +103,31 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
         added_assignments: 2,
         updated_assignments: 0,
         unchanged_assignments: 0,
-        deleted_assignments: 0,
+        disabled_assignments: 0,
         synced_at: be_within(1.second).of(Time.current)
       )
     end
 
-    context 'when assignment has base_date field' do
+    context 'when an assignment carries top-level base dates' do
+      # With override_assignment_dates=false the top-level due_at/lock_at are the
+      # base ("Everyone") dates. See docs/Canvas_Dates_API.md.
       let(:canvas_assignments) do
         [
           build_canvas_assignment(
             'id' => '123',
-            'name' => 'Assignment with base_date',
-            'due_at' => nil,
-            'lock_at' => nil,
-            'base_date' => {
-              'due_at' => '2025-03-15T23:59:00Z',
-              'lock_at' => '2025-03-20T23:59:00Z'
-            }
+            'name' => 'Assignment with base dates',
+            'due_at' => '2025-03-15T23:59:00Z',
+            'lock_at' => '2025-03-20T23:59:00Z'
           )
         ]
       end
 
-      it 'uses base_date when present' do
+      it 'stores the top-level base dates' do
         described_class.perform_now(course_to_lms.id, sync_user.id)
 
         assignment = Assignment.find_by(external_assignment_id: '123')
         expect(assignment.due_date).to eq(DateTime.parse('2025-03-15T23:59:00Z'))
         expect(assignment.late_due_date).to eq(DateTime.parse('2025-03-20T23:59:00Z'))
-      end
-    end
-
-    context 'when Canvas omits base_date metadata' do
-      let(:canvas_assignments) do
-        [
-          Lmss::Canvas::Assignment.new(
-            'id' => '123',
-            'name' => 'Assignment 1',
-            'due_at' => '2025-01-30T23:59:00Z',
-            'lock_at' => '2025-02-05T23:59:00Z',
-            'base_date' => nil
-          )
-        ]
-      end
-
-      it 'preserves existing due dates for Canvas assignments' do
-        existing_assignment = create(:assignment,
-          course_to_lms: course_to_lms,
-          external_assignment_id: '123',
-          due_date: DateTime.parse('2025-01-15T23:59:00Z'),
-          late_due_date: DateTime.parse('2025-01-20T23:59:00Z')
-        )
-
-        described_class.perform_now(course_to_lms.id, sync_user.id)
-
-        existing_assignment.reload
-        expect(existing_assignment.due_date).to eq(DateTime.parse('2025-01-15T23:59:00Z'))
-        expect(existing_assignment.late_due_date).to eq(DateTime.parse('2025-01-20T23:59:00Z'))
-      end
-
-      it 'still sets dates for newly imported assignments' do
-        described_class.perform_now(course_to_lms.id, sync_user.id)
-
-        assignment = Assignment.find_by(external_assignment_id: '123')
-        expect(assignment.due_date).to eq(DateTime.parse('2025-01-30T23:59:00Z'))
-        expect(assignment.late_due_date).to eq(DateTime.parse('2025-02-05T23:59:00Z'))
       end
     end
 

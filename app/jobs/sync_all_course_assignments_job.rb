@@ -12,7 +12,7 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
       added_assignments: 0,
       updated_assignments: 0,
       unchanged_assignments: 0,
-      deleted_assignments: 0
+      disabled_assignments: 0
     }
 
     # @return [LmsFacade] facade for the LMS
@@ -28,12 +28,18 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
       sync_assignment(course_to_lms, lms_assignment, results)
     end
 
-    # Delete assignments that no longer exist in LMS
-    deleted_assignments = Assignment.where(course_to_lms_id: course_to_lms.id)
-                                    .where.not(external_assignment_id: external_assignment_ids)
-    deleted_assignments.destroy_all
+    # Disable assignments that no longer exist in the LMS instead of deleting
+    # them, so their extension-request history is preserved. Skip when the LMS
+    # returns no assignments at all — a bad or partial response should not
+    # disable the whole course.
+    if lms_assignments.any?
+      missing_assignments = Assignment.where(course_to_lms_id: course_to_lms.id)
+                                      .where.not(external_assignment_id: external_assignment_ids)
+      # rubocop:disable Rails/SkipsModelValidations
+      results[:disabled_assignments] = missing_assignments.update_all(enabled: false)
+      # rubocop:enable Rails/SkipsModelValidations
+    end
 
-    results[:deleted_assignments] = deleted_assignments.count
     results[:synced_at] = Time.current
 
     course_to_lms.recent_assignment_sync = results
@@ -47,10 +53,8 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
 
     # Use shared LmsAssignment to populate Assignment
     assignment.name = lms_assignment.name
-    unless preserve_existing_dates?(assignment, lms_assignment)
-      assignment.due_date = lms_assignment.due_date
-      assignment.late_due_date = lms_assignment.late_due_date
-    end
+    assignment.due_date = lms_assignment.due_date
+    assignment.late_due_date = lms_assignment.late_due_date
     assignment.external_assignment_id = lms_assignment.id
 
     if assignment.new_record?
@@ -61,15 +65,5 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
       results[:unchanged_assignments] += 1
     end
     assignment.save!
-  end
-
-  private
-
-  def preserve_existing_dates?(assignment, lms_assignment)
-    return false if assignment.new_record?
-    return false unless lms_assignment.is_a?(Lmss::Canvas::Assignment)
-    return false if lms_assignment.base_date_present?
-
-    assignment.due_date.present? || assignment.late_due_date.present?
   end
 end

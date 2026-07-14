@@ -123,3 +123,20 @@ $secondary: $california-gold;
     }
   }
 }
+
+// Section-header rows (e.g. the semester dividers on the course dashboards) use
+// a solid `.table-blue-light` variant. Opt them out of Bootstrap's zebra
+// striping so the striped overlay can't override their background/text colors
+// and drop contrast below WCAG AA — most visibly in dark mode, where the
+// striped text color flips to white and became unreadable on the light-blue
+// header. `initial` resets these custom properties so Bootstrap's var() chain
+// falls back to the variant's own --bs-table-bg / --bs-table-color.
+//
+// The two selectors mirror Bootstrap's and DataTables' striped selectors so
+// they match their specificity and win by source order (this file is compiled
+// after both) — no !important required.
+.table-striped > tbody > tr.table-blue-light > *,
+table.table.dataTable.table-striped > tbody > tr.table-blue-light > * {
+  --bs-table-bg-type: initial;
+  --bs-table-color-type: initial;
+}
