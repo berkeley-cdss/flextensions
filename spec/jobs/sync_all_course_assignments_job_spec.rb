@@ -63,18 +63,37 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
       expect(existing_assignment.name).to eq('Assignment 1')
     end
 
-    it 'deletes assignments that no longer exist in Canvas' do
+    it 'disables assignments that no longer exist in Canvas without deleting them' do
       orphaned_assignment = create(:assignment,
         course_to_lms: course_to_lms,
         external_assignment_id: '999',
-        name: 'Orphaned Assignment'
+        name: 'Orphaned Assignment',
+        due_date: 1.week.from_now,
+        enabled: true
       )
 
       expect {
         described_class.perform_now(course_to_lms.id, sync_user.id)
-      }.to change(Assignment, :count).by(1) # 2 new, 1 deleted = +1
+      }.to change(Assignment, :count).by(2) # 2 new, orphan kept
 
-      expect(Assignment.find_by(id: orphaned_assignment.id)).to be_nil
+      expect(orphaned_assignment.reload.enabled).to be(false)
+    end
+
+    context 'when Canvas returns no assignments' do
+      let(:canvas_assignments) { [] }
+
+      it 'does not disable existing assignments' do
+        existing_assignment = create(:assignment,
+          course_to_lms: course_to_lms,
+          external_assignment_id: '999',
+          due_date: 1.week.from_now,
+          enabled: true
+        )
+
+        described_class.perform_now(course_to_lms.id, sync_user.id)
+
+        expect(existing_assignment.reload.enabled).to be(true)
+      end
     end
 
     it 'returns sync results' do
@@ -84,7 +103,7 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
         added_assignments: 2,
         updated_assignments: 0,
         unchanged_assignments: 0,
-        deleted_assignments: 0,
+        disabled_assignments: 0,
         synced_at: be_within(1.second).of(Time.current)
       )
     end
