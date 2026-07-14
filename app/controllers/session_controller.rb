@@ -54,12 +54,11 @@ class SessionController < ApplicationController
 
     # dev provider doesnt have real credentials so its stubbed
     expires_at = creds.expires_at || 30.days.from_now.to_i
-    refresh_token = creds.refresh_token || 'none'
 
     access_token = OAuth2::AccessToken.new(
       OAuth2::Client.new('', ''), # client never used – stub
       creds.token,
-      refresh_token: refresh_token,
+      refresh_token: creds.refresh_token,
       expires_at: expires_at
     )
 
@@ -189,7 +188,7 @@ class SessionController < ApplicationController
       )
     else
       user.lms_credentials.create!(
-        lms_name: 'canvas',
+        lms_id: Lms.CANVAS_LMS.id,
         token: token.token,
         refresh_token: token.refresh_token,
         expire_time: Time.zone.at(token.expires_at)

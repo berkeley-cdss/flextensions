@@ -36,11 +36,9 @@ class Enrollment < ApplicationRecord
   # user holds more than one in the same course.
   ROLE_PRIORITY = [ STUDENT_ROLE, TA_ROLE, LEAD_TA_ROLE, TEACHER_ROLE ].freeze
 
-  # Associations
   belongs_to :user
   belongs_to :course
 
-  # Validations
   # NOTE: Validations are skipped when a User is created by SyncUsersFromCanvasJob
   # You should update that job if these validations become complex.
   # In the meantime, we can trust that the data coming from Canvas is valid.
@@ -60,7 +58,7 @@ class Enrollment < ApplicationRecord
   end
 
   def display_role
-    ROLE_LABELS.fetch(role, role.capitalize)
+    Enrollment.display_role(role)
   end
 
   # Rank of this enrollment's role; higher wins. Unknown roles rank lowest.

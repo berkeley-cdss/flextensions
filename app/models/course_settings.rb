@@ -17,6 +17,8 @@
 #  gradescope_course_url              :string
 #  max_auto_approve                   :integer          default(0)
 #  min_hours_before_deadline          :integer          default(0), not null
+#  pending_notification_email         :string
+#  pending_notification_frequency     :string
 #  reply_email                        :string
 #  slack_webhook_url                  :string
 #  created_at                         :datetime         not null
@@ -34,7 +36,6 @@
 # rubocop:enable Layout/LineLength
 
 class CourseSettings < ApplicationRecord
-  # TODO: Remove the db default text, and use an AR validation.
   DEFAULT_EMAIL_TEMPLATE = <<~LIQUID.freeze
     Hello {{student_name}},
 
@@ -51,15 +52,30 @@ class CourseSettings < ApplicationRecord
     {{course_name}} Staff
   LIQUID
 
-  belongs_to :course
+  VALID_NOTIFICATION_FREQUENCIES = %w[daily weekly].freeze
 
-  # Courses and settings are 1:1; the course_id unique index enforces this at
-  # the database level.
+  belongs_to :course
   validates :course_id, uniqueness: true
 
+  # Empty <select> and blank <input> submissions become "" — coerce to nil so
+  # `allow_nil` behaves as expected and unset rows compare equal.
+  normalizes :pending_notification_frequency, :pending_notification_email, with: ->(v) { v.presence }
+
   before_save :ensure_system_user_for_auto_approval
+  # Clear a stored email when notifications are turned off, so re-enabling
+  # doesn't silently reuse a stale address.
+  before_save -> { self.pending_notification_email = nil if pending_notification_frequency.nil? }
+
   validate :gradescope_url_is_valid, if: :enable_gradescope?
+  validates :pending_notification_frequency, inclusion: { in: VALID_NOTIFICATION_FREQUENCIES }, allow_nil: true
+  validates :pending_notification_email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP },
+                                         if: -> { pending_notification_frequency.present? }
   after_save :create_or_update_gradescope_link
+
+  scope :with_pending_notifications, ->(frequency) {
+    where(pending_notification_frequency: frequency)
+    .where.not(pending_notification_email: nil)
+  }
 
   def automatic_approval_enabled?
     return false unless enable_extensions?
