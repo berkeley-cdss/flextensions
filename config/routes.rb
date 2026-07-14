@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  mount Faultline::Engine, at: "/admin/errors"
   if Rails.env.development?
     mount LetterOpenerWeb::Engine, at: "/letter_opener"
   end
@@ -33,7 +34,6 @@ Rails.application.routes.draw do
       get :enrollments
       delete :delete
     end
-    resources :extensions, only: [:create]
     resources :requests do
       member do
         post :approve
@@ -44,7 +44,7 @@ Rails.application.routes.draw do
         post :create_for_student
         post :mass_approve
         post :mass_reject
-        get :export, defaults: { format: :csv }
+        get :export, to: 'requests/exports#show', defaults: { format: :csv }
       end
     end
     resources :enrollments, only: [] do

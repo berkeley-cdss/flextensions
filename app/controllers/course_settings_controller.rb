@@ -2,7 +2,7 @@ class CourseSettingsController < ApplicationController
   before_action :authenticated!
   before_action :authenticate_user
   before_action :set_course
-  before_action :ensure_instructor_role
+  before_action :require_course_staff!
   before_action :set_pending_request_count
 
   # Default template settings
@@ -59,26 +59,24 @@ class CourseSettingsController < ApplicationController
   end
 
   def course_settings_params
-    params.require(:course_settings).permit(
-      :enable_extensions,
-      :auto_approve_days,
-      :auto_approve_extended_request_days,
-      :max_auto_approve,
-      :enable_min_hours_before_deadline,
-      :min_hours_before_deadline,
-      :enable_gradescope,
-      :gradescope_course_url,
-      :extend_late_due_date,
-      :enable_emails,
-      :reply_email,
-      :email_subject,
-      :email_template,
-      :enable_slack_webhook_url,
-      :slack_webhook_url
+    params.expect(
+      course_settings: [
+        :enable_extensions,
+        :auto_approve_days,
+        :auto_approve_extended_request_days,
+        :max_auto_approve,
+        :enable_min_hours_before_deadline,
+        :min_hours_before_deadline,
+        :enable_gradescope,
+        :gradescope_course_url,
+        :extend_late_due_date,
+        :enable_emails,
+        :reply_email,
+        :email_subject,
+        :email_template,
+        :enable_slack_webhook_url,
+        :slack_webhook_url
+      ]
     )
-  end
-
-  def set_pending_request_count
-    @pending_requests_count = Request.where(course_id: @course&.id, status: 'pending').count
   end
 end

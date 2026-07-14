@@ -85,6 +85,7 @@ class SessionController < ApplicationController
     redirect_to courses_path, notice: "Logged in! Welcome, #{user_data['name']}!"
   rescue StandardError => e
     Rails.logger.error("OmniAuth callback error: #{e.message}")
+    Rails.error.report(e, handled: true, context: { component: 'omniauth_callback' })
     redirect_to root_path, alert: 'Authentication failed. Invalid credentials.'
   end
 

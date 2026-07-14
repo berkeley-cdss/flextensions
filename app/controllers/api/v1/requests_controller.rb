@@ -1,53 +1,33 @@
 module API
   module V1
     class RequestsController < BaseController
-      before_action :set_facade
+      before_action :validate_write_token
 
       def index
         render json: { message: 'not yet implemented' }, status: :not_implemented
       end
 
       def create
-        find_extension_params
-        course_id = @course_to_lms.external_course_id.to_i
-        assignment_id = @assignment.external_assignment_id.to_i
+        find_request_params
 
-        # Query the base ("Everyone") dates. get_base_dates reads the assignment
-        # with override_assignment_dates=false, whose top-level dates are the
-        # base dates for any number of overrides. See docs/Canvas_Dates_API.md.
-        base_dates = @canvas_facade.get_base_dates(course_id, assignment_id)
-        if base_dates.nil?
-          render json: { error: 'Could not fetch assignment dates from Canvas' }.to_json,
-                 status: :internal_server_error
+        student = User.find_by(canvas_uid: params[:student_uid].to_s)
+        unless student
+          render json: { error: 'Student not found' }, status: :not_found
           return
         end
 
-        # Provision Extension
-        begin
-          override = @canvas_facade.provision_extension(
-            course_id,
-            params[:student_uid].to_i,
-            assignment_id,
-            params[:new_due_date]
-          )
-        rescue CanvasFacade::CanvasAPIError, FailedPipelineError, NotFoundError => e
-          render json: { error: e.message }.to_json, status: :internal_server_error
-          return
-        end
-
-        @extension = Extension.new(
-          assignment_id: @assignment.id,
-          student_email: nil,
-          initial_due_date: base_dates['due_at'],
-          new_due_date: override.override_due_date || params[:new_due_date],
-          external_extension_id: override.id,
-          last_processed_by_id: nil
+        @request = @course.requests.new(
+          assignment: @assignment,
+          user: student,
+          requested_due_date: params[:new_due_date],
+          reason: params[:reason]
         )
-        unless @extension.save
-          render json: { error: 'Extension requested, but local save failed' }.to_json, status: :internal_server_error
-          return
+
+        if @request.save
+          render json: @request, status: :created
+        else
+          render json: { error: @request.errors.full_messages.join(', ') }, status: :unprocessable_content
         end
-        render json: @extension.to_json, status: :ok
       end
 
       def destroy
@@ -56,16 +36,17 @@ module API
 
       private
 
-      def set_facade
-        Rails.logger.info "Using CANVAS_URL: #{ENV.fetch('CANVAS_URL', nil)}"
-        # not sure if auth key will be in the request headers or in cookie
-        @canvas_facade = CanvasFacade.new(request.headers['Authorization'])
+      def validate_write_token
+        token = request.headers['Authorization']
+        return if token.present?
+
+        render json: { error: 'Missing Authorization token' }, status: :unauthorized
       end
 
-      def find_extension_params
-        @lms = Lms.find(params[:lms_id])
-        @course = Course.find(params[:course_id])
-        @assignment = Assignment.find(params[:assignment_id])
+      def find_request_params
+        @lms = Lms.find(params.expect(:lms_id))
+        @course = Course.find(params.expect(:course_id))
+        @assignment = Assignment.find(params.expect(:assignment_id))
         @course_to_lms = CourseToLms.find(@assignment.course_to_lms_id)
       end
     end

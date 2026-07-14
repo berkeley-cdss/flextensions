@@ -14,4 +14,9 @@ module ApplicationHelper
       safe_join([ name, content_tag(:i, '', class: 'fas fa-up-right-from-square') ], ' ')
     end
   end
+
+  def display_role(user, course)
+    enrollment = user.enrollments.find_by(course: course)
+    enrollment ? enrollment.display_role : 'Unknown'
+  end
 end
