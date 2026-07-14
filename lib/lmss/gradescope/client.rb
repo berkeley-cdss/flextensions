@@ -92,7 +92,7 @@ module Lmss
         when 200..299
           response.body
         when 401, 403
-          raise AuthenticationErrors, 'Authentication required'
+          raise AuthenticationError, 'Authentication required'
         when 404
           raise NotFoundError, 'Resource not found'
         else
