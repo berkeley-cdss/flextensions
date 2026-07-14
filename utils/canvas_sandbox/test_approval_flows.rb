@@ -76,7 +76,7 @@ def find_or_create_user(attrs)
 end
 
 def give_canvas_credentials(user)
-  cred = user.lms_credentials.find_or_initialize_by(lms_name: 'canvas')
+  cred = user.lms_credentials.find_or_initialize_by(lms: Lms.CANVAS_LMS)
   cred.update!(token: TOKEN, refresh_token: 'none', expire_time: 1.year.from_now)
 end
 
@@ -225,7 +225,7 @@ end
 stale_staff = find_or_create_user(STALE_STAFF)
 stale_staff.lms_credentials.destroy_all
 stale_staff.lms_credentials.create!(
-  lms_name: 'canvas',
+  lms: Lms.CANVAS_LMS,
   token: 'expired-and-unrefreshable',
   refresh_token: 'revoked-refresh-token',
   expire_time: 1.minute.from_now

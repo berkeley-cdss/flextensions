@@ -5,10 +5,10 @@ class CoursesController < ApplicationController
   before_action :set_pending_request_count
 
   def index
-    @staff_enrollments = Enrollment.includes(:course)
+    staff_enrollments = Enrollment.includes(:course)
                                   .where(user: current_user, role: Enrollment.staff_roles)
                                   .keep_highest_role
-    @staff_enrollments_by_semester = group_by_semester(@staff_enrollments)
+    @staff_enrollments_by_semester = group_by_semester(staff_enrollments)
 
     # Only show courses to students if extensions are enabled at the course level
     student_courses = Enrollment.includes(course: :course_settings).where(user: current_user, role: 'student')

@@ -5,7 +5,6 @@
 #
 #  id               :bigint           not null, primary key
 #  expire_time      :datetime
-#  lms_name         :string
 #  password         :string
 #  refresh_token    :string
 #  token            :string
@@ -13,6 +12,7 @@
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
 #  external_user_id :string
+#  lms_id           :bigint
 #  user_id          :bigint
 #
 # Indexes
@@ -21,17 +21,15 @@
 #
 # Foreign Keys
 #
+#  fk_rails_...  (lms_id => lmss.id)
 #  fk_rails_...  (user_id => users.id)
 #
 class LmsCredential < ApplicationRecord
-  # Belongs to a User
   belongs_to :user
+  belongs_to :lms
 
   # Encryption for tokens
   encrypts :token, :refresh_token
-
-  # LMS must exist
-  validates :lms_name, presence: true
 
   # Whether the access token expires within the given buffer (so callers can
   # refresh it before starting a batch of API calls).
@@ -72,12 +70,12 @@ class LmsCredential < ApplicationRecord
       # Flextensions under Settings > Approved Integrations, or the developer
       # key/scopes changed (which invalidates every token derived from the
       # key). It can never work again, so remove it rather than retry it.
-      Rails.logger.warn "Removing revoked #{lms_name} credential for user #{user_id} (invalid_grant)"
+      Rails.logger.warn "Removing revoked #{lms.lms_name} credential for user #{user_id} (invalid_grant)"
       destroy
     else
-      Rails.logger.error "Failed to refresh #{lms_name} token for user #{user_id}: #{e.message}"
+      Rails.logger.error "Failed to refresh #{lms.lms_name} token for user #{user_id}: #{e.message}"
       Rails.error.report(e, handled: true,
-                         context: { component: 'token_refresh', lms: lms_name, user_id: user_id })
+                         context: { component: 'token_refresh', lms: lms.lms_name, user_id: user_id })
     end
     nil
   end

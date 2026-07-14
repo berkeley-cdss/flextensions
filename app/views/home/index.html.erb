@@ -23,7 +23,7 @@
 		</div>
 		<div class="col-12 text-center">
 			<%= button_to 'Login', '/auth/canvas', method: :post, class: 'btn btn-primary', id: 'login-button-index' %>
-			<% if Rails.env.development? %>
+			<% if Rails.env.local? %>
 				<%= button_to 'Developer Login', '/auth/developer', method: :post, class: 'btn btn-secondary ms-2', id: 'dev-login-button' %>
 			<% end %>
 		</div>
