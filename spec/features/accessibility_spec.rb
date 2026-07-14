@@ -106,10 +106,6 @@ RSpec.describe 'Accessibility', :a11y, :js, type: :feature do
   let!(:course_settings2) { course2.course_settings.tap { |cs| cs.update!(auto_approve_days: 1) } }
   let!(:course_settings3) { course3.course_settings.tap { |cs| cs.update!(auto_approve_days: 3) } }
 
-  let!(:extension1) { create(:extension, assignment: c1_assignment1, student_email: student1.email, initial_due_date: c1_assignment1.due_date, new_due_date: 12.days.from_now) }
-  let!(:extension2) { create(:extension, assignment: c2_assignment1, student_email: student1.email, initial_due_date: c2_assignment1.due_date, new_due_date: 13.days.from_now) }
-  let!(:extension3) { create(:extension, assignment: c3_assignment1, student_email: student2.email, initial_due_date: c3_assignment1.due_date, new_due_date: 14.days.from_now) }
-
   def mock_teacher_login
     page.set_rack_session(user_id: teacher1.canvas_uid)
   end
