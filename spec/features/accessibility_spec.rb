@@ -1,4 +1,4 @@
-# rubocop:disable RSpec/MultipleMemoizedHelpers, RSpec/IndexedLet, RSpec/LetSetup
+# rubocop:disable RSpec/MultipleMemoizedHelpers, RSpec/IndexedLet, RSpec/LetSetup, RSpec/NoExpectationExample
 require 'rails_helper'
 require 'rack_session_access/capybara'
 
@@ -262,4 +262,4 @@ RSpec.describe 'Accessibility', :a11y, :js, type: :feature do
     end
   end
 end
-# rubocop:enable RSpec/MultipleMemoizedHelpers, RSpec/IndexedLet, RSpec/LetSetup
+# rubocop:enable RSpec/MultipleMemoizedHelpers, RSpec/IndexedLet, RSpec/LetSetup, RSpec/NoExpectationExample
