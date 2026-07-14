@@ -1,5 +1,4 @@
 class SessionController < ApplicationController
-  # The OmniAuth callbacks run before a session exists, so they must be public.
   skip_before_action :authenticated!, only: %i[omniauth_callback omniauth_failure]
 
   ## Login work flow explained here

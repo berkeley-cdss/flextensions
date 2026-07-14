@@ -1,10 +1,7 @@
 class ApplicationController < ActionController::Base
   include TokenRefreshable
 
-  # Authentication is required everywhere by default. Controllers/actions that
-  # are legitimately public opt out with `skip_before_action :authenticated!`
-  # (see HomeController, SessionController, StatusController,
-  # Requests::ExportsController).
+  # Public actions opt out with `skip_before_action :authenticated!`.
   before_action :authenticated!
 
   rescue_from LmsFacade::LmsAPIError, with: :handle_lms_api_error
@@ -26,9 +23,6 @@ class ApplicationController < ActionController::Base
 
   private
 
-  # The single authentication gate for the app. Runs on every controller by
-  # default (see the before_action above); public endpoints opt out with
-  # `skip_before_action :authenticated!`.
   def authenticated!
     return handle_authentication_failure('You must be logged in to access that page.') if current_user.nil?
 

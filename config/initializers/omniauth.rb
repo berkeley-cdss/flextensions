@@ -34,12 +34,6 @@ end
 #   Rails.logger.debug "AUTH URL: #{env['omniauth.strategy'].client.auth_code.authorize_url(authorize_params: env['omniauth.strategy'].authorize_params)}"
 # end
 
-# Only allow POST to initiate the OmniAuth request phase. Combined with the
-# omniauth-rails_csrf_protection gem (which verifies the Rails CSRF token on
-# that request), this closes the CVE-2015-9284 login CSRF hole that a GET
-# request phase would otherwise expose.
-OmniAuth.config.allowed_request_methods = [:post]
-
 OmniAuth.config.on_failure = Proc.new do |env|
   OmniAuth::FailureEndpoint.new(env).redirect_to_failure
 end
