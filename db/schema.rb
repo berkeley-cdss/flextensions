@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_04_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_14_000001) do
   create_schema "hypershield"
 
   # These are extensions that must be enabled in order to support this database
@@ -143,6 +143,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_000002) do
     t.boolean "allow_extended_requests", default: false, null: false
     t.bigint "course_id"
     t.datetime "created_at", null: false
+    t.text "notes"
     t.boolean "removed", default: false, null: false
     t.string "role"
     t.datetime "updated_at", null: false
