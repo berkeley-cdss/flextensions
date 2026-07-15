@@ -74,8 +74,25 @@ Rails.application.configure do
   # config.cache_store = :mem_cache_store
 
   # Use a real queuing backend for Active Job (and separate queues per environment).
-  # config.active_job.queue_adapter = :resque
+  # The adapter itself is set in config/application.rb (config.active_job.queue_adapter = :good_job).
   # config.active_job.queue_name_prefix = "flextensions_production"
+
+  # --- Background jobs (GoodJob) ---
+  # Run GoodJob *inside* the Puma web process using its own in-process scheduler
+  # and worker thread pool (separate from Puma's request threads). This suits a
+  # single-instance-per-environment deployment: no separate worker process or
+  # tier is required, and it does not depend on Elastic Beanstalk starting a
+  # Procfile `worker` process.
+  #
+  # To scale out later (dedicated worker tier or multiple web instances), switch
+  # execution_mode to :external here and run `bundle exec good_job start` as its
+  # own process (e.g. via a Procfile `worker` entry or a systemd unit).
+  config.good_job.execution_mode = :async
+  config.good_job.max_threads = ENV.fetch("GOOD_JOB_MAX_THREADS", 5).to_i
+  config.good_job.poll_interval = ENV.fetch("GOOD_JOB_POLL_INTERVAL", 30).to_i
+  config.good_job.shutdown_timeout = 25
+  config.good_job.queues = ENV.fetch("GOOD_JOB_QUEUES", "*")
+  config.good_job.enable_cron = false
 
   # config.action_mailer.perform_caching = false
 
