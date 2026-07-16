@@ -27,7 +27,10 @@ class RequestsController < ApplicationController
   def show
     @assignment = @request.assignment
     @number_of_days = @request.calculate_days_difference if @request.requested_due_date.present? && @assignment&.due_date.present?
-    @student_enrollment = @course.enrollments.find_by(user: @request.user) if @course.staff_user?(current_user)
+    if staff_user?
+      @review = RequestReviewPresenter.new(@request)
+      @student_enrollment = @review.enrollment
+    end
     render_role_based_view
   end
 
@@ -35,7 +38,7 @@ class RequestsController < ApplicationController
     @side_nav = 'form'
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.has_canvas_linked?
 
-    return new_for_student if @course.staff_user?(current_user)
+    return new_for_student if staff_user?
 
     redirected = prepare_student_new_request
     render :new unless redirected
@@ -157,7 +160,8 @@ class RequestsController < ApplicationController
   # Staff may act on any request in the course; everyone else is limited to
   # the requests they own.
   def requests_visible_to_user
-    @course.staff_user?(current_user) ? @course.requests : @course.requests.for_user(current_user)
+    staff_user? ? @course.requests : @course.requests.for_user(current_user)
+  end
   end
 
   def handle_request_error

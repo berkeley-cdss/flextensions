@@ -67,6 +67,13 @@ RSpec.describe AssignmentsController, type: :controller do
         expect(response).to have_http_status(:forbidden)
         expect(assignment.reload.enabled).to be false
       end
+
+      it 'does not trust a client-supplied instructor role' do
+        post :toggle_enabled, params: { id: assignment.id, enabled: true, role: 'instructor', user_id: user.id }
+
+        expect(response).to have_http_status(:forbidden)
+        expect(assignment.reload.enabled).to be false
+      end
     end
 
     context 'when course-level extensions are disabled' do
@@ -87,6 +94,7 @@ RSpec.describe AssignmentsController, type: :controller do
       before do
         Enrollment.create!(user: user, course: course, role: Enrollment::TEACHER_ROLE)
         assignment.update!(due_date: nil)
+        allow_any_instance_of(Course).to receive(:course_staff?).and_return(true)
       end
 
       it 'returns a bad request status' do

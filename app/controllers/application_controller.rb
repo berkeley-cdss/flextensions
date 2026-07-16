@@ -13,6 +13,20 @@ class ApplicationController < ActionController::Base
     @current_user = User.find_by(canvas_uid: session[:user_id])
   end
 
+  # Whether the given user is staff (teacher/TA/lead TA) in the given course.
+  # Prefer this over comparing role strings like `@role == 'instructor'`.
+  # Memoized per request because it issues a query and may be checked from both
+  # controllers and views.
+  helper_method :staff_user?
+  def staff_user?(course = @course, user = current_user)
+    return false unless course && user
+
+    @staff_user_cache ||= {}
+    @staff_user_cache.fetch([ course.id, user.id ]) do |key|
+      @staff_user_cache[key] = course.course_staff?(user)
+    end
+  end
+
   # Because blazer is mounted as a module, `root_path` doesn't seem to work appropriately.
   helper_method :require_admin
   def require_admin
@@ -64,7 +78,7 @@ class ApplicationController < ActionController::Base
   end
 
   def set_pending_request_count
-    return unless @course.present? && current_user.present? && @course.staff_user?(current_user)
+    return unless @course.present? && staff_user?
 
     @pending_requests_count = @course.requests.where(status: 'pending').count
   end
@@ -102,8 +116,7 @@ class ApplicationController < ActionController::Base
   end
 
   def require_course_staff!
-    return unless @course && current_user
-    return if @course.staff_user?(current_user)
+    return if staff_user?
 
     redirect_to courses_path, alert: 'You do not have access to this page.'
   end

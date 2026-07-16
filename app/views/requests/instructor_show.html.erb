@@ -29,11 +29,29 @@
 									(<%= @request.user.student_id %>)
 								<% end %>
 							</span>
+							<% if @request.user.email.present? %>
+								<%= mail_to @request.user.email, @request.user.email, class: "ms-2" %>
+							<% end %>
+							<% if @review.allow_extended_requests? %>
+								<span class="badge text-bg-warning ms-2" title="This student is allowed to request longer extensions than the standard limit.">Extended requests allowed</span>
+							<% end %>
 						</div>
+						<p class="mb-2 text-muted small">
+							<strong>Submitted:</strong>
+							<%= @request.created_at.strftime('%a, %b %-d, %Y %-I:%M%P') %>
+							<% if @assignment&.due_date.present? %>
+								<% if @review.submitted_after_deadline? %>
+									<span class="badge text-bg-danger ms-1">after original deadline</span>
+								<% else %>
+									<span class="badge text-bg-secondary ms-1">before original deadline</span>
+								<% end %>
+							<% end %>
+						</p>
 						<% if @request.assignment.present? %>
 							<p class="mb-2">
 								<strong class="fs-5">Assignment:</strong>
 								<span class="fs-5"><%= @request.assignment.name %></span>
+								<%= assignment_link_for(@request.assignment, @course) %>
 							</p>
 							<div class="row">
 								<div class="col-md-6">
@@ -64,6 +82,13 @@
 								<p><strong>Number of Days: </strong><%= @number_of_days || '#' %></p>
 							</div>
 						</div>
+						<% if @request.status == 'pending' && @assignment&.late_due_date.present? && @review.new_late_due_date.present? %>
+							<p class="text-muted small mb-2">
+								<i class="fas fa-info-circle"></i>
+								On approval, the late due date will be set to
+								<strong><%= @review.new_late_due_date.strftime('%a, %b %-d, %Y %-I:%M%P') %></strong>.
+							</p>
+						<% end %>
 					</div>
 
 					<!-- Display Reason for Extension -->
@@ -117,28 +142,42 @@
 						</div>
 					<% end %>
 
-			<!-- Student Notes -->
-			<% if @student_enrollment.present? %>
-				<div class="mb-4" data-controller="student-notes"
-					data-student-notes-url-value="<%= update_notes_course_enrollment_path(@course, @student_enrollment) %>">
-					<h3 class="mb-2 h6">Staff Notes for <%= @request.user.name %></h3>
-					<div data-student-notes-target="display">
-						<div class="p-3 bg-light rounded" data-student-notes-target="content">
-							<%= @student_enrollment.notes.present? ? simple_format(@student_enrollment.notes) : content_tag(:span, 'No notes yet.', class: 'text-muted') %>
+					<!-- Display this student's extension history in the course -->
+					<%= render "student_extension_history", review: @review, course: @course %>
+
+					<!-- Student Notes -->
+					<% if @student_enrollment.present? %>
+						<div class="mb-4" data-controller="student-notes"
+							data-student-notes-url-value="<%= update_notes_course_enrollment_path(@course, @student_enrollment) %>">
+							<h3 class="mb-2 h6">Staff Notes for <%= @request.user.name %></h3>
+							<div data-student-notes-target="display">
+								<div class="p-3 bg-light rounded" data-student-notes-target="content">
+									<%= @student_enrollment.notes.present? ? simple_format(@student_enrollment.notes) : content_tag(:span, 'No notes yet.', class: 'text-muted') %>
+								</div>
+								<button class="btn btn-sm btn-outline-primary mt-2" data-action="student-notes#edit">
+									<i class="fa-solid fa-pen-to-square"></i> Edit Notes
+								</button>
+							</div>
+							<div data-student-notes-target="form" class="d-none">
+								<textarea class="form-control" rows="4" data-student-notes-target="textarea"><%= @student_enrollment.notes %></textarea>
+								<div class="mt-2">
+									<button class="btn btn-sm btn-primary" data-action="student-notes#save">Save</button>
+									<button class="btn btn-sm btn-secondary" data-action="student-notes#cancel">Cancel</button>
+								</div>
+							</div>
 						</div>
-						<button class="btn btn-sm btn-outline-primary mt-2" data-action="student-notes#edit">
-							<i class="fa-solid fa-pen-to-square"></i> Edit Notes
-						</button>
-					</div>
-					<div data-student-notes-target="form" class="d-none">
-						<textarea class="form-control" rows="4" data-student-notes-target="textarea"><%= @student_enrollment.notes %></textarea>
-						<div class="mt-2">
-							<button class="btn btn-sm btn-primary" data-action="student-notes#save">Save</button>
-							<button class="btn btn-sm btn-secondary" data-action="student-notes#cancel">Cancel</button>
+					<% end %>
+
+					<!-- Show who processed the request, if already decided -->
+					<% if @request.status != 'pending' %>
+						<div class="mb-4">
+							<p class="text-muted small mb-0">
+								<%= @request.status.capitalize %>
+								on <%= @request.updated_at.strftime('%a, %b %-d, %Y %-I:%M%P') %>
+								by <%= @request.auto_approved ? 'Auto Approval System' : (@request.last_processed_by_user&.name || 'Unknown') %>
+							</p>
 						</div>
-					</div>
-				</div>
-			<% end %>
+					<% end %>
 
 			<!-- Display Buttons -->
 			<div class="d-flex justify-content-center mt-4">

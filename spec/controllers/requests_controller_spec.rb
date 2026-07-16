@@ -79,19 +79,48 @@ RSpec.describe RequestsController, type: :controller do
       expect(response).to render_template('requests/student_show')
     end
 
-    it 'assigns @student_enrollment for instructor view' do
-      session[:user_id] = instructor.canvas_uid
-      Enrollment.create!(user: instructor, course: course, role: 'teacher')
-      instructor.lms_credentials.create!(
-        lms_id: 1,
-        token: 'fake_token',
-        refresh_token: 'fake_refresh_token',
-        expire_time: 1.hour.from_now
-      )
+    context 'as an instructor' do
+      before do
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+        instructor.lms_credentials.create!(
+          lms_id: 1,
+          token: 'fake_token',
+          refresh_token: 'fake_refresh_token',
+          expire_time: 1.hour.from_now
+        )
+        session[:user_id] = instructor.canvas_uid
+      end
 
-      get :show, params: { course_id: course.id, id: request.id }
-      expect(assigns(:student_enrollment)).to be_present
-      expect(assigns(:student_enrollment).user).to eq(user)
+      it 'renders the instructor request details' do
+        get :show, params: { course_id: course.id, id: request.id }
+        expect(response).to render_template('requests/instructor_show')
+      end
+
+      it 'assigns a review presenter for the instructor' do
+        other_assignment = Assignment.create!(
+          name: 'A2', course_to_lms_id: course_to_lms.id,
+          due_date: 5.days.from_now, external_assignment_id: 'x2', enabled: true
+        )
+        prior = Request.create!(
+          user:, course:, assignment: other_assignment,
+          reason: 'Earlier request', requested_due_date: 7.days.from_now, status: 'approved'
+        )
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        review = assigns(:review)
+        expect(review).to be_a(RequestReviewPresenter)
+        expect(review.student_requests).to include(prior)
+        expect(review.student_requests).not_to include(request)
+        expect(review.approved_count).to eq(1)
+        expect(review.enrollment).to eq(Enrollment.find_by(user:, course:))
+      end
+
+      it 'assigns @student_enrollment for the student who filed the request' do
+        get :show, params: { course_id: course.id, id: request.id }
+        expect(assigns(:student_enrollment)).to be_present
+        expect(assigns(:student_enrollment).user).to eq(user)
+      end
     end
 
     it 'does not assign @student_enrollment for student view' do

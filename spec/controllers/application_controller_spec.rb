@@ -96,6 +96,33 @@ RSpec.describe ApplicationController, type: :controller do
     end
   end
 
+  describe '#staff_user?' do
+    let(:course) { create(:course) }
+    let(:staff) { create(:user) }
+    let(:student) { create(:user) }
+
+    it 'is true for a staff member of the course' do
+      Enrollment.create!(user: staff, course:, role: 'teacher')
+      expect(controller.staff_user?(course, staff)).to be(true)
+    end
+
+    it 'is false for a student of the course' do
+      Enrollment.create!(user: student, course:, role: 'student')
+      expect(controller.staff_user?(course, student)).to be(false)
+    end
+
+    it 'is false when the course or user is missing' do
+      expect(controller.staff_user?(nil, staff)).to be(false)
+      expect(controller.staff_user?(course, nil)).to be(false)
+    end
+
+    it 'memoizes the result so the course is only queried once' do
+      Enrollment.create!(user: staff, course:, role: 'ta')
+      expect(course).to receive(:course_staff?).once.and_call_original
+      2.times { controller.staff_user?(course, staff) }
+    end
+  end
+
   describe '#render_role_based_view' do
     let(:course) { Course.create!(course_name: 'Biology 101', canvas_id: 'course-123') }
 
