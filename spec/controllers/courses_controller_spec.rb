@@ -474,5 +474,13 @@ RSpec.describe CoursesController, type: :controller do
       expect(response).to redirect_to(courses_path)
       expect(flash[:notice]).to eq('Course deleted successfully.')
     end
+
+    it 'does not delete unrelated courses that happen to have no enrollments' do
+      bystander = Course.create!(course_name: 'Bystander', canvas_id: '999', course_code: 'BYS101')
+
+      expect do
+        delete :delete, params: { id: course.id }
+      end.not_to change { Course.exists?(bystander.id) }.from(true)
+    end
   end
 end

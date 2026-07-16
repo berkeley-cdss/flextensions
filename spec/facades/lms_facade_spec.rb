@@ -19,4 +19,12 @@ describe LmsFacade do
       end.to raise_error(NotImplementedError)
     end
   end
+
+  describe '.assignment_url' do
+    it 'throws not implemented error' do
+      expect do
+        described_class.assignment_url('https://lms.example', mock_course, mock_assignment)
+      end.to raise_error(NotImplementedError)
+    end
+  end
 end

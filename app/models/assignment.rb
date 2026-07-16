@@ -57,13 +57,15 @@ class Assignment < ApplicationRecord
   end
 
   # TODO: Arguably we should get the base URL from the course
+  # The per-LMS URL structure lives on each facade, so this just supplies the
+  # base URL and external ids and lets the facade assemble the link.
   def external_url
-    base_lms_url = course_to_lms.lms.lms_base_url if course_to_lms
-    case lms_id
-    when CANVAS_LMS_ID
-      "#{base_lms_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
-    when GRADESCOPE_LMS_ID
-      "#{base_lms_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
-    end
+    return unless course_to_lms
+
+    lms_facade.assignment_url(
+      course_to_lms.lms.lms_base_url,
+      course_to_lms.external_course_id,
+      external_assignment_id
+    )
   end
 end

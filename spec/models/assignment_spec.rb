@@ -62,4 +62,16 @@ RSpec.describe Assignment, type: :model do
       end
     end
   end
+
+  describe '#external_url' do
+    it 'builds the LMS assignment URL from the linked LMS and course' do
+      lms = Lms.find_by(id: CANVAS_LMS_ID) || create(:lms, id: CANVAS_LMS_ID, lms_name: 'Canvas')
+      lms.update!(lms_base_url: 'https://canvas.example.edu')
+      course_to_lms = create(:course_to_lms, lms: lms, external_course_id: '4567')
+      assignment = create(:assignment, course_to_lms: course_to_lms, external_assignment_id: '89')
+
+      expect(assignment.external_url)
+        .to eq('https://canvas.example.edu/courses/4567/assignments/89')
+    end
+  end
 end
