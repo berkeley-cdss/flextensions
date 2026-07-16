@@ -2,6 +2,22 @@ require 'rails_helper'
 module API
   module V1
     describe UsersController do
+      let(:api_user) { User.create!(email: 'api-user@example.com', canvas_uid: 'api-user-1') }
+
+      before { session[:user_id] = api_user.canvas_uid }
+
+      describe 'authentication' do
+        it 'rejects requests without a session or API token' do
+          session[:user_id] = nil
+
+          post :create, params: { email: 'nobody@example.com' }
+
+          expect(response).to have_http_status(:unauthorized)
+          expect(response.parsed_body['error']).to eq('Unauthorized')
+          expect(User).not_to exist(email: 'nobody@example.com')
+        end
+      end
+
       describe 'POST #create' do
         context 'when creating a new user' do
           it 'creates the user successfully' do

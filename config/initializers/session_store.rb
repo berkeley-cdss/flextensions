@@ -8,6 +8,16 @@
 # cookie (as long as their Canvas refresh token is still valid). Combined with
 # refreshing the Canvas access token on expiry (see ApplicationController),
 # this keeps sessions alive much longer.
+#
+# Hardening flags:
+#   secure    - only send the cookie over HTTPS. TLS is terminated at the load
+#               balancer, so we mark it secure in production (and staging) only,
+#               leaving plain-HTTP local development working.
+#   httponly  - hide the cookie from JavaScript to blunt XSS session theft.
+#   same_site - :lax stops the cookie riding along on cross-site POSTs (CSRF).
 Rails.application.config.session_store :cookie_store,
                                        key: '_flextensions_session',
-                                       expire_after: 3.days
+                                       expire_after: 3.days,
+                                       secure: !Rails.env.local?,
+                                       httponly: true,
+                                       same_site: :lax
