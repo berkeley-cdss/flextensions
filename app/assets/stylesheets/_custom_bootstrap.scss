@@ -1,221 +1,251 @@
+// Custom styles layered on top of Bootstrap.
+//
+// This file is compiled after Bootstrap and the DataTables stylesheets (see
+// application.scss), so rules of equal specificity here win by source order.
+// Prefer Bootstrap's CSS custom properties (--bs-*) and ordinary specificity
+// over !important — an override that needs !important usually means the wrong
+// hook is being used.
+
+// Bootstrap's navbar and our footer both render 56px tall; the mobile sidebar
+// drawer is positioned between them.
+$navbar-height: 56px;
+$footer-height: 56px;
+
+/* Tables
+   ========================================================================= */
+
+// Shared styling for the app's data tables. The second selector repeats the
+// per-column-type selectors DataTables emits (e.g. `table.dataTable
+// th.dt-type-numeric { text-align: right }`) at higher specificity so
+// headings stay centered after DataTables initializes.
 .flextensions-table,
-.flextensions-table.dataTable {
-  // Common table headings for all tables
-  thead {
-    th,
-    th.dt-type-numeric, table.dataTable th.dt-type-date, table.dataTable td.dt-type-numeric, table.dataTable td.dt-type-date {
-      text-align: center;
-      font-weight: 600;
-      vertical-align: middle;
-    }
+table.flextensions-table.dataTable {
+  thead th,
+  thead th.dt-type-numeric,
+  thead th.dt-type-date {
+    text-align: center;
+    font-weight: 600;
+    vertical-align: middle;
   }
 
-  tbody {
-    td {
-      vertical-align: middle;
-    }
+  tbody td {
+    vertical-align: middle;
   }
 }
 
-// For the requests table, we want to make the action buttons exactly the same size
-// regardless of the icon used.
-.action-btn i {
-  width: 12.5px;
-}
-
-.bd-placeholder-img {
-	font-size: 1.125rem;
-	text-anchor: middle;
-	-webkit-user-select: none;
-	-moz-user-select: none;
-	user-select: none;
-}
-
+// Wide-viewport minimum widths for the busiest requests-table columns.
 @media (min-width: 768px) {
-	.bd-placeholder-img-lg {
-		font-size: 3.5rem;
-	}
+  #requests-table #assignment {
+    min-width: 200px;
+  }
+
+  #requests-table #name {
+    min-width: 150px;
+  }
 }
 
-// sr-only class for screen reader only content
-.sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
+// DataTables column-visibility dropdown: show a checkmark next to visible
+// columns instead of DataTables' default highlighted-row active state. These
+// selectors are more specific than Bootstrap's .dropdown-item rules, so they
+// win without !important.
+.dt-button-collection .dt-button {
+  position: relative;
+  text-align: left;
+  padding-left: 2.2em;
+
+  &.active,
+  &.dt-button-active {
+    background-color: transparent;
+    color: var(--bs-dropdown-link-color, inherit);
+
+    &:hover {
+      background-color: var(--bs-dropdown-link-hover-bg);
+      color: var(--bs-dropdown-link-hover-color);
+    }
+
+    &::before {
+      content: '✓';
+      position: absolute;
+      left: 0.75em;
+      font-weight: bold;
+    }
+  }
+}
+
+/* Navbar
+   ========================================================================= */
+
+// The navbar keeps its Berkeley-blue background in both themes, so pin its
+// link color to full-contrast white (Bootstrap's default is 55% white, which
+// fails WCAG AA on this background) and underline links on hover/focus.
+.navbar-dark {
+  --bs-navbar-color: #{$white};
+  --bs-navbar-hover-color: #{$white};
+  --bs-navbar-active-color: #{$white};
+}
+
+.navbar-dark .nav-link:hover,
+.navbar-dark .nav-link:focus {
+  text-decoration: underline;
+}
+
+.navbar-dark .nav-link.active {
+  font-weight: bold;
+}
+
+// The theme-switcher button also sits on the blue navbar in both themes:
+// keep its icon and dropdown caret white.
+.theme-icon-active,
+#bd-theme::after {
+  color: $white;
+}
+
+/* Nav pills (sidebar and settings tabs)
+   ========================================================================= */
+
+.nav-pills {
+  --bs-nav-pills-link-active-bg: #{$california-gold};
+  --bs-nav-pills-link-active-color: #{$black};
+}
+
+/* Sidebar
+   ========================================================================= */
+
+#sidebar {
+  min-width: 250px;
+}
+
+#sidebar .nav-link:not(.active):hover {
+  background-color: rgba(var(--bs-primary-rgb), 0.1);
+}
+
+// On small screens the sidebar becomes a drawer that overlays the content.
+// sidebar_controller.js toggles `expanded` on the sidebar and `sidebar-open`
+// on the body; everything visual is derived from those two classes. The
+// open/close buttons carry Bootstrap's d-md-none, so they never render at
+// wider viewports.
+@media (max-width: 767.98px) {
+  #sidebar {
+    display: none;
+  }
+
+  #sidebar.expanded {
+    display: block;
+    position: fixed;
+    top: $navbar-height;
+    left: 0;
+    z-index: 1040;
+    width: 250px;
+    height: calc(100vh - #{$navbar-height + $footer-height});
+    overflow-y: auto;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08);
+  }
+
+  // Prevent the page behind the open drawer from scrolling.
+  body.sidebar-open {
     overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border-width: 0;
+  }
+
+  body.sidebar-open #mobileSidebarToggle {
+    display: none;
+  }
 }
 
-code {
-    // Loaded after Bootstrap, so this overrides --bs-code-color by source order.
-    color: #be0303;
+#mobileSidebarToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 10px;
+  font-size: 16px;
+  background: $white;
+  border: 1px solid #ced4da;
+  border-radius: 0;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.07);
 }
 
-// Fix for dark theme contrast issues
+#mobileSidebarClose {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+body.sidebar-open #mobileSidebarClose {
+  display: inline-flex;
+}
+
+/* Dark theme
+   ========================================================================= */
+
+// Adjustments where Bootstrap's dark defaults don't fit this app. Everything
+// here should use Bootstrap's CSS custom properties, or out-specify the rule
+// it overrides.
 [data-bs-theme="dark"] {
+  // Drop the default page background one notch below Bootstrap's #212529 for
+  // a deeper dark theme. This only increases contrast for foreground content.
+  --bs-body-bg: #1a1d20;
+  --bs-body-bg-rgb: 26, 29, 32;
 
-	// Drop the default page background one notch below Bootstrap's #212529 for a
-	// deeper dark theme. This only increases contrast for foreground content.
-	--bs-body-bg: #1a1d20;
-	--bs-body-bg-rgb: 26, 29, 32;
+  // Lighten links a notch beyond Bootstrap's dark default (#6ea8fe) for
+  // better contrast on the darker background. Pagination links pick these
+  // values up too via --bs-pagination-color.
+  --bs-link-color: #a0c4ff;
+  --bs-link-color-rgb: 160, 196, 255;
+  --bs-link-hover-color: #ccdeff;
+  --bs-link-hover-color-rgb: 204, 222, 255;
 
-	#login-button-index {
-		color: #000000 !important;
-	}
-
-	a:not(.btn) {
-    color: #a0c4ff;
-
-    &:hover {
-      color: #ccdeff;
-    }
-  }
-
-  .sidebar-container .nav-link:not(.active) {
-    color: #f3f8fe !important;
-
-    .sidebar-text {
-      color: #ffffff !important;
-    }
-
-    &:hover {
-      color: #ccdeff !important;
-      .sidebar-text {
-        color: #ccdeff !important;
-      }
-    }
-  }
-
-  // Fix toggle buttons in dark mode
+  // Give unchecked checkboxes and switch tracks a visible gray fill (the
+  // default is the page background), and use Bootstrap's stock blue rather
+  // than berkeley-blue for the checked state — the brand blue is nearly
+  // indistinguishable from the dark background.
   .form-check-input {
-    background-color: #495057 !important;
-    border-color: #6c757d !important;
+    background-color: #495057;
+    border-color: #6c757d;
 
     &:checked {
-      background-color: #0d6efd !important;
-      border-color: #0d6efd !important;
+      background-color: #0d6efd;
+      border-color: #0d6efd;
     }
   }
 
-  // Fix form switch toggle styling in dark mode
-  .form-switch .form-check-input {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
-
-    &:checked {
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
-    }
-
-    &:focus {
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
-      box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
-    }
+  // Same reasoning for the active pagination page (DataTables pagination).
+  .pagination {
+    --bs-pagination-active-bg: #0d6efd;
+    --bs-pagination-active-border-color: #0d6efd;
   }
 
-  // Fix datatable pagination in dark mode
-  .page-link {
-    color: #a0c4ff !important;
-    background-color: #2a2d31 !important;
-    border-color: #495057 !important;
-
-    &:hover {
-      color: #ccdeff !important;
-      background-color: #343a40 !important;
-    }
-  }
-
-  .page-item.active .page-link {
-    background-color: #0d6efd !important;
-    border-color: #0d6efd !important;
-    color: #ffffff !important;
-  }
-
-  .page-item.disabled .page-link {
-    color: #6c757d !important;
-    background-color: #212529 !important;
-    border-color: #495057 !important;
-  }
-
-  .btn-warning {
-    color: #000000 !important;
-    background-color: #ffc107 !important;
-    border-color: #ffc107 !important;
-
-    &:hover {
-      background-color: #ffca2c !important;
-      border-color: #ffc720 !important;
-    }
-  }
-
+  // Inactive pills (sidebar and settings tabs) read better in white than in
+  // the default link blue on dark surfaces.
   .nav-pills {
-    .nav-link:not(.active) {
-      color: #ffffff !important;
-
-      &:hover {
-        color: #e6e6e6 !important;
-      }
-    }
+    --bs-nav-link-color: #{$white};
+    --bs-nav-link-hover-color: #e6e6e6;
   }
 
-  // Fix accessibility contrast issues for bg-light-subtle
-  .bg-light-subtle {
-    background-color: #1e2124 !important;
-
-    p, label, .form-label, strong, li, .small {
-      color: #ffffff !important;
-    }
-
-    .small strong {
-      color: #ffffff !important;
-    }
-
-    .form-control, .form-select {
-      background-color: #2a2d31 !important;
-      color: #ffffff !important;
-      border-color: #495057 !important;
-    }
+  // Regions styled with .bg-light keep their light surface in dark mode, so
+  // give their content dark colors again. Headings, labels, lists, etc. all
+  // inherit `color`; .text-muted and <code> read the two custom properties.
+  .bg-light {
+    color: #212529;
+    // >= 4.5:1 gray on #f8f9fa instead of Bootstrap's near-white dark-mode
+    // muted color.
+    --bs-secondary-color: #565e64;
+    // Restore the light-mode code red (see $code-color in application.scss).
+    --bs-code-color: #be0303;
   }
 
-  .bg-light, .card-header.bg-light {
-    color: #212529 !important;
-
-    h2, h3, h4, h5, h6, p, label, .form-label, strong, li {
-      color: #212529 !important;
-    }
-
-    // Bootstrap's .text-muted is theme-adaptive (near-white in dark mode), but
-    // these regions keep a light surface, so pin muted text to a readable gray
-    // (>= 4.5:1 on #f8f9fa) instead of letting it wash out.
-    .text-muted {
-      color: #565e64 !important;
-    }
-
-    // These regions keep a light background in dark mode, so <code> must stay
-    // dark-red here (the lighter tint below is only for the dark surface).
-    // Higher specificity than the plain dark-surface `code` rule below.
-    code, .js-copytext {
-      color: #be0303;
-    }
-  }
-
-  #import-courses-button {
-    color: #000000 !important;
-  }
-
-  // Outline buttons: Bootstrap keeps the brand color as the text/border color,
-  // but berkeley-blue (#002676) and the default danger red are far too dark to
-  // read on the dark surface (#212529). Swap to lighter tints that clear WCAG
-  // AA, and use dark text on the filled hover/active state.
+  // Outline buttons: Bootstrap keeps the brand color as the text/border
+  // color, but berkeley-blue (#002676) and the default danger red are far too
+  // dark to read on a dark surface. Swap to lighter tints that clear WCAG AA,
+  // with dark text on the filled hover/active state.
   .btn-outline-primary {
     --bs-btn-color: #6ea8fe;
     --bs-btn-border-color: #6ea8fe;
-    --bs-btn-hover-color: #000000;
+    --bs-btn-hover-color: #{$black};
     --bs-btn-hover-bg: #6ea8fe;
     --bs-btn-hover-border-color: #6ea8fe;
-    --bs-btn-active-color: #000000;
+    --bs-btn-active-color: #{$black};
     --bs-btn-active-bg: #6ea8fe;
     --bs-btn-active-border-color: #6ea8fe;
     --bs-btn-disabled-color: #6ea8fe;
@@ -225,374 +255,13 @@ code {
   .btn-outline-danger {
     --bs-btn-color: #ea868f;
     --bs-btn-border-color: #ea868f;
-    --bs-btn-hover-color: #000000;
+    --bs-btn-hover-color: #{$black};
     --bs-btn-hover-bg: #ea868f;
     --bs-btn-hover-border-color: #ea868f;
-    --bs-btn-active-color: #000000;
+    --bs-btn-active-color: #{$black};
     --bs-btn-active-bg: #ea868f;
     --bs-btn-active-border-color: #ea868f;
     --bs-btn-disabled-color: #ea868f;
     --bs-btn-disabled-border-color: #ea868f;
   }
-
-  // Inline <code> (and the copy-to-clipboard code snippets) use a dark red that
-  // fails contrast on the dark surface. Lighten it to match the danger tint.
-  // (`.bg-light code` above keeps the dark red where the surface stays light.)
-  code,
-  .js-copytext {
-    color: #ea868f;
-  }
 }
-
-.b-example-divider {
-	width: 100%;
-	height: 3rem;
-	background-color: rgba(0, 0, 0, .1);
-	border: solid rgba(0, 0, 0, .15);
-	border-width: 1px 0;
-	box-shadow: inset 0 .5em 1.5em rgba(0, 0, 0, .1), inset 0 .125em .5em rgba(0, 0, 0, .15);
-}
-
-.b-example-vr {
-	flex-shrink: 0;
-	width: 1.5rem;
-	height: 100vh;
-}
-
-.bi {
-	vertical-align: -.125em;
-	fill: currentColor;
-}
-
-.theme-icon-active, #bd-theme::after {
-	color: #FFF;
-}
-
-.nav-scroller {
-	position: relative;
-	z-index: 2;
-	height: 2.75rem;
-	overflow-y: hidden;
-}
-
-.nav-scroller .nav {
-	display: flex;
-	flex-wrap: nowrap;
-	padding-bottom: 1rem;
-	margin-top: -1px;
-	overflow-x: auto;
-	text-align: center;
-	white-space: nowrap;
-	-webkit-overflow-scrolling: touch;
-}
-
-.btn-bd-primary {
-	--bd-violet-bg: #712cf9;
-	--bd-violet-rgb: 112.520718, 44.062154, 249.437846;
-
-	--bs-btn-font-weight: 600;
-	--bs-btn-color: var(--bs-white);
-	--bs-btn-bg: var(--bd-violet-bg);
-	--bs-btn-border-color: var(--bd-violet-bg);
-	--bs-btn-hover-color: var(--bs-white);
-	--bs-btn-hover-bg: #6528e0;
-	--bs-btn-hover-border-color: #6528e0;
-	--bs-btn-focus-shadow-rgb: var(--bd-violet-rgb);
-	--bs-btn-active-color: var(--bs-btn-hover-color);
-	--bs-btn-active-bg: #5a23c8;
-	--bs-btn-active-border-color: #5a23c8;
-}
-
-.bd-mode-toggle {
-	z-index: 1500;
-}
-
-.bd-mode-toggle .dropdown-menu .active .bi {
-	display: block !important;
-}
-
-// navbar accessibility - ensure high contrast for links
-.navbar-dark .nav-link {
-	color: #FFFFFF !important; // High contrast white against dark background
-
-	&:hover, &:focus {
-		color: #FFFFFF !important;
-		text-decoration: underline;
-	}
-
-	[data-bs-theme="dark"] & {
-		color: #ffffff !important;
-	}
-}
-
-.navbar-dark .nav-link.active {
-	font-weight: bold;
-}
-
-// custom
-
-@media (min-width: 992px) {
-	.color-mode-toggler {
-		display: none;
-	}
-}
-
-@media (max-width: 992px) {
-	.color-mode-toggler-m {
-		display: none;
-	}
-}
-
-.nav-pills .nav-link.active {
-	background-color: #fdb515;
-	color: #000;
-}
-
-// custom link styles for accessibility
-.accessible-link {
-	color: #AABFEE; // Lighter blue for dark mode with better contrast
-
-	[data-bs-theme="light"] & {
-		color: #4A5D8B; // Darker blue for light mode that meets contrast requirements
-	}
-
-	&:hover {
-		color: #C2D0F5; // Lighter hover color for dark mode
-
-		[data-bs-theme="light"] & {
-			color: #374772; // Darker hover color for light mode
-		}
-	}
-}
-
-// Accessible text for dark theme
-.accessible-text {
-  [data-bs-theme="dark"] & {
-    color: #ffffff !important; // White text on dark background for better contrast
-  }
-
-  [data-bs-theme="light"] & {
-    color: #212529 !important; // Dark text on light background
-  }
-}
-
-// Dark form section styling
-.dark-form-section {
-  // Dark theme styles
-  [data-bs-theme="dark"] & {
-    background-color: #1e2124 !important;
-    color: #ffffff !important;
-
-    .card-header {
-      background-color: #2a2d31 !important;
-      border-bottom: 1px solid #495057 !important;
-
-      h2, .card-title {
-        color: #ffffff !important;
-      }
-    }
-
-    .card-body {
-      background-color: #1e2124 !important;
-    }
-
-    p, label, .form-label, strong, li, .small {
-      color: #ffffff !important;
-    }
-
-    .form-control, .form-select {
-      background-color: #2a2d31 !important;
-      color: #ffffff !important;
-      border-color: #495057 !important;
-    }
-  }
-
-  // Light theme styles
-  [data-bs-theme="light"] & {
-    background-color: #ffffff !important;
-    color: #212529 !important;
-    border: 1px solid #dee2e6 !important;
-
-    .card-header {
-      background-color: #f8f9fa !important;
-      border-bottom: 1px solid #dee2e6 !important;
-
-      h2, .card-title {
-        color: #212529 !important;
-      }
-    }
-
-    .card-body {
-      background-color: #ffffff !important;
-    }
-
-    p, label, .form-label, strong, li, .small {
-      color: #212529 !important;
-    }
-
-    .form-control, .form-select {
-      background-color: #ffffff !important;
-      color: #212529 !important;
-      border-color: #ced4da !important;
-    }
-  }
-}
-
-// disabled hover on disabled danger-outline-btn
-a.btn-outline-danger.disable:hover {
-  background-color: transparent !important;
-  color: #dc3545 !important;
-  border-color: #dc3545 !important;
-  pointer-events: none; /* optional: makes it unclickable */
-}
-
-/*
-*****************
-* Sidebar
-*****************
-*/
-
-#sidebar {
-	position: sticky;
-	top: calc(56px);
-	min-width: 250px;
-	transition: width 0.3s, left 0.3s;
-}
-#sidebar .nav .nav-link {
-	cursor: pointer !important;
-}
-
-#sidebar .nav .nav-link:hover {
-	background-color: rgba(var(--bs-primary-rgb), 0.1);
-}
-
-#sidebar .nav .nav-link.active:hover {
-	background-color: #fdb515 !important;
-	color: #000 !important;
-}
-
-@media (max-width: 767.98px) {
-	/* Hide sidebar by default on mobile */
-	#sidebar {
-		display: none;
-		width: 60px;
-		left: 0;
-		transition: width 0.3s, left 0.3s;
-	}
-	#sidebar.expanded {
-		display: block;
-		width: 250px;
-		background: #f8f9fa;
-		z-index: 1040;
-		position: fixed;
-		top: 56px; /* height of navbar */
-		left: 0;
-		height: calc(100vh - 56px - 56px); /* minus navbar and footer */
-		box-shadow: 2px 0 8px rgba(0,0,0,0.08);
-		overflow-y: auto;
-	}
-	/* Hide the text labels in collapsed mode */
-	#sidebar .nav-text {
-		display: none;
-	}
-	#sidebar.expanded .nav-text {
-		display: inline;
-	}
-	/* When sidebar is expanded, prevent background scrolling */
-	body.sidebar-open {
-		overflow: hidden;
-	}
-	/* The mobile sidebar toggle button (arrow) */
-	#mobileSidebarToggle {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		/* position: fixed; */
-		top: 56px;
-		left: 0;
-		z-index: 1050;
-		background: #fff;
-		border-radius: 0;
-		box-shadow: 0 1px 5px rgba(0,0,0,0.07);
-		border: 1px solid #ced4da;
-		width: 32px;
-		height: 32px;
-		padding: 10px;
-		font-size: 16px;
-	}
-	/* Hide toggle arrow when sidebar is open */
-	body.sidebar-open #mobileSidebarToggle {
-		display: none !important;
-	}
-	/* Show close button when sidebar is open */
-	body.sidebar-open #mobileSidebarClose {
-		display: inline-flex !important;
-	}
-}
-
-@media (min-width: 768px) {
-	#mobileSidebarToggle {
-		display: none !important;
-	}
-	#sidebar {
-		display: block !important;
-		position: static !important;
-		height: auto !important;
-		box-shadow: none !important;
-	}
-}
-
-/*
-***********************
-* DataTables
-***********************
-*/
-
-// //  BS-type table-responsive
-// .dt-layout-full {
-//   overflow-x: auto !important;
-// }
-// //  BS-type table-responsive
-
-
-// Column visibility dropdown - checkmarks for visible columns
-.dt-button-collection {
-  .dt-button {
-    text-align: left !important;
-    padding-left: 2.2em !important;
-    position: relative;
-
-    &.active,
-    &.dt-button-active {
-      background-color: transparent !important;
-      color: var(--bs-dropdown-link-color, inherit) !important;
-
-      &:hover {
-        background-color: var(--bs-dropdown-link-hover-bg) !important;
-        color: var(--bs-dropdown-link-hover-color) !important;
-      }
-
-      &::before {
-        content: '✓';
-        position: absolute;
-        left: 0.75em;
-        font-weight: bold;
-      }
-    }
-  }
-}
-
-// Request Table desktop
-@media (min-width: 768px) {
-  #requests-table #assignment {
-    min-width: 200px;
-  }
-  #requests-table #name {
-    min-width: 150px;
-  }
-}
-// Request Table desktop
-
-
-
-/*********************/

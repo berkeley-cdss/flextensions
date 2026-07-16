@@ -8,7 +8,7 @@
          data-mass-approve-url="<%= mass_approve_course_requests_path(@course, format: :json) %>"
          data-mass-reject-url="<%= mass_reject_course_requests_path(@course, format: :json) %>">
       <%= render "courses/course_title" %>
-      <h1 class="sr-only">Extension Requests</h1>
+      <h1 class="visually-hidden">Extension Requests</h1>
       <%= render "shared/extension_status_warning", course: @course %>
 
       <div class="row justify-content-between mb-2">
