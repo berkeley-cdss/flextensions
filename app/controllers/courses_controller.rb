@@ -89,6 +89,7 @@ class CoursesController < ApplicationController
     @side_nav = 'enrollments'
     @enrollments = @course.enrollments.includes(:user)
     @enrollments_last_synced_at = enrollments_last_synced_at
+    @approved_late_days = Request.total_approved_late_days_by_user(@course)
   end
 
   def delete

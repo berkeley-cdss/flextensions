@@ -414,6 +414,11 @@ RSpec.describe CoursesController, type: :controller do
         enrollment_user_ids = assigns(:enrollments).map(&:user_id)
         expect(enrollment_user_ids).to include(user.id)
       end
+
+      it 'assigns @approved_late_days' do
+        get :enrollments, params: { id: course.id }
+        expect(assigns(:approved_late_days)).to be_a(Hash)
+      end
     end
 
     context 'when user is a TA (staff but not course admin)' do
