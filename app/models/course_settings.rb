@@ -110,7 +110,7 @@ class CourseSettings < ApplicationRecord
   end
 
   def extract_gradescope_course_id(gradescope_course_url)
-    match = gradescope_course_url.match(%r{gradescope\.com/courses/(\d+)})
-    match[1]
+    match = gradescope_course_url&.match(%r{gradescope\.com/courses/(\d+)})
+    match && match[1]
   end
 end
