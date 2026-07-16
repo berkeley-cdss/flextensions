@@ -7,15 +7,13 @@
 require 'simplecov'
 require 'simplecov_json_formatter'
 
-# Only start SimpleCov if it hasn't been started
-unless SimpleCov.running
-  SimpleCov.start 'rails' do
-    track_files 'app/**/*.rb'
-    formatter SimpleCov::Formatter::MultiFormatter.new([
-                                                         SimpleCov::Formatter::HTMLFormatter,
-                                                         SimpleCov::Formatter::JSONFormatter
-                                                       ])
-  end
+# Start SimpleCov coverage reporting for cucumber runs
+SimpleCov.start 'rails' do
+  track_files 'app/**/*.rb'
+  formatter SimpleCov::Formatter::MultiFormatter.new([
+                                                       SimpleCov::Formatter::HTMLFormatter,
+                                                       SimpleCov::Formatter::JSONFormatter
+                                                     ])
 end
 
 require 'cucumber/rails'
