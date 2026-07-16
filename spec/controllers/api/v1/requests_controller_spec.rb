@@ -15,6 +15,9 @@ module API
                             external_assignment_id: 'abc123', due_date: 7.days.from_now, late_due_date: 10.days.from_now)
       end
       let(:student) { create(:user, email: 'student@example.com', canvas_uid: '201', name: 'Student One') }
+      let(:api_user) { create(:user, email: 'api-user@example.com', canvas_uid: 'api-user-1') }
+
+      before { session[:user_id] = api_user.canvas_uid }
 
       let(:valid_params) do
         {
