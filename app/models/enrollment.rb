@@ -4,6 +4,7 @@
 #
 #  id                      :bigint           not null, primary key
 #  allow_extended_requests :boolean          default(FALSE), not null
+#  notes                   :text
 #  removed                 :boolean          default(FALSE), not null
 #  role                    :string
 #  created_at              :datetime         not null

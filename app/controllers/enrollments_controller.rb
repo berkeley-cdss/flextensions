@@ -16,6 +16,14 @@ class EnrollmentsController < ApplicationController
     end
   end
 
+  def update_notes
+    if @enrollment.update(notes: params[:notes])
+      render json: { success: true, notes: @enrollment.notes }, status: :ok
+    else
+      render json: { success: false, error: @enrollment.errors.full_messages.to_sentence }, status: :unprocessable_content
+    end
+  end
+
   private
 
   def set_enrollment
