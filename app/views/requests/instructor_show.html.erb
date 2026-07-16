@@ -126,7 +126,7 @@
 						<div class="p-3 bg-light rounded" data-student-notes-target="content">
 							<%= @student_enrollment.notes.present? ? simple_format(@student_enrollment.notes) : content_tag(:span, 'No notes yet.', class: 'text-muted') %>
 						</div>
-						<button class="btn btn-sm btn-outline-secondary mt-2" data-action="student-notes#edit">
+						<button class="btn btn-sm btn-outline-primary mt-2" data-action="student-notes#edit">
 							<i class="fa-solid fa-pen-to-square"></i> Edit Notes
 						</button>
 					</div>
