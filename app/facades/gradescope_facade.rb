@@ -15,6 +15,10 @@ class GradescopeFacade < LmsFacade
     new
   end
 
+  def self.assignment_url(base_url, external_course_id, external_assignment_id)
+    "#{base_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
+  end
+
   ### Review the Canvas Facade for methods which might need to be implemented here.
   # Add those methods to the base facade as well.
 
