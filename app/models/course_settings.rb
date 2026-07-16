@@ -17,6 +17,8 @@
 #  gradescope_course_url              :string
 #  max_auto_approve                   :integer          default(0)
 #  min_hours_before_deadline          :integer          default(0), not null
+#  pending_notification_email         :string
+#  pending_notification_frequency     :string
 #  reply_email                        :string
 #  slack_webhook_url                  :string
 #  created_at                         :datetime         not null
@@ -25,7 +27,7 @@
 #
 # Indexes
 #
-#  index_course_settings_on_course_id  (course_id)
+#  index_course_settings_on_course_id  (course_id) UNIQUE
 #
 # Foreign Keys
 #
@@ -34,7 +36,6 @@
 # rubocop:enable Layout/LineLength
 
 class CourseSettings < ApplicationRecord
-  # TODO: Remove the db default text, and use an AR validation.
   DEFAULT_EMAIL_TEMPLATE = <<~LIQUID.freeze
     Hello {{student_name}},
 
@@ -51,11 +52,30 @@ class CourseSettings < ApplicationRecord
     {{course_name}} Staff
   LIQUID
 
+  VALID_NOTIFICATION_FREQUENCIES = %w[daily weekly].freeze
+
   belongs_to :course
+  validates :course_id, uniqueness: true
+
+  # Empty <select> and blank <input> submissions become "" — coerce to nil so
+  # `allow_nil` behaves as expected and unset rows compare equal.
+  normalizes :pending_notification_frequency, :pending_notification_email, with: ->(v) { v.presence }
 
   before_save :ensure_system_user_for_auto_approval
+  # Clear a stored email when notifications are turned off, so re-enabling
+  # doesn't silently reuse a stale address.
+  before_save -> { self.pending_notification_email = nil if pending_notification_frequency.nil? }
+
   validate :gradescope_url_is_valid, if: :enable_gradescope?
+  validates :pending_notification_frequency, inclusion: { in: VALID_NOTIFICATION_FREQUENCIES }, allow_nil: true
+  validates :pending_notification_email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP },
+                                         if: -> { pending_notification_frequency.present? }
   after_save :create_or_update_gradescope_link
+
+  scope :with_pending_notifications, ->(frequency) {
+    where(pending_notification_frequency: frequency)
+    .where.not(pending_notification_email: nil)
+  }
 
   def automatic_approval_enabled?
     return false unless enable_extensions?
@@ -74,23 +94,23 @@ class CourseSettings < ApplicationRecord
 
   # TODO: if disabled should unsync Gradescope assignments
   def create_or_update_gradescope_link
-    if course.course_settings.enable_gradescope
-      gradescope_course_id = extract_gradescope_course_id(course.course_settings.gradescope_course_url)
-      CourseToLms.find_or_initialize_by(course_id: course.id, lms_id: GRADESCOPE_LMS_ID).tap do |course_to_lms|
-        course_to_lms.external_course_id = gradescope_course_id
-        course_to_lms.save!
-      end
+    return unless enable_gradescope
+
+    gradescope_course_id = extract_gradescope_course_id(gradescope_course_url)
+    CourseToLms.find_or_initialize_by(course_id: course.id, lms_id: GRADESCOPE_LMS_ID).tap do |course_to_lms|
+      course_to_lms.external_course_id = gradescope_course_id
+      course_to_lms.save!
     end
   end
 
   def gradescope_url_is_valid
-    return if gradescope_course_url.match?(VALID_GRADESCOPE_URL)
+    return if gradescope_course_url&.match?(VALID_GRADESCOPE_URL)
 
     errors.add(:gradescope_course_url, 'must be a valid Gradescope course URL like https://gradescope.com/courses/123456')
   end
 
   def extract_gradescope_course_id(gradescope_course_url)
-    match = gradescope_course_url.match(%r{gradescope\.com/courses/(\d+)})
-    match[1]
+    match = gradescope_course_url&.match(%r{gradescope\.com/courses/(\d+)})
+    match && match[1]
   end
 end

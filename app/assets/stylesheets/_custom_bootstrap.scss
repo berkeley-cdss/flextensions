@@ -51,11 +51,17 @@
 }
 
 code {
-    color: #be0303 !important;
+    // Loaded after Bootstrap, so this overrides --bs-code-color by source order.
+    color: #be0303;
 }
 
 // Fix for dark theme contrast issues
 [data-bs-theme="dark"] {
+
+	// Drop the default page background one notch below Bootstrap's #212529 for a
+	// deeper dark theme. This only increases contrast for foreground content.
+	--bs-body-bg: #1a1d20;
+	--bs-body-bg-rgb: 26, 29, 32;
 
 	#login-button-index {
 		color: #000000 !important;
@@ -179,10 +185,62 @@ code {
     h2, h3, h4, h5, h6, p, label, .form-label, strong, li {
       color: #212529 !important;
     }
+
+    // Bootstrap's .text-muted is theme-adaptive (near-white in dark mode), but
+    // these regions keep a light surface, so pin muted text to a readable gray
+    // (>= 4.5:1 on #f8f9fa) instead of letting it wash out.
+    .text-muted {
+      color: #565e64 !important;
+    }
+
+    // These regions keep a light background in dark mode, so <code> must stay
+    // dark-red here (the lighter tint below is only for the dark surface).
+    // Higher specificity than the plain dark-surface `code` rule below.
+    code, .js-copytext {
+      color: #be0303;
+    }
   }
 
   #import-courses-button {
     color: #000000 !important;
+  }
+
+  // Outline buttons: Bootstrap keeps the brand color as the text/border color,
+  // but berkeley-blue (#002676) and the default danger red are far too dark to
+  // read on the dark surface (#212529). Swap to lighter tints that clear WCAG
+  // AA, and use dark text on the filled hover/active state.
+  .btn-outline-primary {
+    --bs-btn-color: #6ea8fe;
+    --bs-btn-border-color: #6ea8fe;
+    --bs-btn-hover-color: #000000;
+    --bs-btn-hover-bg: #6ea8fe;
+    --bs-btn-hover-border-color: #6ea8fe;
+    --bs-btn-active-color: #000000;
+    --bs-btn-active-bg: #6ea8fe;
+    --bs-btn-active-border-color: #6ea8fe;
+    --bs-btn-disabled-color: #6ea8fe;
+    --bs-btn-disabled-border-color: #6ea8fe;
+  }
+
+  .btn-outline-danger {
+    --bs-btn-color: #ea868f;
+    --bs-btn-border-color: #ea868f;
+    --bs-btn-hover-color: #000000;
+    --bs-btn-hover-bg: #ea868f;
+    --bs-btn-hover-border-color: #ea868f;
+    --bs-btn-active-color: #000000;
+    --bs-btn-active-bg: #ea868f;
+    --bs-btn-active-border-color: #ea868f;
+    --bs-btn-disabled-color: #ea868f;
+    --bs-btn-disabled-border-color: #ea868f;
+  }
+
+  // Inline <code> (and the copy-to-clipboard code snippets) use a dark red that
+  // fails contrast on the dark surface. Lighten it to match the danger tint.
+  // (`.bg-light code` above keeps the dark red where the surface stays light.)
+  code,
+  .js-copytext {
+    color: #ea868f;
   }
 }
 

@@ -12,8 +12,13 @@ class EmailService
         { subject: subject_template.dup, body: body_template.dup }
       ) do |(key, val), memo|
         placeholder = /{{\s*#{key}\s*}}/i
-        memo[:subject].gsub!(placeholder, val.to_s)
-        memo[:body].gsub!(placeholder, val.to_s)
+        # The subject is a plain-text header, but the body is delivered as HTML
+        # (see TemplatedMailer), so HTML-escape interpolated values there to
+        # keep a name or course value from injecting markup into the email.
+        # The block form also stops gsub from interpreting a backslash or \1 in
+        # the value as a backreference.
+        memo[:subject].gsub!(placeholder) { val.to_s }
+        memo[:body].gsub!(placeholder) { ERB::Util.html_escape(val.to_s) }
       end
     end
 
@@ -27,13 +32,12 @@ class EmailService
     def send_email(to:, from:, reply_to:, subject_template:, body_template:, mapping:, deliver_later: false)
       rendered = render_templates(subject_template, body_template, mapping)
 
-      mail = ActionMailer::Base.mail(
+      mail = TemplatedMailer.templated_email(
         to: to,
         from: from,
         reply_to: reply_to,
         subject: rendered[:subject],
-        body: rendered[:body].gsub("\n", "<br>\n"),
-        content_type: 'text/html'
+        body: rendered[:body].gsub("\n", "<br>\n")
       )
 
       deliver_later ? mail.deliver_later : mail.deliver_now

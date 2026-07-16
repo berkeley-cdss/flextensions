@@ -1,9 +1,9 @@
 source 'https://rubygems.org'
 
-ruby '~> 3.3'
+ruby '~> 3.4'
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
-gem 'rails', '~> 7.2.3.1'
+gem 'rails', '~> 8.1.0'
 
 # Use postgres for all env dbs
 gem 'pg'
@@ -53,9 +53,14 @@ gem 'ostruct'
 gem 'omniauth'
 gem 'omniauth-canvas'
 gem 'omniauth-oauth2'
+# CSRF protection for the OmniAuth request phase (mitigates CVE-2015-9284)
+gem 'omniauth-rails_csrf_protection'
 
 # Audit for potentially unsafe database migrations
 gem 'strong_migrations'
+
+# Self-hosted error tracking.
+gem 'faultline', git: 'https://github.com/dlt/faultline.git'
 
 # Logging Customization
 gem 'lograge'
@@ -73,6 +78,7 @@ gem 'dotenv-rails', require: 'dotenv/load'
 #
 gem 'blazer'
 gem 'hypershield'
+gem 'good_job', '~> 4.0'
 
 #### Frontend related tools
 # The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
@@ -114,7 +120,7 @@ group :test do
   gem 'rack_session_access'
   gem 'rspec-retry'
   gem 'selenium-webdriver'
-  gem 'shoulda-matchers', '~> 7.0'
+  gem 'shoulda-matchers', '~> 8.0'
   gem 'simplecov', '~> 0.22.0', require: false
   gem 'simplecov_json_formatter'
   gem 'timecop'

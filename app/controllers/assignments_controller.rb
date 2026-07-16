@@ -1,7 +1,7 @@
 class AssignmentsController < ApplicationController
   def toggle_enabled
     @assignment = Assignment.find(params[:id])
-    course = @assignment.course_to_lms.course
+    course = @assignment.course
 
     # Authoritative server-side check; never trust a client-supplied role.
     unless staff_user?(course)

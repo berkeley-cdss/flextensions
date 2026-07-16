@@ -36,7 +36,7 @@ class RequestReviewPresenter
   def enrollment
     return @enrollment if defined?(@enrollment)
 
-    @enrollment = UserToCourse.find_by(user_id: @request.user_id, course_id: @course.id)
+    @enrollment = Enrollment.find_by(user_id: @request.user_id, course_id: @course.id)
   end
 
   def allow_extended_requests?

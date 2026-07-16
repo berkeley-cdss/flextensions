@@ -60,7 +60,7 @@ RSpec.describe RequestReviewPresenter do
 
   describe '#allow_extended_requests?' do
     it 'is true when the enrollment allows extended requests' do
-      UserToCourse.create!(user: student, course:, role: 'student', allow_extended_requests: true)
+      Enrollment.create!(user: student, course:, role: 'student', allow_extended_requests: true)
       expect(presenter.allow_extended_requests?).to be(true)
     end
 

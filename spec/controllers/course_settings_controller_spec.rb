@@ -6,8 +6,9 @@ RSpec.describe CourseSettingsController, type: :controller do
   let(:course) { Course.create!(course_name: 'Test Course', canvas_id: '123') }
 
   before do
+    Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }
     instructor.lms_credentials.create!(
-      lms_name: 'canvas',
+      lms_id: 1,
       token: 'fake_token',
       refresh_token: 'fake_refresh_token',
       expire_time: 1.hour.from_now
@@ -17,13 +18,13 @@ RSpec.describe CourseSettingsController, type: :controller do
   describe 'instructor access' do
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
       allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
     end
 
     describe 'POST #update' do
-      it 'creates new course settings when none exist' do
-        expect(CourseSettings.where(course_id: course.id).count).to eq(0)
+      it 'updates the settings created automatically with the course' do
+        expect(CourseSettings.where(course_id: course.id).count).to eq(1)
 
         post :update, params: {
           course_id: course.id,
@@ -36,7 +37,6 @@ RSpec.describe CourseSettingsController, type: :controller do
           tab: 'general'
         }
 
-        # Now verify a new settings record was created
         expect(CourseSettings.where(course_id: course.id).count).to eq(1)
         expect(response).to redirect_to(course_settings_path(course.id, tab: 'general'))
         expect(flash[:notice]).to eq('Course settings updated successfully.')
@@ -46,9 +46,8 @@ RSpec.describe CourseSettingsController, type: :controller do
       end
 
       it 'updates existing course settings' do
-        # Create existing settings
-        course_settings = CourseSettings.create!(
-          course: course,
+        course_settings = course.course_settings
+        course_settings.update!(
           enable_extensions: false,
           auto_approve_days: 1,
           auto_approve_extended_request_days: 2,
@@ -78,13 +77,10 @@ RSpec.describe CourseSettingsController, type: :controller do
       end
 
       it 'handles update failures gracefully' do
-        CourseSettings.create!(
-          course: course,
+        course.course_settings.update!(
           enable_extensions: false,
           auto_approve_days: 1
         )
-
-        expect(CourseSettings.where(course_id: course.id).count).to eq(1)
         allow_any_instance_of(CourseSettings).to receive(:update).and_return(false)
 
         post :update, params: {
@@ -98,8 +94,7 @@ RSpec.describe CourseSettingsController, type: :controller do
       end
 
       it 'resets email templates and redirects' do
-        CourseSettings.create!(
-          course: course,
+        course.course_settings.update!(
           enable_extensions: true,
           email_subject: 'Custom Subject',
           email_template: 'Custom Template'
@@ -115,6 +110,74 @@ RSpec.describe CourseSettingsController, type: :controller do
         expect(flash[:notice]).to eq('Email templates reset to defaults.')
         # We won't test the exact content since that requires knowledge of the constants
       end
+    end
+  end
+
+  describe 'pending notification params' do
+    before do
+      session[:user_id] = instructor.canvas_uid
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
+      course.course_settings.update!(enable_extensions: true)
+    end
+
+    it 'persists pending notification settings' do
+      post :update, params: {
+        course_id: course.id,
+        course_settings: {
+          pending_notification_frequency: 'daily',
+          pending_notification_email: 'prof@berkeley.edu'
+        },
+        tab: 'general'
+      }
+
+      settings = CourseSettings.find_by(course_id: course.id)
+      expect(settings.pending_notification_frequency).to eq('daily')
+      expect(settings.pending_notification_email).to eq('prof@berkeley.edu')
+    end
+
+    it 'normalizes blank frequency to nil' do
+      post :update, params: {
+        course_id: course.id,
+        course_settings: {
+          pending_notification_frequency: '',
+          pending_notification_email: ''
+        },
+        tab: 'general'
+      }
+
+      settings = CourseSettings.find_by(course_id: course.id)
+      expect(settings.pending_notification_frequency).to be_nil
+    end
+
+    it 'clears stored email when frequency is set to blank' do
+      settings = CourseSettings.find_by(course_id: course.id)
+      settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof@berkeley.edu')
+
+      post :update, params: {
+        course_id: course.id,
+        course_settings: {
+          pending_notification_frequency: '',
+          pending_notification_email: ''
+        },
+        tab: 'general'
+      }
+
+      settings.reload
+      expect(settings.pending_notification_frequency).to be_nil
+      expect(settings.pending_notification_email).to be_nil
+    end
+
+    it 'shows validation errors for invalid email with frequency set' do
+      post :update, params: {
+        course_id: course.id,
+        course_settings: {
+          pending_notification_frequency: 'daily',
+          pending_notification_email: 'not-an-email'
+        },
+        tab: 'general'
+      }
+
+      expect(flash[:alert]).to include('Failed to update course settings:')
     end
   end
 
@@ -134,14 +197,11 @@ RSpec.describe CourseSettingsController, type: :controller do
 
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
       allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
 
-      # Create settings to enable extensions
-      CourseSettings.create!(
-        course: course,
-        enable_extensions: true
-      )
+      # Enable extensions on the course's settings
+      course.course_settings.update!(enable_extensions: true)
 
       # Clear instance variables before each test
       controller.instance_variable_set(:@pending_requests_count, nil)
@@ -190,17 +250,16 @@ RSpec.describe CourseSettingsController, type: :controller do
     before do
       session[:user_id] = student.canvas_uid
       student.lms_credentials.create!(
-        lms_name: 'canvas',
+        lms_id: 1,
         token: 'student_token',
         refresh_token: 'student_refresh_token',
         expire_time: 1.hour.from_now
       )
-      UserToCourse.create!(user: student, course: course, role: 'student')
+      Enrollment.create!(user: student, course: course, role: 'student')
       allow_any_instance_of(Course).to receive(:user_role).with(student).and_return('student')
 
-      # Create some course settings to attempt to modify
-      CourseSettings.create!(
-        course: course,
+      # Configure course settings to attempt to modify
+      course.course_settings.update!(
         enable_extensions: false,
         auto_approve_days: 1
       )
@@ -252,7 +311,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
     it 'redirects to courses path when course is not found' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'teacher')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
 
       post :update, params: {
         course_id: 999,

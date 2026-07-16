@@ -40,6 +40,24 @@ RSpec.describe EmailService, type: :service do
       expect(partial[:subject]).to eq('Hi X')
       expect(partial[:body]).to eq('Bar {{baz}}')
     end
+
+    it 'HTML-escapes interpolated values in the body but not the subject' do
+      result = described_class.render_templates(
+        'Hello {{name}}', 'Dear {{name}},', { 'name' => '<b>A&B</b>' }
+      )
+      # Subject is a plain-text header, so it is left raw.
+      expect(result[:subject]).to eq('Hello <b>A&B</b>')
+      # Body is delivered as HTML, so the value is escaped.
+      expect(result[:body]).to eq('Dear &lt;b&gt;A&amp;B&lt;/b&gt;,')
+    end
+
+    it 'treats backslashes in values literally rather than as gsub backreferences' do
+      result = described_class.render_templates(
+        '{{code}}', '{{code}}', { 'code' => '\\1 back' }
+      )
+      expect(result[:subject]).to eq('\\1 back')
+      expect(result[:body]).to eq('\\1 back')
+    end
   end
 
   describe '.send_email' do

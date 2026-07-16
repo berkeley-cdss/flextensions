@@ -145,6 +145,29 @@
 					<!-- Display this student's extension history in the course -->
 					<%= render "student_extension_history", review: @review, course: @course %>
 
+					<!-- Student Notes -->
+					<% if @student_enrollment.present? %>
+						<div class="mb-4" data-controller="student-notes"
+							data-student-notes-url-value="<%= update_notes_course_enrollment_path(@course, @student_enrollment) %>">
+							<h3 class="mb-2 h6">Staff Notes for <%= @request.user.name %></h3>
+							<div data-student-notes-target="display">
+								<div class="p-3 bg-light rounded" data-student-notes-target="content">
+									<%= @student_enrollment.notes.present? ? simple_format(@student_enrollment.notes) : content_tag(:span, 'No notes yet.', class: 'text-muted') %>
+								</div>
+								<button class="btn btn-sm btn-outline-primary mt-2" data-action="student-notes#edit">
+									<i class="fa-solid fa-pen-to-square"></i> Edit Notes
+								</button>
+							</div>
+							<div data-student-notes-target="form" class="d-none">
+								<textarea class="form-control" rows="4" data-student-notes-target="textarea"><%= @student_enrollment.notes %></textarea>
+								<div class="mt-2">
+									<button class="btn btn-sm btn-primary" data-action="student-notes#save">Save</button>
+									<button class="btn btn-sm btn-secondary" data-action="student-notes#cancel">Cancel</button>
+								</div>
+							</div>
+						</div>
+					<% end %>
+
 					<!-- Show who processed the request, if already decided -->
 					<% if @request.status != 'pending' %>
 						<div class="mb-4">

@@ -1,10 +1,9 @@
 module API
   module V1
-    class AssignmentsController < ApplicationController
+    class AssignmentsController < BaseController
       include CanvasValidationHelper
 
       before_action :validate_ids!, only: [ :create ]
-      skip_before_action :verify_authenticity_token
 
       def index
         render json: { message: 'not yet implemented' }, status: :not_implemented

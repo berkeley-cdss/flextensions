@@ -5,13 +5,14 @@ RSpec.describe CoursesController, type: :controller do
   let(:course) { Course.create!(course_name: 'Test Course', canvas_id: '456', course_code: 'TST101') }
   let(:course_to_lms) { CourseToLms.create!(course: course, external_course_id: '456', lms_id: 1) }
   let(:student_course) { Course.create!(course_name: 'Student Course', canvas_id: '789', course_code: 'STU101') }
-  let(:course_settings) { CourseSettings.create!(course: course, enable_extensions: true) }
+  let(:course_settings) { course.course_settings.tap { |cs| cs.update!(enable_extensions: true) } }
 
   before do
+    Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }
     session[:user_id] = user.canvas_uid
-    UserToCourse.create!(user: user, course: course, role: 'student')
+    Enrollment.create!(user: user, course: course, role: 'student')
     user.lms_credentials.create!(
-      lms_name: 'canvas',
+      lms_id: 1,
       token: 'fake_token',
       refresh_token: 'fake_refresh_token',
       expire_time: 1.hour.from_now
@@ -30,11 +31,12 @@ RSpec.describe CoursesController, type: :controller do
     end
 
     it 'includes Lead TA enrollments in staff courses' do
-      UserToCourse.create!(user: user, course: student_course, role: 'leadta')
+      Enrollment.create!(user: user, course: student_course, role: 'leadta')
 
       get :index
 
-      expect(assigns(:teacher_courses).map(&:role)).to include('leadta')
+      staff_enrollments = assigns(:staff_enrollments_by_semester).flat_map { |_semester, enrollments| enrollments }
+      expect(staff_enrollments.map(&:role)).to include('leadta')
     end
 
     context 'semester grouping' do
@@ -42,32 +44,30 @@ RSpec.describe CoursesController, type: :controller do
       let(:fall_course) { Course.create!(course_name: 'Fall Course', canvas_id: 'fa1', course_code: 'FA101', semester: 'Fall 2025') }
 
       before do
-        UserToCourse.create!(user: user, course: spring_course, role: 'teacher')
-        UserToCourse.create!(user: user, course: fall_course, role: 'teacher')
+        Enrollment.create!(user: user, course: spring_course, role: 'teacher')
+        Enrollment.create!(user: user, course: fall_course, role: 'teacher')
       end
 
       it 'groups teacher courses by semester, most-recent-first' do
         get :index
 
-        grouped = assigns(:teacher_courses_by_semester)
+        grouped = assigns(:staff_enrollments_by_semester)
         semesters = grouped.map(&:first)
         expect(semesters).to eq([ 'Spring 2026', 'Fall 2025' ])
       end
 
       it 'groups student courses by semester, most-recent-first' do
-        # Disable extensions on the default course so it doesn't appear
-        CourseSettings.create!(course: course, enable_extensions: false)
-
+        # Extensions stay disabled on the default course so it doesn't appear
         spring_student = Course.create!(course_name: 'Student Spring', canvas_id: 'ss1', course_code: 'SS101', semester: 'Spring 2026')
         fall_student = Course.create!(course_name: 'Student Fall', canvas_id: 'sf1', course_code: 'SF101', semester: 'Fall 2025')
-        CourseSettings.create!(course: spring_student, enable_extensions: true)
-        CourseSettings.create!(course: fall_student, enable_extensions: true)
-        UserToCourse.create!(user: user, course: spring_student, role: 'student')
-        UserToCourse.create!(user: user, course: fall_student, role: 'student')
+        spring_student.course_settings.update!(enable_extensions: true)
+        fall_student.course_settings.update!(enable_extensions: true)
+        Enrollment.create!(user: user, course: spring_student, role: 'student')
+        Enrollment.create!(user: user, course: fall_student, role: 'student')
 
         get :index
 
-        grouped = assigns(:student_courses_by_semester)
+        grouped = assigns(:student_enrollments_by_semester)
         semesters = grouped.map(&:first)
         expect(semesters).to eq([ 'Spring 2026', 'Fall 2025' ])
       end
@@ -92,6 +92,33 @@ RSpec.describe CoursesController, type: :controller do
       end
     end
 
+    context 'when the user is an instructor' do
+      let!(:course_to_lms_record) { CourseToLms.create!(course: course, external_course_id: '456', lms_id: 1) }
+
+      before do
+        Enrollment.create!(user: user, course: course, role: 'teacher')
+      end
+
+      it 'renders the instructor show template' do
+        get :show, params: { id: course.id }
+        expect(response).to render_template('courses/instructor_show')
+      end
+
+      it 'assigns @assignments_last_synced_at from the recent assignment sync' do
+        synced_at = Time.zone.parse('2026-06-20 10:00:00')
+        course_to_lms_record.update!(recent_assignment_sync: { 'synced_at' => synced_at.iso8601 })
+
+        get :show, params: { id: course.id }
+
+        expect(assigns(:assignments_last_synced_at)).to be_within(1.second).of(synced_at)
+      end
+
+      it 'leaves @assignments_last_synced_at nil when assignments have never been synced' do
+        get :show, params: { id: course.id }
+        expect(assigns(:assignments_last_synced_at)).to be_nil
+      end
+    end
+
     context 'when course does not exist' do
       it 'redirects to courses_path with alert' do
         get :show, params: { id: '9999' }
@@ -104,7 +131,7 @@ RSpec.describe CoursesController, type: :controller do
   describe 'GET #edit' do
     it 'redirects non-instructor users' do
       get :edit, params: { id: course.id }
-      expect(response).to redirect_to(course_path(course))
+      expect(response).to redirect_to(courses_path)
       expect(flash[:alert]).to eq('You do not have access to this page.')
     end
   end
@@ -174,7 +201,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a teacher (course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'teacher')
+        Enrollment.create!(user: user, course: course, role: 'teacher')
       end
 
       it 'syncs enrollments and returns OK' do
@@ -189,7 +216,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a leadta (course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'leadta')
+        Enrollment.create!(user: user, course: course, role: 'leadta')
       end
 
       it 'syncs enrollments and returns OK' do
@@ -204,7 +231,7 @@ RSpec.describe CoursesController, type: :controller do
 
     context 'when user is a TA (staff but not course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'ta')
+        Enrollment.create!(user: user, course: course, role: 'ta')
       end
 
       it 'syncs enrollments and returns OK' do
@@ -263,7 +290,8 @@ RSpec.describe CoursesController, type: :controller do
 
     before do
       # Create a fake LMS credential with a token
-      user.lms_credentials.create!(lms_name: 'canvas', token: 'fake_token', expire_time: 1.hour.from_now)
+      Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }
+      user.lms_credentials.create!(lms_id: 1, token: 'fake_token', expire_time: 1.hour.from_now)
 
       allow(Course).to receive(:fetch_courses).and_return(canvas_courses)
     end
@@ -364,14 +392,15 @@ RSpec.describe CoursesController, type: :controller do
   describe 'GET #enrollments' do
     before do
       # Create LMS credentials so user has a token
-      user.lms_credentials.create!(lms_name: 'canvas', token: 'fake_token', expire_time: 1.hour.from_now)
+      Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }
+      user.lms_credentials.create!(lms_id: 1, token: 'fake_token', expire_time: 1.hour.from_now)
 
       CourseToLms.create!(course: course, lms_id: 1)
     end
 
     context 'when user is a teacher (course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'teacher')
+        Enrollment.create!(user: user, course: course, role: 'teacher')
       end
 
       it 'renders the enrollments view successfully' do
@@ -386,15 +415,15 @@ RSpec.describe CoursesController, type: :controller do
         expect(enrollment_user_ids).to include(user.id)
       end
 
-      it 'sets @is_course_admin to true' do
+      it 'assigns @approved_late_days' do
         get :enrollments, params: { id: course.id }
-        expect(assigns(:is_course_admin)).to be true
+        expect(assigns(:approved_late_days)).to be_a(Hash)
       end
     end
 
     context 'when user is a TA (staff but not course admin)' do
       before do
-        UserToCourse.create!(user: user, course: course, role: 'ta')
+        Enrollment.create!(user: user, course: course, role: 'ta')
       end
 
       it 'renders the enrollments view successfully' do
@@ -403,11 +432,6 @@ RSpec.describe CoursesController, type: :controller do
         expect(response).to have_http_status(:ok)
         expect(response).to render_template(:enrollments)
         expect(assigns(:enrollments)).not_to be_nil
-      end
-
-      it 'sets @is_course_admin to false' do
-        get :enrollments, params: { id: course.id }
-        expect(assigns(:is_course_admin)).to be false
       end
     end
 
@@ -430,10 +454,8 @@ RSpec.describe CoursesController, type: :controller do
     end
 
     before do
-      Extension.create!(assignment: assignment, student_email: user.email)
-      UserToCourse.create!(user: user, course: course, role: 'teacher')
+      Enrollment.create!(user: user, course: course, role: 'teacher')
       Request.create!(course: course, assignment: assignment, user: user, requested_due_date: Time.current, reason: 'Reason')
-      CourseSettings.create!(course: course)
       FormSetting.create!(
         course: course,
         documentation_disp: 'required',
@@ -447,16 +469,23 @@ RSpec.describe CoursesController, type: :controller do
         delete :delete, params: { id: course.id }
       end.to change(Course, :count).by(-1)
                                    .and change(Assignment, :count).by(-1)
-                                                                  .and change(Extension, :count).by(-1)
-                                                                                                .and change(CourseToLms, :count).by(-1)
-                                                                                                                                .and change(UserToCourse, :count).by(-2)
-                                                                                                                                                                 .and change(Request, :count).by(-1)
-                                                                                                                                                                                             .and change(CourseSettings, :count).by(-1)
-                                                                                                                                                                                                                                .and change(FormSetting,
-                                                                                                                                                                                                                                            :count).by(-1)
+                                                                  .and change(CourseToLms, :count).by(-1)
+                                                                                                  .and change(Enrollment, :count).by(-2)
+                                                                                                                                   .and change(Request, :count).by(-1)
+                                                                                                                                                               .and change(CourseSettings, :count).by(-1)
+                                                                                                                                                                                                  .and change(FormSetting,
+                                                                                                                                                                                                              :count).by(-1)
 
       expect(response).to redirect_to(courses_path)
       expect(flash[:notice]).to eq('Course deleted successfully.')
+    end
+
+    it 'does not delete unrelated courses that happen to have no enrollments' do
+      bystander = Course.create!(course_name: 'Bystander', canvas_id: '999', course_code: 'BYS101')
+
+      expect do
+        delete :delete, params: { id: course.id }
+      end.not_to change { Course.exists?(bystander.id) }.from(true)
     end
   end
 end

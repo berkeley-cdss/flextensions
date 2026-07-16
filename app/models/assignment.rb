@@ -10,16 +10,27 @@
 #  name                   :string
 #  created_at             :datetime         not null
 #  updated_at             :datetime         not null
+#  course_id              :bigint           not null
 #  course_to_lms_id       :bigint           not null
 #  external_assignment_id :string
 #
+# Indexes
+#
+#  index_assignments_on_course_id  (course_id)
+#
 # Foreign Keys
 #
+#  fk_rails_...  (course_id => courses.id)
 #  fk_rails_...  (course_to_lms_id => course_to_lmss.id)
 #
 class Assignment < ApplicationRecord
+  belongs_to :course
   belongs_to :course_to_lms
   has_many :requests, dependent: :destroy
+
+  # course_id is denormalized from course_to_lms so course-scoped queries
+  # don't need a join; default it so callers only have to set course_to_lms.
+  before_validation :set_course_from_course_to_lms
 
   validates :name, presence: true
   validates :external_assignment_id, presence: true
@@ -28,12 +39,13 @@ class Assignment < ApplicationRecord
 
   delegate :lms_id, to: :course_to_lms
 
-  # Returns enabled assignments for a specific course
-  scope :enabled_for_course, ->(course_to_lms_id) { where(course_to_lms_id: course_to_lms_id, enabled: true) }
-
   # Check if there's a pending request for this assignment by a specific user
   def has_pending_request_for_user?(user, course)
     requests.exists?(user: user, course: course, status: 'pending')
+  end
+
+  def set_course_from_course_to_lms
+    self.course ||= course_to_lms&.course
   end
 
   def enabled_requires_date_present
@@ -45,13 +57,15 @@ class Assignment < ApplicationRecord
   end
 
   # TODO: Arguably we should get the base URL from the course
+  # The per-LMS URL structure lives on each facade, so this just supplies the
+  # base URL and external ids and lets the facade assemble the link.
   def external_url
-    base_lms_url = course_to_lms.lms.lms_base_url if course_to_lms
-    case lms_id
-    when CANVAS_LMS_ID
-      "#{base_lms_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
-    when GRADESCOPE_LMS_ID
-      "#{base_lms_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
-    end
+    return unless course_to_lms
+
+    lms_facade.assignment_url(
+      course_to_lms.lms.lms_base_url,
+      course_to_lms.external_course_id,
+      external_assignment_id
+    )
   end
 end
