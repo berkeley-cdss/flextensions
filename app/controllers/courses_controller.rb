@@ -1,5 +1,5 @@
 class CoursesController < ApplicationController
-  before_action :set_course, only: %i[show edit sync_assignments sync_enrollments enrollments delete]
+  before_action :set_course, only: %i[show edit sync_assignments sync_enrollments sync_status bulk_update_assignments enrollments delete]
   # Currently exclude routes that expect JSON.
   before_action :require_course_staff!, only: %i[edit enrollments delete]
   before_action :set_pending_request_count
@@ -77,12 +77,35 @@ class CoursesController < ApplicationController
     render json: { message: 'Assignments synced successfully.' }, status: :ok
   end
 
+  def bulk_update_assignments
+    return render json: { error: 'Course not found.' }, status: :not_found unless @course
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.staff_user?(current_user)
+
+    enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
+    scope = Assignment.where(course_to_lms_id: CourseToLms.where(course_id: @course.id).select(:id))
+    scope = scope.where.not(due_date: nil) if enabled
+    scope.update_all(enabled: enabled) # rubocop:disable Rails/SkipsModelValidations
+    render json: { success: true }, status: :ok
+  end
+
   def sync_enrollments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
     return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.staff_user?(current_user)
 
     @course.sync_all_enrollments_from_canvas(current_user.id)
     render json: { message: 'Users synced successfully.' }, status: :ok
+  end
+
+  def sync_status
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.staff_user?(current_user)
+
+    course_to_lms = @course.course_to_lms
+    return render json: { error: 'LMS connection not found.' }, status: :not_found unless course_to_lms
+
+    render json: {
+      roster_synced_at: course_to_lms.recent_roster_sync&.dig('synced_at'),
+      assignments_synced_at: course_to_lms.recent_assignment_sync&.dig('synced_at')
+    }, status: :ok
   end
 
   def enrollments

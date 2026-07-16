@@ -81,18 +81,22 @@
       </table>
       </div>
 
-      <div class="text-start mt-4">
-        <button class="btn btn-outline-primary"
-                data-controller="enrollments"
-                data-action="click->enrollments#sync"
-                data-enrollments-course-id-value="<%= @course.id %>">
-          Sync Enrollments
-        </button>
-        <p class="text-muted mt-2 mb-0">
-          Enrollments last synced at
-          <%= @enrollments_last_synced_at ? @enrollments_last_synced_at.strftime('%a, %b %-d at %-I:%M%P') : 'never' %>
-        </p>
-      </div>
+      <% if @course.staff_user?(current_user) %>
+        <div class="text-start mt-4">
+          <button class="btn btn-outline-primary"
+                  data-controller="enrollments"
+                  data-action="click->enrollments#sync"
+                  data-enrollments-course-id-value="<%= @course.id %>"
+                  data-enrollments-target="syncBtn">
+            <span data-enrollments-target="syncLabel">Sync Enrollments</span>
+            <span data-enrollments-target="syncSpinner" class="spinner-border spinner-border-sm ms-1 d-none" role="status" aria-hidden="true"></span>
+          </button>
+          <p class="text-muted mt-2 mb-0">
+            Enrollments last synced at
+            <%= @enrollments_last_synced_at ? @enrollments_last_synced_at.strftime('%a, %b %-d at %-I:%M%P') : 'never' %>
+          </p>
+        </div>
+      <% end %>
     </div>
   </div>
 </div>
