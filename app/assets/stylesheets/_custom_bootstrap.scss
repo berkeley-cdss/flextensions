@@ -186,6 +186,13 @@ code {
       color: #212529 !important;
     }
 
+    // Bootstrap's .text-muted is theme-adaptive (near-white in dark mode), but
+    // these regions keep a light surface, so pin muted text to a readable gray
+    // (>= 4.5:1 on #f8f9fa) instead of letting it wash out.
+    .text-muted {
+      color: #565e64 !important;
+    }
+
     // These regions keep a light background in dark mode, so <code> must stay
     // dark-red here (the lighter tint below is only for the dark surface).
     // Higher specificity than the plain dark-surface `code` rule below.
