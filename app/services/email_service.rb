@@ -12,8 +12,13 @@ class EmailService
         { subject: subject_template.dup, body: body_template.dup }
       ) do |(key, val), memo|
         placeholder = /{{\s*#{key}\s*}}/i
-        memo[:subject].gsub!(placeholder, val.to_s)
-        memo[:body].gsub!(placeholder, val.to_s)
+        # The subject is a plain-text header, but the body is delivered as HTML
+        # (see TemplatedMailer), so HTML-escape interpolated values there to
+        # keep a name or course value from injecting markup into the email.
+        # The block form also stops gsub from interpreting a backslash or \1 in
+        # the value as a backreference.
+        memo[:subject].gsub!(placeholder) { val.to_s }
+        memo[:body].gsub!(placeholder) { ERB::Util.html_escape(val.to_s) }
       end
     end
 
