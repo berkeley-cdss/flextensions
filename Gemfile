@@ -121,8 +121,7 @@ group :test do
   gem 'rspec-retry'
   gem 'selenium-webdriver'
   gem 'shoulda-matchers', '~> 8.0'
-  gem 'simplecov', '~> 0.22.0', require: false
-  gem 'simplecov_json_formatter'
+  gem 'simplecov', '~> 1.0.1', require: false
   gem 'timecop'
   gem 'webmock'
 end
