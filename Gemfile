@@ -121,7 +121,6 @@ group :test do
   gem 'selenium-webdriver'
   gem 'shoulda-matchers', '~> 8.0'
   gem 'simplecov', '~> 1.0.1', require: false
-  gem 'simplecov_json_formatter'
   gem 'timecop'
   gem 'webmock'
 end

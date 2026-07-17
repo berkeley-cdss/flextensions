@@ -539,7 +539,6 @@ GEM
     shoulda-matchers (8.0.1)
       activesupport (>= 7.2)
     simplecov (1.0.1)
-    simplecov_json_formatter (0.1.4)
     simpleidn (0.2.3)
     snaky_hash (2.0.3)
       hashie (>= 0.1.0, < 6)
@@ -659,7 +658,6 @@ DEPENDENCIES
   sentry-ruby
   shoulda-matchers (~> 8.0)
   simplecov (~> 1.0.1)
-  simplecov_json_formatter
   sprockets-rails
   stimulus-rails
   strong_migrations

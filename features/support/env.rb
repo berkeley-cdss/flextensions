@@ -3,18 +3,9 @@
 
 # Database Cleaner configuration is loaded in features/support/database_cleaner.rb
 
-# Configure SimpleCov before requiring other files
-require 'simplecov'
-require 'simplecov_json_formatter'
-
-# Start SimpleCov coverage reporting for cucumber runs
-SimpleCov.start 'rails' do
-  track_files 'app/**/*.rb'
-  formatter SimpleCov::Formatter::MultiFormatter.new([
-                                                       SimpleCov::Formatter::HTMLFormatter,
-                                                       SimpleCov::Formatter::JSONFormatter
-                                                     ])
-end
+# Start SimpleCov coverage reporting before requiring any application code.
+# The configuration is shared with the RSpec suite (see config/simplecov.rb).
+require_relative '../../config/simplecov'
 
 require 'cucumber/rails'
 require 'rspec/mocks'
