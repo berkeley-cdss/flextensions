@@ -47,11 +47,8 @@ Rails.application.configure do
   config.action_mailer.default_url_options = { host: "localhost", port: 3000 }
 
   # Print deprecation notices to the Rails logger.
+  # (Ruby-level deprecation warnings are enabled globally in config/boot.rb.)
   config.active_support.deprecation = :log
-
-  # Surface Ruby-level deprecation warnings (off by default since Ruby 3.0) so
-  # deprecated language/stdlib usage is visible during local development.
-  Warning[:deprecated] = true
 
   # Raise exceptions for disallowed deprecations.
   config.active_support.disallowed_deprecation = :raise
