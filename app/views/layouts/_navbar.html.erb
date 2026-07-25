@@ -4,15 +4,15 @@
 			aria-controls="navbar-center" aria-expanded="false" aria-label="Toggle navigation">
 			<span class="navbar-toggler-icon"></span>
 		</button>
-		<div class="color-mode-toggler">
+		<div class="d-lg-none">
 			<a class="navbar-brand col-lg-3 me-0" href="./">Flextensions</a>
 		</div>
-		<div class="color-mode-toggler">
+		<div class="d-lg-none">
 			<%= render "layouts/color_mode_btn" %>
 		</div>
 
 		<div class="collapse navbar-collapse d-lg-flex" id="navbar-center">
-			<a class="navbar-brand col-lg-3 me-0 color-mode-toggler-m" href="/courses">Flextensions</a>
+			<a class="navbar-brand col-lg-3 me-0 d-none d-lg-block" href="/courses">Flextensions</a>
 			<ul class="navbar-nav col-lg-6 justify-content-lg-center">
 				<li class="nav-item">
 					<a class="nav-link active" aria-current="page" href="/courses">Home</a>
@@ -40,7 +40,7 @@
 						</li>
 					<% end %>
 					<li>
-						<div class="color-mode-toggler-m">
+						<div class="d-none d-lg-block">
 							<%= render "layouts/color_mode_btn" %>
 						</div>
 					</li>
@@ -58,8 +58,7 @@
 		data-controller="sidebar"
 		data-sidebar-target="toggleBtn"
 		data-action="click->sidebar#toggleSidebar"
-		aria-label="Open sidebar"
-		style="display: none;">
+		aria-label="Open sidebar">
 	<i class="fa-solid fa-arrow-right"></i>
 </button>
 <% end %>

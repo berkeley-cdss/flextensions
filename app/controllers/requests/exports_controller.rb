@@ -15,7 +15,7 @@ module Requests
       requests = course.requests.includes(:assignment, :user)
       requests = requests.where(status: params[:status]) if params[:status].present?
 
-      send_data Request.to_csv(requests), filename: 'requests.csv', type: 'text/csv'
+      send_data RequestCsvPresenter.new(requests).to_csv, filename: 'requests.csv', type: 'text/csv'
     end
   end
 end

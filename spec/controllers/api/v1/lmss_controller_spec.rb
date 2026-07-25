@@ -6,10 +6,13 @@ module API
         response.parsed_body
       end
 
+      let(:api_user) { User.create!(email: 'api-user@example.com', canvas_uid: 'api-user-1') }
+
       before do
         @course = Course.create!(course_name: 'Mock CS169 Course')
         @lms = Lms.first
         @external_course_id = 'mock_external_course_id'
+        session[:user_id] = api_user.canvas_uid
       end
 
       after do

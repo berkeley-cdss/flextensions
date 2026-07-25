@@ -81,6 +81,16 @@ $primary: $berkeley-blue;
 // TODO: This may be a little too bright for some elements, consider using a medium or dark shade instead
 $secondary: $california-gold;
 
+// Inline <code>: a dark red in light mode; a lighter tint in dark mode so it
+// stays readable on the dark surface. (Light surfaces that persist in dark
+// mode re-pin --bs-code-color — see _custom_bootstrap.scss.)
+$code-color: #be0303;
+$code-color-dark: #ea868f;
+
+// Dark mode: Bootstrap's unchecked switch knob is 25% white, which is nearly
+// invisible on the dark track. Use a solid white knob instead.
+$form-switch-color-dark: $white;
+
 @import "bootstrap";
 @import "custom_bootstrap";
 @import "font-awesome";
