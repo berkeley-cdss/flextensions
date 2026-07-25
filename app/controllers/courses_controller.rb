@@ -72,6 +72,7 @@ class CoursesController < ApplicationController
 
   def sync_assignments
     return render json: { error: 'Course not found.' }, status: :not_found unless @course
+    return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.staff_user?(current_user)
 
     @course.sync_assignments(current_user)
     render json: { message: 'Assignments synced successfully.' }, status: :ok
