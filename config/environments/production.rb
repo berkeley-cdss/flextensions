@@ -45,12 +45,12 @@ Rails.application.configure do
   # config.action_cable.allowed_request_origins = [ "http://example.com", /http:\/\/example.*/ ]
   config.hosts.clear
 
-  # Assume all access to the app is happening through a SSL-terminating reverse proxy.
-  # Can be used together with config.force_ssl for Strict-Transport-Security and secure cookies.
-  # config.assume_ssl = true
-
-  # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  #config.force_ssl = true
+  # TLS is terminated at the load balancer, which forwards plain HTTP to the
+  # app. assume_ssl tells Rails to treat those forwarded requests as secure so
+  # force_ssl does not redirect-loop; force_ssl then redirects any HTTP access
+  # to HTTPS, sends Strict-Transport-Security, and marks cookies secure.
+  config.assume_ssl = true
+  config.force_ssl = true
 
   # Setup logging with Lograge [https://github.com/roidrage/lograge]
   # See config/initializers/lograge.rb for more details.
