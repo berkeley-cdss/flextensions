@@ -165,13 +165,21 @@ RSpec.describe CoursesController, type: :controller do
   end
 
   describe 'POST #sync_assignments' do
-    it 'syncs assignments and returns OK' do
+    it 'syncs assignments and returns OK for staff' do
+      Enrollment.create!(user: user, course: course, role: 'teacher')
       allow(Course).to receive(:create_or_update_from_canvas)
 
       post :sync_assignments, params: { id: course.id }
 
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body).to eq({ 'message' => 'Assignments synced successfully.' })
+    end
+
+    it 'returns forbidden for a non-staff user' do
+      post :sync_assignments, params: { id: course.id }
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to eq({ 'error' => 'You do not have permission.' })
     end
   end
 
