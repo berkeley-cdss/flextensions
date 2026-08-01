@@ -8,18 +8,6 @@
 		<%= csp_meta_tag %>
 
 		<%= stylesheet_link_tag "application" %>
-		<%# DataTables CSS is served straight from public/ rather than through the
-		    asset pipeline, on purpose. Importing it from application.scss does NOT
-		    work: Sass treats `@import "foo.css"` as a passthrough and emits a literal
-		    `@import url(datatables/...css)` into the compiled stylesheet, pointing at
-		    a path that is never precompiled -- so it 404s in production, where
-		    config.assets.compile is false. Dropping the .css extension so Sass inlines
-		    it instead fails to compile under sassc-rails. Keep these as plain <link>
-		    tags until the app moves off sassc-rails. Versions must be kept in sync
-		    with the datatables.net-bs5 / datatables.net-responsive-bs5 pins in
-		    config/importmap.rb. %>
-		<link rel="stylesheet" href="/datatables/dataTables.bootstrap5.css">
-		<link rel="stylesheet" href="/datatables/responsive.bootstrap5.css">
 
 		<%= javascript_importmap_tags %>
 		<%= render "layouts/components/color_mode_critical" %>

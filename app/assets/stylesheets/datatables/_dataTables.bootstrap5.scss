@@ -1,3 +1,7 @@
+/* Vendored from the datatables.net-bs5 package. Kept as an SCSS partial so it
+   is inlined into application.css rather than emitted as a separate @import.
+   Dart Sass passes rgb()/rgba() containing var() through untouched, so the
+   values below need no wrapping. */
 :root {
   --dt-row-selected: 13, 110, 253;
   --dt-row-selected-text: 255, 255, 255;

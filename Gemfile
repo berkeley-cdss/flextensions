@@ -91,10 +91,19 @@ gem 'importmap-rails'
 gem 'turbo-rails'
 
 gem 'bootstrap', '~> 5.3.8'
-# dependency for bootstrap # 03-10-2025 this is deprecated but still works
-gem 'sassc-rails', '~> 2.1'
-# alternative to sassc-rails, this is recommended but bootstrap 5.3.3 is still using "deprecated" @import statements which this gem doesn't like
-# gem 'dartsass-sprockets'
+# Compiles the SCSS in app/assets/stylesheets with Dart Sass (the only Sass
+# implementation still maintained) via Sprockets. Replaces sassc-rails, which
+# was deprecated along with its LibSass backend. Everything else about the
+# pipeline is unchanged: same stylesheet_link_tag, same manifest.js.
+#
+# `sassc` itself is still resolved as a transitive dependency (of both
+# sassc-embedded and font-awesome-sass), but only as an API shim — LibSass no
+# longer compiles anything.
+#
+# Bootstrap 5.3 still uses `@import`, which Dart Sass deprecated; those warnings
+# are silenced in config/initializers/dartsass.rb. Bootstrap 6 moves to `@use`,
+# at which point the silencing can go away.
+gem 'dartsass-sprockets', '~> 3.2'
 
 # Font Awesome for icons
 gem 'font-awesome-sass'
