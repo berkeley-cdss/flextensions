@@ -21,7 +21,8 @@ cd flextensions
 
 Install `mise`, such as `brew install mise` or any other ruby language manager.
 
-Make sure you are using Ruby 3.4:
+Either Ruby 3.3 or 3.4 will work, but 3.4 is what CI and production use, so
+prefer it unless you have a reason not to:
 
 ```
 mise use ruby@3.4
