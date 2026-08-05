@@ -17,7 +17,6 @@
 				<li class="nav-item">
 					<a class="nav-link active" aria-current="page" href="/courses">Home</a>
 				</li>
-
 				<li class="nav-item">
 					<a class="nav-link" href="https://berkeley-cdss.github.io/flextensions/" target="_blank">Help</a>
 				</li>
@@ -28,13 +27,19 @@
 						<!-- Display this when there's a logged-in user -->
 						<li class="nav-item dropdown">
 							<a class="nav-link dropdown-toggle testid-username" href="#" data-bs-toggle="dropdown"
-								aria-expanded="false" aria-label="User menu for <%= current_user.name %>"><%= current_user.name %></a>
-							<ul class="dropdown-menu">
+                aria-expanded="false" aria-label="User menu for <%= current_user.name %>"><%= current_user.name %>
+              </a>
+							<ul class="dropdown-menu" id="user-dropdown-menu">
+								<% if current_user.admin? %>
+									<li><h6 class="dropdown-header">Admin Tools</h6></li>
+									<li><a class="dropdown-item" href="<%= blazer_path %>">Dashboards</a></li>
+									<li><a class="dropdown-item" href="<%= good_job_path %>">Background Jobs</a></li>
+									<li><hr class="dropdown-divider"></li>
+								<% end %>
 								<li><a class="dropdown-item testid-logout-button" href="/logout/">Logout</a></li>
 							</ul>
 						</li>
 					<% else %>
-						<%# TODO: Need a test case for this. %>
 						<li class="nav-item">
 							<%= button_to 'Login', '/auth/canvas', method: :post, class: 'btn btn-primary', id: 'login-button-index' %>
 						</li>
