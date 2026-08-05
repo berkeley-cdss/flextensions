@@ -30,10 +30,13 @@
 							<a class="nav-link dropdown-toggle testid-username" href="#" data-bs-toggle="dropdown"
 								aria-expanded="false" aria-label="User menu for <%= session[:username] %>"><%= session[:username] %></a>
 							<ul class="dropdown-menu" id="user-dropdown-menu">
-								<% if current_user.admin? %>
+								<%# Guarded with &. because the enclosing condition tests session[:user_id],
+								    but current_user is a find_by that returns nil for a session pointing at a
+								    user who no longer exists. %>
+								<% if current_user&.admin? %>
 									<li><h6 class="dropdown-header">Admin Tools</h6></li>
-									<li><a class="dropdown-item" href="/admin/blazer">Dashboards</a></li>
-									<li><a class="dropdown-item" href="/admin/good_job">Background Jobs</a></li>
+									<li><a class="dropdown-item" href="<%= blazer_path %>">Dashboards</a></li>
+									<li><a class="dropdown-item" href="<%= good_job_path %>">Background Jobs</a></li>
 									<li><hr class="dropdown-divider"></li>
 								<% end %>
 								<li><a class="dropdown-item testid-logout-button" href="/logout/">Logout</a></li>

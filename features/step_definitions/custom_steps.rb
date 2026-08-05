@@ -14,16 +14,13 @@ Given(/^a course exists$/) do
   end
 end
 
-Given(/^I am logged in as an admin$/) do
-  user = create(:admin, email: 'admin@berkeley.edu', canvas_uid: 'canvas_uid_admin')
-  page.set_rack_session(user_id: user.canvas_uid, username: user.name)
-end
-
-Given(/^(?:I am|I'm|I) (?:logged|log) in as a (teacher|ta|student)$/i) do |role|
+Given(/^(?:I am|I'm|I) (?:logged|log) in as an? (teacher|ta|student|admin)$/i) do |role|
   emails = {
     'teacher' => 'user1@berkeley.edu',
     'ta' => 'user2@berkeley.edu',
-    'student' => 'user3@berkeley.edu'
+    'student' => 'user3@berkeley.edu',
+    # Not part of `a course exists`, so this is created on demand.
+    'admin' => 'admin@berkeley.edu'
   }
   email = emails[role.downcase]
   user = User.find_by(email: email) || create(role.to_sym, email: email)
