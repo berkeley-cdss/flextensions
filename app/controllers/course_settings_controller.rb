@@ -35,7 +35,9 @@ class CourseSettingsController < ApplicationController
         :min_hours_before_deadline,
         :extend_late_due_date,
         :email_subject,
-        :email_template
+        :email_template,
+        :enable_emails,
+        :reply_email
       ]
     )
   end

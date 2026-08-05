@@ -159,34 +159,9 @@
 
                 <div class="card rounded-0 mb-4">
                     <div class="card-header bg-light">
-                        <h2 class="card-title mb-0 h5">Notifications</h2>
+                        <h2 class="card-title mb-0 h5">Staff Notifications</h2>
                     </div>
                     <div class="card-body">
-                        <div class="mb-3">
-                            <div class="form-check form-switch">
-                                <%= hidden_field_tag 'course_settings[enable_emails]', false %>
-                                <%= check_box_tag 'course_settings[enable_emails]',
-                                                 true,
-                                                 @course.course_settings&.enable_emails,
-                                                 class: 'form-check-input',
-                                                 id: 'enable-email' %>
-                                <label class="form-check-label" for="enable-email">Enable email notifications</label>
-                            </div>
-                        </div>
-
-                        <div class="mb-3 row">
-                            <label for="reply-email" class="col-sm-4 col-form-label">Course Reply Email Address</label>
-                            <div class="col-sm-8">
-                                <%= email_field_tag 'course_settings[reply_email]',
-                                                  @course.course_settings&.reply_email,
-                                                  class: 'form-control',
-                                                  id: 'reply-email',
-                                                  placeholder: 'example@example.com',
-                                                  data: { course_settings_target: "emailField" },
-                                                  disabled: !@course.course_settings&.enable_emails %>
-                            </div>
-                        </div>
-
                         <div class="mb-3">
                             <div class="form-check form-switch">
                                 <%= hidden_field_tag 'course_settings[enable_slack_webhook_url]', false %>
@@ -209,6 +184,13 @@
                                                   placeholder: 'https://hooks.slack.com/services/...',
                                                   data: { course_settings_target: "slackWebhookField" },
                                                   disabled: !@course.course_settings&.enable_slack_webhook_url %>
+                                <div class="form-text">
+                                    <i class="fas fa-circle-info me-1" aria-hidden="true"></i>
+                                    <%= link_to 'Instructions on how to create a Slack Webhook',
+                                                'https://berkeley-cdss.github.io/flextensions/integrations/#slack',
+                                                target: '_blank', rel: 'noopener' %>.
+                                    All notifications will arrive in as an individual Slack message.
+                                </div>
                             </div>
                         </div>
 

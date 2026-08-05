@@ -89,6 +89,18 @@ RSpec.describe CourseSettingsController, type: :controller do
         expect(response).to redirect_to(approvals_course_settings_path(course.id))
         expect(flash[:alert]).to include('Failed to update course settings:')
       end
+
+      it 'saves the email notification fields from the Email Templates page' do
+        patch :update, params: {
+          course_id: course.id,
+          course_settings: { enable_emails: 'true', reply_email: 'staff@example.com' },
+          page: 'emails'
+        }
+
+        settings = course.reload.course_settings
+        expect(settings.enable_emails).to be true
+        expect(settings.reply_email).to eq('staff@example.com')
+      end
     end
 
     describe 'GET #approvals' do

@@ -153,8 +153,6 @@ class CoursesController < ApplicationController
       :enable_extensions,
       :enable_gradescope,
       :gradescope_course_url,
-      :enable_emails,
-      :reply_email,
       :enable_slack_webhook_url,
       :slack_webhook_url,
       :pending_notification_frequency,

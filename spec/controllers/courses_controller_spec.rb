@@ -222,9 +222,7 @@ RSpec.describe CoursesController, type: :controller do
         course_settings: {
           enable_extensions: 'true',
           enable_gradescope: 'true',
-          gradescope_course_url: 'https://www.gradescope.com/courses/123456',
-          enable_emails: 'true',
-          reply_email: 'staff@example.com'
+          gradescope_course_url: 'https://www.gradescope.com/courses/123456'
         }
       }
 
@@ -233,8 +231,6 @@ RSpec.describe CoursesController, type: :controller do
       expect(settings.enable_extensions).to be true
       expect(settings.enable_gradescope).to be true
       expect(settings.gradescope_course_url).to eq('https://www.gradescope.com/courses/123456')
-      expect(settings.enable_emails).to be true
-      expect(settings.reply_email).to eq('staff@example.com')
     end
 
     it 'sends a Slack ping when the webhook is newly enabled' do

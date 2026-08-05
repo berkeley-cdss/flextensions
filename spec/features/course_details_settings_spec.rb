@@ -59,6 +59,31 @@ RSpec.describe 'Course Details settings', type: :feature do
     end
   end
 
+  describe 'notification settings placement' do
+    around { |example| Capybara.using_driver(:rack_test) { example.run } }
+
+    before { page.set_rack_session(user_id: teacher.canvas_uid) }
+
+    it 'keeps Slack/pending notifications (with webhook instructions) under Staff Notifications on Course Details' do
+      visit edit_course_path(course)
+
+      expect(page).to have_selector('h2', text: 'Staff Notifications')
+      expect(page).to have_link('Instructions on how to create a Slack Webhook',
+                                href: 'https://berkeley-cdss.github.io/flextensions/integrations/#slack')
+      expect(page).to have_text('All notifications will arrive in as an individual Slack message')
+      # email fields have moved off this page
+      expect(page).to have_no_field('course_settings[enable_emails]')
+      expect(page).to have_no_field('course_settings[reply_email]')
+    end
+
+    it 'shows the email notification toggle and reply-to address on the Email Templates page' do
+      visit emails_course_settings_path(course)
+
+      expect(page).to have_field('course_settings[enable_emails]', visible: :all)
+      expect(page).to have_field('course_settings[reply_email]', disabled: :all)
+    end
+  end
+
   describe 'unsaved changes warning', :a11y, :js do
     before do
       page.set_rack_session(user_id: teacher.canvas_uid)
