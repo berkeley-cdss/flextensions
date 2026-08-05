@@ -20,6 +20,23 @@ module ApplicationHelper
     enrollment ? enrollment.display_role : 'Unknown'
   end
 
+  # Renders a small icon button that copies `text` to the clipboard.
+  # `label` is used as both the tooltip and the accessible name, so pass
+  # something specific when there are several buttons on a page.
+  def copy_to_clipboard_button(text, label: 'Copy to clipboard', css_class: 'btn btn-sm btn-link p-0 ms-2')
+    tag.button type: 'button',
+               class: css_class,
+               title: label,
+               'aria-label': label,
+               data: {
+                 controller: 'clipboard',
+                 action: 'click->clipboard#copy',
+                 clipboard_text_value: text
+               } do
+      tag.i('', class: 'fas fa-clipboard', 'aria-hidden': true)
+    end
+  end
+
   # Small "last updated" note for the footer. Returns nil when we cannot work
   # out anything about the deployment, so the caller can omit the line entirely.
   def deployment_note
