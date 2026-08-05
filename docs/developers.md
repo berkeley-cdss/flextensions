@@ -21,7 +21,9 @@ cd flextensions
 
 Install `mise`, such as `brew install mise` or any other ruby language manager.
 
-Make sure you are using Ruby 3.4:
+Either Ruby 3.3 or 3.4 will work. CI runs 3.4, but the deployed Elastic
+Beanstalk platform runs Ruby 3.3, so the app must remain compatible with
+both (the Gemfile allows `>= 3.3, < 3.5`):
 
 ```
 mise use ruby@3.4
