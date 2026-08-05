@@ -89,7 +89,6 @@ RSpec.describe CourseSettingsController, type: :controller do
         expect(response).to redirect_to(approvals_course_settings_path(course.id))
         expect(flash[:alert]).to include('Failed to update course settings:')
       end
-
     end
 
     describe 'GET #approvals' do
@@ -108,74 +107,6 @@ RSpec.describe CourseSettingsController, type: :controller do
         expect(response).to have_http_status(:ok)
         expect(response).to render_template(:emails)
       end
-    end
-  end
-
-  describe 'pending notification params' do
-    before do
-      session[:user_id] = instructor.canvas_uid
-      Enrollment.create!(user: instructor, course: course, role: 'teacher')
-      course.course_settings.update!(enable_extensions: true)
-    end
-
-    it 'persists pending notification settings' do
-      post :update, params: {
-        course_id: course.id,
-        course_settings: {
-          pending_notification_frequency: 'daily',
-          pending_notification_email: 'prof@berkeley.edu'
-        },
-        tab: 'general'
-      }
-
-      settings = CourseSettings.find_by(course_id: course.id)
-      expect(settings.pending_notification_frequency).to eq('daily')
-      expect(settings.pending_notification_email).to eq('prof@berkeley.edu')
-    end
-
-    it 'normalizes blank frequency to nil' do
-      post :update, params: {
-        course_id: course.id,
-        course_settings: {
-          pending_notification_frequency: '',
-          pending_notification_email: ''
-        },
-        tab: 'general'
-      }
-
-      settings = CourseSettings.find_by(course_id: course.id)
-      expect(settings.pending_notification_frequency).to be_nil
-    end
-
-    it 'clears stored email when frequency is set to blank' do
-      settings = CourseSettings.find_by(course_id: course.id)
-      settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof@berkeley.edu')
-
-      post :update, params: {
-        course_id: course.id,
-        course_settings: {
-          pending_notification_frequency: '',
-          pending_notification_email: ''
-        },
-        tab: 'general'
-      }
-
-      settings.reload
-      expect(settings.pending_notification_frequency).to be_nil
-      expect(settings.pending_notification_email).to be_nil
-    end
-
-    it 'shows validation errors for invalid email with frequency set' do
-      post :update, params: {
-        course_id: course.id,
-        course_settings: {
-          pending_notification_frequency: 'daily',
-          pending_notification_email: 'not-an-email'
-        },
-        tab: 'general'
-      }
-
-      expect(flash[:alert]).to include('Failed to update course settings:')
     end
   end
 
@@ -280,7 +211,6 @@ RSpec.describe CourseSettingsController, type: :controller do
       expect(course.reload.course_settings.enable_extensions).to be false
       expect(course.reload.course_settings.auto_approve_days).to eq(1)
     end
-
   end
 
   describe 'authentication issues' do

@@ -141,7 +141,7 @@ RSpec.describe CoursesController, type: :controller do
       before do
         session[:user_id] = instructor.canvas_uid
         instructor.lms_credentials.create!(
-          lms_name: 'canvas', token: 't', refresh_token: 'r', expire_time: 1.hour.from_now
+          lms_id: 1, token: 't', expire_time: 1.hour.from_now
         )
         Enrollment.create!(user: instructor, course: course, role: 'teacher')
       end
@@ -160,7 +160,7 @@ RSpec.describe CoursesController, type: :controller do
     before do
       session[:user_id] = instructor.canvas_uid
       instructor.lms_credentials.create!(
-        lms_name: 'canvas', token: 't', refresh_token: 'r', expire_time: 1.hour.from_now
+        lms_id: 1, token: 't', expire_time: 1.hour.from_now
       )
       Enrollment.create!(user: instructor, course: course, role: 'teacher')
     end
@@ -250,7 +250,7 @@ RSpec.describe CoursesController, type: :controller do
       }
 
       expect(response).to redirect_to(edit_course_path(course))
-      expect(flash[:notice]).to match(/Check your Slack channel/)
+      expect(flash[:notice]).to include('Check your Slack channel')
     end
 
     it 'warns when the Slack ping fails' do
@@ -266,6 +266,43 @@ RSpec.describe CoursesController, type: :controller do
       }
 
       expect(flash[:alert]).to include('Failed to send Slack notification')
+    end
+
+    it 'persists pending notification settings' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: { pending_notification_frequency: 'daily', pending_notification_email: 'prof@berkeley.edu' }
+      }
+
+      settings = course.reload.course_settings
+      expect(settings.pending_notification_frequency).to eq('daily')
+      expect(settings.pending_notification_email).to eq('prof@berkeley.edu')
+    end
+
+    it 'clears the stored email when the frequency is set to blank' do
+      course.course_settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof@berkeley.edu')
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: { pending_notification_frequency: '', pending_notification_email: '' }
+      }
+
+      settings = course.reload.course_settings
+      expect(settings.pending_notification_frequency).to be_nil
+      expect(settings.pending_notification_email).to be_nil
+    end
+
+    it 'shows a validation error for an invalid notification email' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: { pending_notification_frequency: 'daily', pending_notification_email: 'not-an-email' }
+      }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(flash[:alert]).to include('Failed to update course details')
     end
   end
 
