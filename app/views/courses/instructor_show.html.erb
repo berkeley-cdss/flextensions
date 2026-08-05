@@ -11,6 +11,7 @@
           <thead class="table-blue-medium text-white">
             <tr>
               <th style="min-width: 200px;">Assignment</th>
+              <th class="text-center">Release Date</th>
               <th class="text-center">Due Date</th>
               <th class="text-center">Late Due Date</th>
               <th class="text-center" style="width: 80px;">Enable</th>
@@ -26,6 +27,7 @@
                     <%= assignment_link_for(assignment, @course) %>
                   </div>
                 </td>
+                <td class="text-center"><%= assignment.release_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
                 <td class="text-center"><%= assignment.due_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
                 <td class="text-center"><%= assignment.late_due_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
                 <td class="justify-content-center align-content-center">

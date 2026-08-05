@@ -16,12 +16,14 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
         build_canvas_assignment(
           'id' => '123',
           'name' => 'Assignment 1',
+          'unlock_at' => '2025-01-10T23:59:00Z',
           'due_at' => '2025-01-15T23:59:00Z',
           'lock_at' => '2025-01-20T23:59:00Z'
         ),
         build_canvas_assignment(
           'id' => '456',
           'name' => 'Assignment 2',
+          'unlock_at' => nil,
           'due_at' => '2025-02-15T23:59:00Z',
           'lock_at' => nil
         )
@@ -41,11 +43,13 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
 
       assignment1 = Assignment.find_by(external_assignment_id: '123')
       expect(assignment1.name).to eq('Assignment 1')
+      expect(assignment1.release_date).to eq(DateTime.parse('2025-01-10T23:59:00Z'))
       expect(assignment1.due_date).to eq(DateTime.parse('2025-01-15T23:59:00Z'))
       expect(assignment1.late_due_date).to eq(DateTime.parse('2025-01-20T23:59:00Z'))
 
       assignment2 = Assignment.find_by(external_assignment_id: '456')
       expect(assignment2.name).to eq('Assignment 2')
+      expect(assignment2.release_date).to be_nil
       expect(assignment2.due_date).to eq(DateTime.parse('2025-02-15T23:59:00Z'))
       expect(assignment2.late_due_date).to be_nil
     end
@@ -116,6 +120,7 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
           build_canvas_assignment(
             'id' => '123',
             'name' => 'Assignment with base dates',
+            'unlock_at' => '2025-03-10T23:59:00Z',
             'due_at' => '2025-03-15T23:59:00Z',
             'lock_at' => '2025-03-20T23:59:00Z'
           )
@@ -126,6 +131,7 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
         described_class.perform_now(course_to_lms.id, sync_user.id)
 
         assignment = Assignment.find_by(external_assignment_id: '123')
+        expect(assignment.release_date).to eq(DateTime.parse('2025-03-10T23:59:00Z'))
         expect(assignment.due_date).to eq(DateTime.parse('2025-03-15T23:59:00Z'))
         expect(assignment.late_due_date).to eq(DateTime.parse('2025-03-20T23:59:00Z'))
       end

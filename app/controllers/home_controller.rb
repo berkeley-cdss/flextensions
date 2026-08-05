@@ -3,7 +3,7 @@ class HomeController < ApplicationController
   skip_before_action :authenticated!, only: :index
 
   def index
-    return if session[:user_id].blank?
+    return unless current_user.logged_in?
 
     redirect_to courses_path
   end

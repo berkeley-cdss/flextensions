@@ -29,6 +29,61 @@ RSpec.describe ApplicationController, type: :controller do
     allow(controller).to receive_messages(courses_path: '/courses', root_path: '/')
   end
 
+  describe '#current_user' do
+    it 'returns the signed-in user' do
+      session[:user_id] = user.canvas_uid
+
+      get :index
+      expect(controller.current_user).to eq(user)
+      expect(controller.current_user).to be_logged_in
+    end
+
+    it 'returns a NullUser instead of nil when nobody is signed in' do
+      get :index
+
+      expect(controller.current_user).to be_a(NullUser)
+      expect(controller.current_user).not_to be_logged_in
+      expect(controller.current_user.name).to eq('Guest')
+    end
+
+    it 'returns a NullUser when the session points at a deleted user' do
+      session[:user_id] = 'nonexistent-uid'
+
+      get :index
+      expect(controller.current_user).to be_a(NullUser)
+    end
+  end
+
+  describe '#require_admin' do
+    before { allow(controller).to receive(:redirect_to) }
+
+    it 'turns away a logged-out visitor without raising on nil' do
+      get :index
+
+      expect(controller).to receive(:redirect_to)
+        .with('/', alert: 'You are not authorized to view this page.')
+      controller.require_admin
+    end
+
+    it 'turns away a signed-in non-admin' do
+      session[:user_id] = user.canvas_uid
+      get :index
+
+      expect(controller).to receive(:redirect_to)
+        .with('/', alert: 'You are not authorized to view this page.')
+      controller.require_admin
+    end
+
+    it 'lets an admin through' do
+      admin = User.create!(email: 'admin@example.com', canvas_uid: '456', admin: true)
+      session[:user_id] = admin.canvas_uid
+      get :index
+
+      expect(controller).not_to receive(:redirect_to)
+      controller.require_admin
+    end
+  end
+
   describe '#authenticated!' do
     before do
       allow(Rails.env).to receive(:test?).and_return(false)

@@ -95,8 +95,8 @@ $form-switch-color-dark: $white;
 @import "custom_bootstrap";
 @import "font-awesome";
 
-@import "datatables/dataTables.bootstrap5.css";
-@import "datatables/responsive.bootstrap5.css";
+// NOTE: DataTables CSS is intentionally not imported here. See the comment in
+// app/views/layouts/application.html.erb for why it is served from public/.
 
 @each $name, $value in $colors {
   .bg-#{$name} {

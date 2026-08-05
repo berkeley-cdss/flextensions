@@ -16,17 +16,18 @@ module API
     # (health checks, the API schema) opt out with
     # `skip_before_action :authenticate_api!`.
     def authenticate_api!
-      return if current_api_user.present?
+      return if current_api_user.logged_in?
 
       render json: { error: 'Unauthorized' }, status: :unauthorized
     end
 
-    # The user making this request, or nil when it is unauthenticated. Memoized
-    # (including the nil result) so repeated calls do not re-query.
+    # The user making this request. Like ApplicationController#current_user
+    # this is never nil -- an unauthenticated request gets a NullUser, which
+    # `authenticate_api!` rejects. Memoized so repeated calls do not re-query.
     def current_api_user
       return @current_api_user if defined?(@current_api_user)
 
-      @current_api_user = user_from_session || user_from_api_token
+      @current_api_user = user_from_session || user_from_api_token || NullUser.new
     end
 
     # Resolves the user from the shared web session cookie, using the same
