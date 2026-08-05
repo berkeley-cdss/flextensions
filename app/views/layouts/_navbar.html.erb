@@ -24,11 +24,11 @@
 			</ul>
 			<div class="d-lg-flex col-lg-3 justify-content-lg-end">
 				<ul class="navbar-nav">
-					<% if session[:user_id].present? %>
+					<% if current_user.logged_in? %>
 						<!-- Display this when there's a logged-in user -->
 						<li class="nav-item dropdown">
 							<a class="nav-link dropdown-toggle testid-username" href="#" data-bs-toggle="dropdown"
-								aria-expanded="false" aria-label="User menu for <%= session[:username] %>"><%= session[:username] %></a>
+								aria-expanded="false" aria-label="User menu for <%= current_user.name %>"><%= current_user.name %></a>
 							<ul class="dropdown-menu">
 								<li><a class="dropdown-item testid-logout-button" href="/logout/">Logout</a></li>
 							</ul>

@@ -35,6 +35,11 @@ class User < ApplicationRecord
   has_many :enrollments
   has_many :courses, through: :enrollments
 
+  # True for every real user; NullUser (the logged-out `current_user`)
+  # overrides this to false. Prefer it over `current_user.present?` when the
+  # question you are asking is "is somebody signed in?".
+  def logged_in? = true
+
   def canvas_credentials
     lms_credentials.find_by(lms_id: Lms.CANVAS_LMS.id)
   end
