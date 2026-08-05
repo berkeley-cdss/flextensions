@@ -53,6 +53,7 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
 
     # Use shared LmsAssignment to populate Assignment
     assignment.name = lms_assignment.name
+    assignment.release_date = lms_assignment.release_date
     assignment.due_date = lms_assignment.due_date
     assignment.late_due_date = lms_assignment.late_due_date
     assignment.external_assignment_id = lms_assignment.id

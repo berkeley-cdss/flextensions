@@ -8,6 +8,7 @@
 #  enabled                :boolean          default(FALSE)
 #  late_due_date          :datetime
 #  name                   :string
+#  release_date           :datetime
 #  created_at             :datetime         not null
 #  updated_at             :datetime         not null
 #  course_id              :bigint           not null

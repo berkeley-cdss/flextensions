@@ -6,17 +6,21 @@ class ApplicationController < ActionController::Base
 
   rescue_from LmsFacade::LmsAPIError, with: :handle_lms_api_error
 
+  # Always a User, never nil: a NullUser stands in when nobody is logged in, so
+  # callers can say `current_user.admin?` or `@course.staff_user?(current_user)`
+  # without guarding first. Ask `current_user.logged_in?` to branch on whether
+  # somebody is actually signed in.
   helper_method :current_user
   def current_user
     return @current_user if defined?(@current_user)
 
-    @current_user = User.find_by(canvas_uid: session[:user_id])
+    @current_user = User.find_by(canvas_uid: session[:user_id]) || NullUser.new
   end
 
   # Because blazer is mounted as a module, `root_path` doesn't seem to work appropriately.
   helper_method :require_admin
   def require_admin
-    return if current_user.present? && current_user.admin?
+    return if current_user.admin?
 
     redirect_to '/', alert: 'You are not authorized to view this page.'
   end
@@ -24,7 +28,7 @@ class ApplicationController < ActionController::Base
   private
 
   def authenticated!
-    return handle_authentication_failure('You must be logged in to access that page.') if current_user.nil?
+    return handle_authentication_failure('You must be logged in to access that page.') unless current_user.logged_in?
 
     # In the test environment a valid session user is treated as fully
     # authenticated so specs don't have to stand up LMS credentials. Production
@@ -64,7 +68,7 @@ class ApplicationController < ActionController::Base
   end
 
   def set_pending_request_count
-    return unless @course.present? && current_user.present? && @course.staff_user?(current_user)
+    return unless @course.present? && @course.staff_user?(current_user)
 
     @pending_requests_count = @course.requests.where(status: 'pending').count
   end
@@ -102,7 +106,7 @@ class ApplicationController < ActionController::Base
   end
 
   def require_course_staff!
-    return unless @course && current_user
+    return unless @course
     return if @course.staff_user?(current_user)
 
     redirect_to courses_path, alert: 'You do not have access to this page.'

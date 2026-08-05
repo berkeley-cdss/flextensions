@@ -124,7 +124,7 @@ class Course < ApplicationRecord
   # TODO: Replace this with staff_role?(user) or student_role?(user)
   # Or is user.staff_role?(course) or user.student_role?(course) better?
   def user_role(user)
-    roles = Enrollment.where(user_id: user.id, course_id: id).pluck(:role)
+    roles = enrollments_for(user).pluck(:role)
     return 'instructor' if roles.intersect?(Enrollment.staff_roles)
     return 'student' if roles.include?(Enrollment::STUDENT_ROLE)
 
@@ -132,19 +132,31 @@ class Course < ApplicationRecord
   end
 
   def enrolled?(user)
-    enrollments.where(user_id: user.id).any?
+    enrollments_for(user).any?
   end
 
   def course_admin?(user)
-    enrollments.where(user_id: user.id).any?(&:course_admin?)
+    enrollments_for(user).any?(&:course_admin?)
   end
 
   def staff_user?(user)
-    enrollments.where(user_id: user.id).any?(&:staff?)
+    enrollments_for(user).any?(&:staff?)
   end
 
   def student_user?(user)
-    enrollments.where(user_id: user.id).any?(&:student?)
+    enrollments_for(user).any?(&:student?)
+  end
+
+  # This course's enrollments for a given user, and the basis of every role
+  # check above. `enrollments.user_id` is nullable, so a user without an id --
+  # nil, or the logged-out NullUser -- must not be looked up by id: that would
+  # search for `user_id IS NULL` and match the enrollments left behind by
+  # deleted users, handing their role to whoever asked.
+  def enrollments_for(user)
+    user_id = user&.id
+    return enrollments.none if user_id.nil?
+
+    enrollments.where(user_id: user_id)
   end
 
   def canvas_id

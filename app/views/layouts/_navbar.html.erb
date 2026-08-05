@@ -17,23 +17,20 @@
 				<li class="nav-item">
 					<a class="nav-link active" aria-current="page" href="/courses">Home</a>
 				</li>
-
 				<li class="nav-item">
 					<a class="nav-link" href="https://berkeley-cdss.github.io/flextensions/" target="_blank">Help</a>
 				</li>
 			</ul>
 			<div class="d-lg-flex col-lg-3 justify-content-lg-end">
 				<ul class="navbar-nav">
-					<% if session[:user_id].present? %>
+					<% if current_user.logged_in? %>
 						<!-- Display this when there's a logged-in user -->
 						<li class="nav-item dropdown">
 							<a class="nav-link dropdown-toggle testid-username" href="#" data-bs-toggle="dropdown"
-								aria-expanded="false" aria-label="User menu for <%= session[:username] %>"><%= session[:username] %></a>
+                aria-expanded="false" aria-label="User menu for <%= current_user.name %>"><%= current_user.name %>
+              </a>
 							<ul class="dropdown-menu" id="user-dropdown-menu">
-								<%# Guarded with &. because the enclosing condition tests session[:user_id],
-								    but current_user is a find_by that returns nil for a session pointing at a
-								    user who no longer exists. %>
-								<% if current_user&.admin? %>
+								<% if current_user.admin? %>
 									<li><h6 class="dropdown-header">Admin Tools</h6></li>
 									<li><a class="dropdown-item" href="<%= blazer_path %>">Dashboards</a></li>
 									<li><a class="dropdown-item" href="<%= good_job_path %>">Background Jobs</a></li>
@@ -43,7 +40,6 @@
 							</ul>
 						</li>
 					<% else %>
-						<%# TODO: Need a test case for this. %>
 						<li class="nav-item">
 							<%= button_to 'Login', '/auth/canvas', method: :post, class: 'btn btn-primary', id: 'login-button-index' %>
 						</li>
