@@ -43,6 +43,8 @@ jobs:
       run: npm ci --omit=dev
     - name: Set up Database
       run: bundle exec rails db:setup
+    - name: Build CSS
+      run: bundle exec rails dartsass:build
     - name: Create separate Chrome data directories
       run: |
         mkdir -p /tmp/chrome-data-rspec

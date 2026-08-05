@@ -47,6 +47,8 @@ jobs:
     - name: Setup Database
       run: |
         bundle exec rails db:test:prepare
+    - name: Build CSS
+      run: bundle exec rails dartsass:build
     - name: Create Chrome data directory
       run: mkdir -p /tmp/chrome-data-rspec
     - name: Run RSpec Tests

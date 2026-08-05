@@ -68,14 +68,7 @@ Rails.application.configure do
   # Highlight code that enqueued background job in logs.
   config.active_job.verbose_enqueue_logs = true
 
-  # Suppress logger output for asset requests.
-  config.assets.quiet = false
-  config.assets.debug = true
-  # TODO: WARNING -- As of April 2026 / Rails 7.2 / sprockets + importmaps
-  # This must be set to true or JS does not seem to load in development.
-  config.assets.digest = true
   config.cache_classes = false
-  config.assets.compile = true
 
   # Raises error for missing translations.
   # config.i18n.raise_on_missing_translations = true

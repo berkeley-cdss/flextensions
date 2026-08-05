@@ -1,14 +1,12 @@
 # Be sure to restart your server when you modify this file.
 
-# Version of your assets, change this if you want to expire all your assets.
-Rails.application.config.assets.version = "1.0"
+# Propshaft serves everything it finds on the load path and digests it by
+# content, so there is no precompile list to maintain — that was a Sprockets
+# concept, as was the manifest.js this app used to carry.
+#
+# Rails adds every app/assets/* subdirectory to the load path automatically, so
+# app/assets/builds (where Dart Sass writes application.css) needs no config.
 
-# Add additional assets to the asset load path.
-# Rails.application.config.assets.paths << Emoji.images_path
-
-Rails.application.config.assets.precompile += %w(bootstrap.min.js popper.js)
-
-# Precompile additional assets.
-# application.js, application.css, and all non-JS/CSS in the app/assets
-# folder are already added.
-# Rails.application.config.assets.precompile += %w( admin.js admin.css )
+# The Sass sources are inputs to the build, not assets to serve; excluding them
+# keeps unbuilt .scss out of public/assets.
+Rails.application.config.assets.excluded_paths << Rails.root.join('app/assets/stylesheets')
