@@ -114,10 +114,12 @@ $escaped-characters: (
 
 @import "bootstrap";
 
-// DataTables' Bootstrap 5 theme overrides Bootstrap's own table styles, so it
-// has to come after Bootstrap and before our overrides in custom_bootstrap.
-@import "datatables/dataTables.bootstrap5";
-@import "datatables/responsive.bootstrap5";
+// DataTables' Bootstrap 5 theme, imported straight out of node_modules (see
+// config/initializers/dartsass.rb for the load path). It overrides Bootstrap's
+// own table styles, so it has to come after Bootstrap and before our overrides
+// in custom_bootstrap.
+@import "dataTables.bootstrap5";
+@import "responsive.bootstrap5";
 
 @import "custom_bootstrap";
 @import "font-awesome";

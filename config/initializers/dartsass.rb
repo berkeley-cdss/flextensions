@@ -16,3 +16,13 @@ Rails.application.config.sass.quiet_deps = true
 #
 # Drop this once Bootstrap 6 ships and the `@import`s can become `@use`.
 Rails.application.config.sass.silence_deprecations = [ 'import' ]
+
+# DataTables ships its Bootstrap 5 theme as plain CSS on npm. Put the two
+# package directories on the Sass load path so application.scss can @import
+# the stylesheets by name and Dart Sass inlines them into application.css,
+# rather than the app carrying hand-maintained copies that drift from the
+# JavaScript pinned in config/importmap.rb.
+Rails.application.config.sass.load_paths += [
+  Rails.root.join('node_modules/datatables.net-bs5/css').to_s,
+  Rails.root.join('node_modules/datatables.net-responsive-bs5/css').to_s
+]
