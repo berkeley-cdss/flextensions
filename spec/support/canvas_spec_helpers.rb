@@ -10,6 +10,7 @@ module CanvasSpecHelpers
     defaults = {
       'id' => SecureRandom.uuid,
       'name' => 'Sample Assignment',
+      'unlock_at' => nil,
       'due_at' => '2025-01-15T23:59:00Z',
       'lock_at' => nil
     }

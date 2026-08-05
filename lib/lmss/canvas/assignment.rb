@@ -1,11 +1,12 @@
 module Lmss
   module Canvas
     class Assignment < BaseAssignment
-      attr_reader :id, :name, :due_date, :late_due_date
+      attr_reader :id, :name, :release_date, :due_date, :late_due_date
 
       def initialize(data)
         @id = data['id']
         @name = data['name']
+        @release_date = extract_date_field(data, 'unlock_at')
         @due_date = extract_date_field(data, 'due_at')
         @late_due_date = extract_date_field(data, 'lock_at')
       end
