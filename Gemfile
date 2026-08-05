@@ -1,9 +1,9 @@
 source 'https://rubygems.org'
 
-ruby '~> 3.4'
+ruby '>= 3.3', '< 3.5'
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
-gem 'rails', '~> 8.1.0'
+gem 'rails', '~> 8.1.3'
 
 # Use postgres for all env dbs
 gem 'pg'
@@ -121,8 +121,7 @@ group :test do
   gem 'rspec-retry'
   gem 'selenium-webdriver'
   gem 'shoulda-matchers', '~> 8.0'
-  gem 'simplecov', '~> 0.22.0', require: false
-  gem 'simplecov_json_formatter'
+  gem 'simplecov', '~> 1.0.3', require: false
   gem 'timecop'
   gem 'webmock'
 end
