@@ -21,7 +21,7 @@ Bundler.require(*Rails.groups)
 module Flextensions
   class Application < Rails::Application
     # Initialize configuration defaults for originally generated Rails version.
-    config.load_defaults 7.2
+    config.load_defaults 8.1
 
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
@@ -40,6 +40,7 @@ module Flextensions
     config.active_record.default_timezone = :utc
     config.time_zone = 'Pacific Time (US & Canada)'
     config.generators.system_tests = nil
+    config.active_job.queue_adapter = :good_job
 
     # We do not require the master key and insetad use environment variables
     # Review .env.example for required variables.

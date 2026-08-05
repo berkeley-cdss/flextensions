@@ -52,7 +52,7 @@ RSpec.describe AssignmentDateCalculator, type: :service do
   end
 
   before do
-    UserToCourse.create!(user: user, course: course, role: 'student')
+    Enrollment.create!(user: user, course: course, role: 'student')
   end
 
   describe '#calculate' do
@@ -60,7 +60,7 @@ RSpec.describe AssignmentDateCalculator, type: :service do
       calculator = described_class.new(
         assignment: assignment_with_late_due_date,
         request: request_with_late_due_date,
-        course_settings: nil
+        course_settings: course.course_settings
       )
 
       result = calculator.calculate
@@ -77,7 +77,7 @@ RSpec.describe AssignmentDateCalculator, type: :service do
       calculator = described_class.new(
         assignment: assignment_with_late_due_date,
         request: request_with_late_due_date,
-        course_settings: nil
+        course_settings: course.course_settings
       )
 
       expect(calculator.release_date).to be_nil
@@ -89,7 +89,7 @@ RSpec.describe AssignmentDateCalculator, type: :service do
       calculator = described_class.new(
         assignment: assignment_with_late_due_date,
         request: request_with_late_due_date,
-        course_settings: nil
+        course_settings: course.course_settings
       )
 
       expect(calculator.due_date).to eq(requested_due_date)
@@ -99,11 +99,7 @@ RSpec.describe AssignmentDateCalculator, type: :service do
   describe '#late_due_date' do
     context 'when assignment has no late due date' do
       it 'returns nil regardless of course settings' do
-        course_settings = CourseSettings.create!(
-          course: course,
-          enable_extensions: true,
-          extend_late_due_date: true
-        )
+        course_settings = course.course_settings.tap { |cs| cs.update!(extend_late_due_date: true) }
 
         calculator = described_class.new(
           assignment: assignment_without_late_due_date,
@@ -115,11 +111,7 @@ RSpec.describe AssignmentDateCalculator, type: :service do
       end
 
       it 'returns nil when extend_late_due_date is false' do
-        course_settings = CourseSettings.create!(
-          course: course,
-          enable_extensions: true,
-          extend_late_due_date: false
-        )
+        course_settings = course.course_settings.tap { |cs| cs.update!(extend_late_due_date: false) }
 
         calculator = described_class.new(
           assignment: assignment_without_late_due_date,
@@ -134,11 +126,7 @@ RSpec.describe AssignmentDateCalculator, type: :service do
     context 'when assignment has a late due date' do
       context 'when extend_late_due_date setting is true (default)' do
         let(:course_settings) do
-          CourseSettings.create!(
-            course: course,
-            enable_extensions: true,
-            extend_late_due_date: true
-          )
+          course.course_settings.tap { |cs| cs.update!(extend_late_due_date: true) }
         end
 
         it 'shifts the late due date by the same delta as the extension' do
@@ -158,11 +146,7 @@ RSpec.describe AssignmentDateCalculator, type: :service do
 
       context 'when extend_late_due_date setting is false' do
         let(:course_settings) do
-          CourseSettings.create!(
-            course: course,
-            enable_extensions: true,
-            extend_late_due_date: false
-          )
+          course.course_settings.tap { |cs| cs.update!(extend_late_due_date: false) }
         end
 
         context 'when original late due date is later than extended due date' do
@@ -214,33 +198,12 @@ RSpec.describe AssignmentDateCalculator, type: :service do
         end
       end
 
-      context 'when extend_late_due_date setting is nil (defaults to true)' do
-        it 'defaults to shifting the late due date by the extension delta' do
-          # Create settings without explicitly setting extend_late_due_date
-          cs = CourseSettings.create!(
-            course: course,
-            enable_extensions: true
-          )
-          # Manually set to nil to simulate pre-migration state
-          # Don't persist the nil value since the column doesn't allow it, but we want to test the behavior of the method when it encounters a nil value
-          cs.extend_late_due_date = nil
+      context 'when course settings are untouched (extend_late_due_date defaults to true)' do
+        it 'shifts the late due date by the extension delta' do
           calculator = described_class.new(
             assignment: assignment_with_late_due_date,
             request: request_with_late_due_date,
-            course_settings: cs
-          )
-
-          expected = Time.zone.parse('2025-01-20 23:59:00')
-          expect(calculator.late_due_date).to be_within(1.second).of(expected)
-        end
-      end
-
-      context 'when course_settings is nil' do
-        it 'defaults to shifting the late due date (extend_late_due_date = true behavior)' do
-          calculator = described_class.new(
-            assignment: assignment_with_late_due_date,
-            request: request_with_late_due_date,
-            course_settings: nil
+            course_settings: course.course_settings
           )
 
           expected = Time.zone.parse('2025-01-20 23:59:00')

@@ -19,7 +19,9 @@
 FactoryBot.define do
   factory :user do
     sequence(:email) { |n| "user#{n}@example.com" }
-    sequence(:canvas_uid, &:to_s)
+    # Offset so generated UIDs never collide with the low, hand-picked
+    # canvas_uid literals (e.g. '123', '566') used directly in specs.
+    sequence(:canvas_uid) { |n| (n + 100_000).to_s }
     sequence(:name) { |n| "User #{n}" }
 
     factory :admin do
@@ -34,7 +36,7 @@ FactoryBot.define do
 
     after(:create) do |user, evaluator|
       evaluator.courses.each do |course|
-        create(:user_to_course, user: user, course: course, role: evaluator.role)
+        create(:enrollment, user: user, course: course, role: evaluator.role)
       end
     end
 
@@ -46,15 +48,15 @@ FactoryBot.define do
     end
 
     factory :teacher do
-      after(:create) { |user| create(:user_to_course, user: user, role: 'teacher') }
+      after(:create) { |user| create(:enrollment, user: user, role: 'teacher') }
     end
 
     factory :ta do
-      after(:create) { |user| create(:user_to_course, user: user, role: 'ta') }
+      after(:create) { |user| create(:enrollment, user: user, role: 'ta') }
     end
 
     factory :student do
-      after(:create) { |user| create(:user_to_course, user: user, role: 'student') }
+      after(:create) { |user| create(:enrollment, user: user, role: 'student') }
     end
   end
 end

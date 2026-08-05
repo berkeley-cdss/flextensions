@@ -7,7 +7,11 @@ version: 0.2
 
 phases:
   install:
-    # Use a Ruby version that matches the EB platform
+    # This MUST match the Elastic Beanstalk platform's Ruby version.
+    # The staging environment runs the "Ruby 3.3 on Amazon Linux 2023"
+    # platform branch (currently ruby 3.3.11), so building with any other
+    # version breaks deploys. Bump this only together with an EB platform
+    # upgrade to a Ruby 3.4 branch.
     runtime-versions:
       ruby: 3.3
 

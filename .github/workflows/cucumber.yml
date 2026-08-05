@@ -31,7 +31,7 @@ jobs:
     steps:
     - name: Install packages
       run: sudo apt-get update && sudo apt-get install --no-install-recommends -y google-chrome-stable
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1
       with:
@@ -46,10 +46,20 @@ jobs:
     - name: Create Chrome data directory
       run: mkdir -p /tmp/chrome-data-cucumber
     - name: Run non-JavaScript Cucumber tests
+      env:
+        COVERAGE_COMMAND: cucumber-rack_test
       run: |
         bundle exec cucumber features/ --profile rack_test
     - name: Run JavaScript Cucumber tests
+      # Run even if the previous step failed so both suites contribute to the
+      # merged coverage report (the job still fails if any step fails).
+      if: always()
+      env:
+        COVERAGE_COMMAND: cucumber-javascript
       run: |
         DISPLAY=:99
         Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
         bundle exec cucumber features/ --profile javascript
+    - name: Report merged coverage
+      if: always()
+      run: ruby .github/scripts/coverage_summary.rb "Cucumber coverage (rack_test + javascript)"

@@ -21,10 +21,12 @@ cd flextensions
 
 Install `mise`, such as `brew install mise` or any other ruby language manager.
 
-Make sure you are using Ruby 3.3.0:
+Either Ruby 3.3 or 3.4 will work. CI runs 3.4, but the deployed Elastic
+Beanstalk platform runs Ruby 3.3, so the app must remain compatible with
+both (the Gemfile allows `>= 3.3, < 3.5`):
 
 ```
-mise use ruby@3.3
+mise use ruby@3.4
 ```
 
 ### Install dependencies:
@@ -157,6 +159,20 @@ git push golden main
 | `@wip` | Work In Progress tests still under development |
 
 
+## Accessibility (a11y) after-hooks
+
+Accessibility auditing is wired up as an **after-hook** in both test frameworks,
+so any test opted in with the `a11y`/`@a11y` tag has its final rendered page
+audited with axe-core automatically -- individual tests do not need to call the
+axe matcher themselves.
+
+- **RSpec** (`spec/support/accessibility_helper.rb`): every feature spec tagged
+  `:a11y` runs `expect(page).to be_axe_clean` against the current page after the
+  example. See `spec/features/accessibility_spec.rb` for usage.
+- **Cucumber** (`features/support/axe_helper.rb`): every scenario tagged `@a11y`
+  is audited after it runs. Because axe-core needs a real browser, `@a11y`
+  scenarios run under the JavaScript driver.
+
 ## Tips
 
 - Use `~` (RSpec) or `not` (Cucumber) to exclude tags
@@ -174,6 +190,12 @@ Notice the ```testid-username```We will be using this style in **class** to grab
 Please don't remove any class that starts with ```testid-```
 
 # Notes
+
+For how Flextensions reads Canvas assignment due dates and reads/writes
+assignment overrides (and the gotchas around `override_assignment_dates`, the
+25-date `all_dates` limit, and `/date_details`), see
+[Canvas Dates API notes](/flextensions/canvas-dates-api/) (`docs/Canvas_Dates_API.md`).
+
 There are now two separate instances of Canvas, each with it's own triad of prod/test/beta environments:
 1. [bcourses.berkeley.edu](bcourses.berkeley.edu)
 2. [ucberkeleysandbox.instructure.com](ucberkeleysandbox.instructure.com)

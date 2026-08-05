@@ -10,6 +10,8 @@ Rails.application.configure do
   # Show full error reports, OK because staging is behind a VPN
   config.consider_all_requests_local = true
 
-  # TODO: Configure ActionMailer to re-write emails to send to staging addresses
-  # config.action_mailer.perform_deliveries = false
+  # Ensure staging never emails real people: redirect every outgoing message to
+  # a single safe staging mailbox, preserving the original recipient(s) in the
+  # subject line. See StagingEmailInterceptor.
+  config.action_mailer.interceptors = %w[StagingEmailInterceptor]
 end

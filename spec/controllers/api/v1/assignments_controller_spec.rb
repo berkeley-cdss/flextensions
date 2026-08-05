@@ -11,20 +11,20 @@ module API
       let(:mock_course_to_lms) { CourseToLms.create!(course_id: mock_course.id, lms_id: mock_lms.id) }
 
       let(:valid_params) { { name: 'Test Assignment', external_assignment_id: '123ABC', course_id: mock_course.id, lms_id: mock_lms.id } }
+      let(:api_user) { User.create!(email: 'api-user@example.com', canvas_uid: 'api-user-1') }
 
       before do
         mock_course
         mock_lms
         mock_course_to_lms
-        allow(controller).to receive(:authenticated!).and_return(true)
+        session[:user_id] = api_user.canvas_uid
       end
 
       after do
         LmsCredential.destroy_all
-        Extension.destroy_all
         Assignment.destroy_all
         CourseToLms.destroy_all
-        UserToCourse.destroy_all
+        Enrollment.destroy_all
         Course.destroy_all
         Lms.destroy_all
         User.destroy_all
@@ -42,7 +42,7 @@ module API
           it 'returns status :bad_request when name is missing' do
             post :create, params: valid_params.except(:name)
             expect(response).to have_http_status(:bad_request)
-            expect(json_response['error']).to include('param is missing or the value is empty: name')
+            expect(json_response['error']).to include('param is missing or the value is empty or invalid: name')
           end
         end
 

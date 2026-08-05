@@ -1,8 +1,6 @@
 class CourseSettingsController < ApplicationController
-  before_action :authenticated!
-  before_action :authenticate_user
   before_action :set_course
-  before_action :ensure_instructor_role
+  before_action :require_course_staff!
   before_action :set_pending_request_count
   before_action :set_course_settings
 
@@ -28,19 +26,17 @@ class CourseSettingsController < ApplicationController
   end
 
   def course_settings_params
-    params.require(:course_settings).permit(
-      :auto_approve_days,
-      :auto_approve_extended_request_days,
-      :max_auto_approve,
-      :enable_min_hours_before_deadline,
-      :min_hours_before_deadline,
-      :extend_late_due_date,
-      :email_subject,
-      :email_template
+    params.expect(
+      course_settings: [
+        :auto_approve_days,
+        :auto_approve_extended_request_days,
+        :max_auto_approve,
+        :enable_min_hours_before_deadline,
+        :min_hours_before_deadline,
+        :extend_late_due_date,
+        :email_subject,
+        :email_template
+      ]
     )
-  end
-
-  def set_pending_request_count
-    @pending_requests_count = Request.where(course_id: @course&.id, status: 'pending').count
   end
 end

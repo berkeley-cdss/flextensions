@@ -1,7 +1,6 @@
-<!-- <div class="d-flex flex-column flex-shrink-0 p-3 bg-body-tertiary sidebar-container">-->
-<nav id="sidebar" class="bg-body-tertiary border-end" data-controller="sidebar" data-sidebar-target="sidebar" style="position: fixed; top: calc(56px); min-height: calc(100vh - 112px);">
+<nav id="sidebar" class="bg-body-tertiary border-end" data-controller="sidebar" data-sidebar-target="sidebar">
 	<!-- Mobile sidebar close button -->
-		<button id="mobileSidebarClose" class="btn btn-light btn-sm d-md-none" type="button" data-action="click->sidebar#closeSidebar" data-sidebar-target="closeBtn" aria-label="Close sidebar" style="display:none; position:absolute; top:8px; right:8px; z-index:1050;">
+		<button id="mobileSidebarClose" class="btn btn-light btn-sm d-md-none" type="button" data-action="click->sidebar#closeSidebar" data-sidebar-target="closeBtn" aria-label="Close sidebar">
 			<i class="fa-solid fa-xmark"></i>
 		</button>
 
@@ -21,7 +20,7 @@
 			Requests <span class="badge rounded-pill float-end text-bg-danger ms-2"><%= @pending_requests_count %></span>
 		<% end %>
 
-		<% if @role == 'instructor' %>
+		<% if @course.staff_user?(current_user) %>
 			<%= sidebar_nav_item path: enrollments_course_path(@course.id), icon: 'fas fa-users', nav: 'enrollments', text: 'Enrollments' %>
 
 			<% settings_open = %w[course_details approvals emails form_settings].include?(current_nav_page) %>
@@ -49,7 +48,7 @@
 			<%= sidebar_nav_item path: new_course_request_path(@course.id), icon: 'fas fa-user-plus', nav: 'form', text: 'Request for Student' %>
 		<% end %>
 
-		<% if @role == 'student' %>
+		<% if @course.student_user?(current_user) %>
 			<%= sidebar_nav_item path: new_course_request_path(@course.id), icon: 'fas fa-file-pen', nav: 'form', text: 'Request Extension' %>
 		<% end %>
 	</ul>

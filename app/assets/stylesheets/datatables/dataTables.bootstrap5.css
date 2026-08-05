@@ -1,3 +1,8 @@
+/* NOTE: This vendored DataTables stylesheet is compiled by sassc-rails.
+   libsass evaluates rgb()/rgba() as Sass functions and cannot parse
+   rgb(var(--x)); each such value is wrapped in unquote("...") so it is
+   emitted verbatim for the browser while preserving the CSS variables
+   (which flip between light/dark themes). */
 :root {
   --dt-row-selected: 13, 110, 253;
   --dt-row-selected-text: 255, 255, 255;
@@ -214,7 +219,7 @@ div.dt-processing > div:last-child > div {
   height: 13px;
   border-radius: 50%;
   background: rgb(13, 110, 253);
-  background: rgb(var(--dt-row-selected));
+  background: unquote("rgb(var(--dt-row-selected))");
   animation-timing-function: cubic-bezier(0, 1, 1, 0);
 }
 div.dt-processing > div:last-child > div:nth-child(1) {
@@ -399,27 +404,27 @@ table.table.dataTable > tbody > tr {
 }
 table.table.dataTable > tbody > tr.selected > * {
   box-shadow: inset 0 0 0 9999px rgb(13, 110, 253);
-  box-shadow: inset 0 0 0 9999px rgb(var(--dt-row-selected));
+  box-shadow: inset 0 0 0 9999px unquote("rgb(var(--dt-row-selected))");
   color: rgb(255, 255, 255);
-  color: rgb(var(--dt-row-selected-text));
+  color: unquote("rgb(var(--dt-row-selected-text))");
 }
 table.table.dataTable > tbody > tr.selected a {
   color: rgb(9, 10, 11);
-  color: rgb(var(--dt-row-selected-link));
+  color: unquote("rgb(var(--dt-row-selected-link))");
 }
 table.table.dataTable.table-striped > tbody > tr:nth-of-type(2n+1) > * {
-  box-shadow: inset 0 0 0 9999px rgba(var(--dt-row-stripe), 0.05);
+  box-shadow: inset 0 0 0 9999px unquote("rgba(var(--dt-row-stripe), 0.05)");
 }
 table.table.dataTable.table-striped > tbody > tr:nth-of-type(2n+1).selected > * {
   box-shadow: inset 0 0 0 9999px rgba(13, 110, 253, 0.95);
-  box-shadow: inset 0 0 0 9999px rgba(var(--dt-row-selected), 0.95);
+  box-shadow: inset 0 0 0 9999px unquote("rgba(var(--dt-row-selected), 0.95)");
 }
 table.table.dataTable.table-hover > tbody > tr:hover > * {
-  box-shadow: inset 0 0 0 9999px rgba(var(--dt-row-hover), 0.075);
+  box-shadow: inset 0 0 0 9999px unquote("rgba(var(--dt-row-hover), 0.075)");
 }
 table.table.dataTable.table-hover > tbody > tr.selected:hover > * {
   box-shadow: inset 0 0 0 9999px rgba(13, 110, 253, 0.975);
-  box-shadow: inset 0 0 0 9999px rgba(var(--dt-row-selected), 0.975);
+  box-shadow: inset 0 0 0 9999px unquote("rgba(var(--dt-row-selected), 0.975)");
 }
 
 div.dt-container div.dt-layout-start > *:not(:last-child) {

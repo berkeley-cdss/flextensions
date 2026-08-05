@@ -20,7 +20,7 @@
 class User < ApplicationRecord
   has_many :requests, dependent: :nullify
   # This association is for when a request is processed by a different user:
-  has_many :processed_requests, class_name: 'Request', foreign_key: 'last_processed_by_id', inverse_of: :last_processed_by
+  has_many :processed_requests, class_name: 'Request', foreign_key: 'last_processed_by_user_id', inverse_of: :last_processed_by_user
 
   # NOTE: Validations are skipped when a User is created by SyncUsersFromCanvasJob
   # You should update that job if these validations become complex.
@@ -31,50 +31,25 @@ class User < ApplicationRecord
   # Associations
   has_many :lms_credentials, dependent: :destroy
 
-  # Relationship with Extension
-  has_many :extensions
+  # Relationship with Course (and Enrollment)
+  has_many :enrollments
+  has_many :courses, through: :enrollments
 
-  # Relationship with Course (and UserToCourse)
-  has_many :user_to_courses
-  has_many :courses, through: :user_to_courses
-
-  # TODO: We should probably use lms_id over lms_name
   def canvas_credentials
-    lms_credentials.find_by(lms_name: 'canvas')
+    lms_credentials.find_by(lms_id: Lms.CANVAS_LMS.id)
   end
 
-  def token_expired?
-    return false unless lms_credentials.any?
-
-    lms_credentials.each do |credential|
-      return true if Time.zone.now > credential.expire_time
-    end
-
-    false
-  end
-
-  # Check if token will expire within the specified buffer time
-  def token_expires_soon?(buffer_minutes = 15)
-    return false unless lms_credentials.any?
-
-    lms_credentials.each do |credential|
-      return true if credential.expire_time && Time.zone.now + buffer_minutes.minutes > credential.expire_time
-    end
-
-    false
-  end
-
-  # Get active token or refresh if needed
+  # Returns a Canvas access token that is valid for at least the next few
+  # minutes, refreshing it first when it is about to expire. Returns nil when
+  # the user has no Canvas credential or the refresh fails (e.g. Canvas
+  # revoked the refresh token after months of inactivity) -- callers must
+  # treat nil as "cannot call Canvas as this user" rather than proceeding
+  # with a stale token.
   def ensure_fresh_canvas_token!
-    return nil unless lms_credentials.any?
+    credential = canvas_credentials
+    return nil if credential.nil?
+    return credential.token unless credential.expires_soon?
 
-    credential = lms_credentials.first
-
-    if token_expires_soon?
-      # Call the refresh token method from SessionController
-      SessionController.new.send(:refresh_user_token, self)
-    end
-
-    credential.token
+    credential.refresh!
   end
 end

@@ -24,6 +24,7 @@ class SlackNotifier
     true
   rescue StandardError => e
     Rails.logger.error("SlackNotifier exception: #{e.class} - #{e.message}")
+    Rails.error.report(e, handled: true, context: { component: 'slack_notifier' })
     false
   end
 end

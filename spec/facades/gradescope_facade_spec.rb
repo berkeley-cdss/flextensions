@@ -510,4 +510,11 @@ describe GradescopeFacade do
       end
     end
   end
+
+  describe '.assignment_url' do
+    it 'builds the assignment URL from the base URL and external ids' do
+      expect(described_class.assignment_url('https://www.gradescope.com', '4567', '89'))
+        .to eq('https://www.gradescope.com/courses/4567/assignments/89')
+    end
+  end
 end

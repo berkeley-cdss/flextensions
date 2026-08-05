@@ -17,17 +17,10 @@ require 'rspec/retry'
 # See https://rubydoc.info/gems/rspec-core/RSpec/Core/Configuration
 
 # require 'codeclimate-test-reporter'
-require 'simplecov'
-require 'simplecov_json_formatter'
-SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter.new([
-                                                                 SimpleCov::Formatter::HTMLFormatter,
-                                                                 SimpleCov::Formatter::JSONFormatter
-                                                               ])
-
-SimpleCov.start 'rails' do
-  # add_filter '/app/controllers/api'
-  # add_filter '/app/controllers/bcourses_controller.rb'
-end
+# Shared SimpleCov configuration (see config/simplecov.rb) so the RSpec and
+# Cucumber suites stay in sync. Add project-wide coverage filters there, e.g.:
+#   skip '/app/controllers/api'
+require_relative '../config/simplecov'
 
 # load libraries from lib
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
