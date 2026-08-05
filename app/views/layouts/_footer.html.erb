@@ -12,4 +12,9 @@
 			<span class="text-white px-2"> | </span>
 			<a target="_blank" class="text-white" href="https://berkeley-cdss.github.io/flextensions/">Documentation</a>
 		</p>
+		<% if (note = deployment_note) %>
+			<p class="col-12 text-center mb-0 small text-white opacity-75">
+				<%= note %>
+			</p>
+		<% end %>
 </footer>
