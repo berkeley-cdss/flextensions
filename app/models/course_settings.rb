@@ -52,7 +52,9 @@ class CourseSettings < ApplicationRecord
     {{course_name}} Staff
   LIQUID
 
-  VALID_NOTIFICATION_FREQUENCIES = %w[daily weekly].freeze
+  # Each frequency needs a matching GoodJob cron entry in config/application.rb,
+  # otherwise nothing ever enqueues the digest for courses that select it.
+  VALID_NOTIFICATION_FREQUENCIES = %w[hourly daily weekly].freeze
 
   belongs_to :course
   validates :course_id, uniqueness: true

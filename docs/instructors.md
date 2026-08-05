@@ -152,6 +152,22 @@ You can specify a **Course Reply Email Address** for outgoing emails. This will 
 
 After setting these options, click **Save Settings** to save.
 
+### Pending Request Notifications
+
+Flextensions can email course staff a reminder of how many extension requests are
+still waiting for a decision. Choose how often you want that reminder under
+**Pending Request Notifications**, and enter the address it should go to:
+
+| Setting | When it is sent |
+|---------|-----------------|
+| No notifications | Never (the default) |
+| Hourly | At the top of every hour |
+| Daily | 8:00 AM PT every day |
+| Once weekly (Fridays) | 5:00 PM PT on Fridays |
+
+Reminders are only sent when the course actually has pending requests, so a quiet
+course will not receive hourly email.
+
 ### Email Template Customization
 
 In the **Email Settings** tab, you can customize:

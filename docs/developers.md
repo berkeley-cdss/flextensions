@@ -105,6 +105,40 @@ You may need to run:
 rake hypershield:refresh:dry_run
 ```
 
+### Background and Scheduled Jobs
+
+Background jobs run on [GoodJob](https://github.com/bensheldon/good_job), backed by
+the app's Postgres database. In production and staging GoodJob runs *inside* the
+Puma process (`config.good_job.execution_mode = :async`), so Elastic Beanstalk does
+not need a worker tier, a Procfile `worker` entry, or an EC2 crontab.
+
+Recurring jobs are defined once, in `config/application.rb` under
+`config.good_job.cron`, and executed by GoodJob's own cron thread wherever
+`config.good_job.enable_cron` is true (production and staging). Times use an
+explicit `America/Los_Angeles` timezone field, so they do not depend on the
+server clock, and GoodJob's unique index on `(cron_key, cron_at)` means an
+occurrence is enqueued once even if several processes are running.
+
+| Cron key | Schedule | Job |
+|----------|----------|-----|
+| `pending_digests_hourly` | Top of every hour | `PendingRequestsNotificationJob('hourly')` |
+| `pending_digests_daily` | 8:00 AM PT daily | `PendingRequestsNotificationJob('daily')` |
+| `pending_digests_weekly` | 5:00 PM PT Fridays | `PendingRequestsNotificationJob('weekly')` |
+
+Each run emails the courses whose **Pending Request Notifications** setting matches
+that frequency and that currently have pending requests.
+
+Admins can inspect queues, schedules and past runs at `/admin/good_job`. To send a
+digest by hand (locally, or to backfill after downtime):
+
+```sh
+bundle exec rake 'notifications:send_pending_digests[hourly]'
+```
+
+Set `GOOD_JOB_ENABLE_CRON=false` on an instance to stop it from enqueueing
+recurring jobs — for example when moving them to a dedicated worker started with
+`bundle exec good_job start --enable-cron`.
+
 ---
 
 # Standing Up the Application on Heroku
