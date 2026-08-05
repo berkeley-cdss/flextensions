@@ -98,6 +98,35 @@ RSpec.describe RequestsController, type: :controller do
       get :show, params: { course_id: course.id, id: request.id }
       expect(assigns(:student_enrollment)).to be_nil
     end
+
+    it 'assigns a review presenter for staff' do
+      session[:user_id] = instructor.canvas_uid
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
+      instructor.lms_credentials.create!(
+        lms_id: 1, token: 'fake_token', refresh_token: 'fake_refresh_token', expire_time: 1.hour.from_now
+      )
+      other_assignment = Assignment.create!(
+        name: 'A2', course_to_lms_id: course_to_lms.id,
+        due_date: 5.days.from_now, external_assignment_id: 'x2', enabled: true
+      )
+      prior = Request.create!(
+        user:, course:, assignment: other_assignment,
+        reason: 'Earlier request', requested_due_date: 7.days.from_now, status: 'approved'
+      )
+
+      get :show, params: { course_id: course.id, id: request.id }
+
+      review = assigns(:review)
+      expect(review).to be_a(RequestReviewPresenter)
+      expect(review.student_requests).to include(prior)
+      expect(review.student_requests).not_to include(request)
+      expect(review.approved_count).to eq(1)
+    end
+
+    it 'does not assign a review presenter for a student' do
+      get :show, params: { course_id: course.id, id: request.id }
+      expect(assigns(:review)).to be_nil
+    end
   end
 
   describe 'GET #new' do
