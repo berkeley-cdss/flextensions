@@ -61,6 +61,8 @@
                 <% if enrollment.student? %>
                   <% note = enrollment.notes.present? ? enrollment.notes : '(no notes)' %>
                   <span class="text-primary"
+                        role="img"
+                        tabindex="0"
                         data-bs-toggle="tooltip"
                         data-bs-title="<%= note %>"
                         title="<%= note %>"

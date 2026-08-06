@@ -9,45 +9,55 @@ export default class extends Controller {
 	static targets = ["checkbox", "syncBtn", "syncLabel", "syncSpinner"]
 	static values = { courseId: Number }
 
+	// The `enrollments` controller is attached to both the table and the "Sync
+	// Enrollments" button, so only build the DataTable from the table element.
 	connect() {
-		this.initializeTooltips();
-
-		if (!DataTable.isDataTable('#enrollments-table')) {
-			// Define a custom sorting function for the Role column
-			DataTable.ext.type.order['role-pre'] = function (data) {
-				const rolePriority = { teacher: 4, leadta: 3, "lead ta": 3, ta: 2, student: 1 };
-				if (typeof data !== 'string') {
-					data = String(data).trim();
-				}
-				return rolePriority[data.toLowerCase()] || 4;
-			};
-
-			const table = new DataTable('#enrollments-table', {
-				paging: true,
-				searching: true,
-				ordering: true,
-				info: true,
-				responsive: true,
-				pageLength: 100,
-				lengthMenu: [[-1, 25, 50, 100, 500], ["All", 25, 50, 100, 500]],
-				columns: document.querySelectorAll('#enrollments-table thead th').length === 7
-					? [null, null, null, { orderDataType: 'role-pre' }, null, null, null]
-					: [null, null, null, { orderDataType: 'role-pre' }, null],
-				order: [[3, 'des'], [0, 'asc']] // Sort Role first, then Name
-			});
-			table.on('draw', () => this.initializeTooltips());
-		} else {
-			const existingTable = DataTable('#enrollments-table');
-			existingTable.on('draw', () => this.initializeTooltips());
+		if (this.element.id === "enrollments-table") {
+			this.initializeTable();
 		}
+		this.initializeTooltipsAndPopovers();
 	}
 
-	initializeTooltips() {
-		if (!window.bootstrap?.Tooltip) return;
+	initializeTable() {
+		if (DataTable.isDataTable('#enrollments-table')) return;
 
-		document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
-			window.bootstrap.Tooltip.getOrCreateInstance(el);
+		// Sort the Role column by seniority rather than alphabetically. Registered
+		// as a type-based pre-sort formatter and applied to the column via
+		// `type: 'role'` in columnDefs below.
+		DataTable.ext.type.order['role-pre'] = function (data) {
+			const rolePriority = { teacher: 4, leadta: 3, "lead ta": 3, ta: 2, student: 1 };
+			return rolePriority[String(data).trim().toLowerCase()] || 4;
+		};
+
+		const roleColumnIndex = 3;
+		const table = new DataTable('#enrollments-table', {
+			paging: true,
+			searching: true,
+			ordering: true,
+			info: true,
+			responsive: true,
+			pageLength: 100,
+			lengthMenu: [[-1, 25, 50, 100, 500], ["All", 25, 50, 100, 500]],
+			// Target the Role column by index so this works regardless of how many
+			// columns render (the Extended Requests column is staff-only).
+			columnDefs: [{ targets: roleColumnIndex, type: 'role' }],
+			order: [[roleColumnIndex, 'desc'], [0, 'asc']] // Sort Role first, then Name
 		});
+		// DataTables re-renders tbody rows on each draw (paging/search/sort), so
+		// re-attach tooltips to the fresh nodes.
+		table.on('draw', () => this.initializeTooltipsAndPopovers());
+	}
+
+	// Bootstrap 5 does not auto-initialize tooltips/popovers; opt them in for the
+	// note icons (tbody) and the Extended Requests help popover (thead).
+	initializeTooltipsAndPopovers() {
+		const bs = window.bootstrap;
+		if (!bs) return;
+
+		document.querySelectorAll('#enrollments-table [data-bs-toggle="tooltip"]')
+			.forEach((el) => bs.Tooltip.getOrCreateInstance(el));
+		document.querySelectorAll('#enrollments-table [data-bs-toggle="popover"]')
+			.forEach((el) => bs.Popover.getOrCreateInstance(el));
 	}
 
 	async toggleExtended(event) {
