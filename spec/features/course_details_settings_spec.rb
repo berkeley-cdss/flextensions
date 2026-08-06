@@ -81,6 +81,15 @@ RSpec.describe 'Course Details settings', type: :feature do
 
       expect(page).to have_field('course_settings[enable_emails]', visible: :all)
       expect(page).to have_field('course_settings[reply_email]', disabled: :all)
+      expect(page).to have_text('These notifications are sent to students when each request is approved or denied.')
+    end
+
+    it 'places the notification toggle and reply-to above the email template' do
+      visit emails_course_settings_path(course)
+
+      body = page.body
+      expect(body.index('id="enable-email"')).to be < body.index('id="email-subject"')
+      expect(body.index('id="reply-email"')).to be < body.index('id="email-subject"')
     end
   end
 

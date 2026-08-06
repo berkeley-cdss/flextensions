@@ -18,6 +18,45 @@
                                       data: { action: 'email-template#reset' } %>
                     </div>
                     <div class="card-body">
+                        <div class="alert alert-info" role="note">
+                            These notifications are sent to students when each request is approved or denied.
+                            We strongly recommend keeping these enabled and setting a reply to address to an
+                            account which is monitored by multiple course staff.
+                            <br><br>
+                            In the near future we will expand this functionality to have two separate templates
+                            for approvals and denials. As of now, the same template is used regardless of the outcome.
+                            <br><br>
+                            If you will not monitor replies from students, we recommend you use an invalid email
+                            address like <code>noreply@berkeley.edu</code> <em>and</em> add a note to the template.
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <%= hidden_field_tag 'course_settings[enable_emails]', false %>
+                                <%= check_box_tag 'course_settings[enable_emails]',
+                                                 true,
+                                                 @course.course_settings&.enable_emails,
+                                                 class: 'form-check-input',
+                                                 id: 'enable-email' %>
+                                <label class="form-check-label" for="enable-email">Enable email notifications</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row">
+                            <label for="reply-email" class="col-sm-4 col-form-label">Course Reply Email Address</label>
+                            <div class="col-sm-8">
+                                <%= email_field_tag 'course_settings[reply_email]',
+                                                  @course.course_settings&.reply_email,
+                                                  class: 'form-control',
+                                                  id: 'reply-email',
+                                                  placeholder: 'example@example.com',
+                                                  data: { course_settings_target: "emailField" },
+                                                  disabled: !@course.course_settings&.enable_emails %>
+                            </div>
+                        </div>
+
+                        <hr>
+
                         <div class="mb-3">
                             <label for="email-subject" class="form-label">Email Subject</label>
                             <%= text_field_tag 'course_settings[email_subject]',
@@ -68,33 +107,6 @@
                                         </ul>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-
-                        <hr>
-
-                        <div class="mb-3">
-                            <div class="form-check form-switch">
-                                <%= hidden_field_tag 'course_settings[enable_emails]', false %>
-                                <%= check_box_tag 'course_settings[enable_emails]',
-                                                 true,
-                                                 @course.course_settings&.enable_emails,
-                                                 class: 'form-check-input',
-                                                 id: 'enable-email' %>
-                                <label class="form-check-label" for="enable-email">Enable email notifications</label>
-                            </div>
-                        </div>
-
-                        <div class="mb-3 row">
-                            <label for="reply-email" class="col-sm-4 col-form-label">Course Reply Email Address</label>
-                            <div class="col-sm-8">
-                                <%= email_field_tag 'course_settings[reply_email]',
-                                                  @course.course_settings&.reply_email,
-                                                  class: 'form-control',
-                                                  id: 'reply-email',
-                                                  placeholder: 'example@example.com',
-                                                  data: { course_settings_target: "emailField" },
-                                                  disabled: !@course.course_settings&.enable_emails %>
                             </div>
                         </div>
                     </div>
