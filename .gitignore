@@ -66,6 +66,10 @@ node_modules/
 /public/packs-test
 /public/assets
 
+# Dart Sass build output (app/assets/builds/application.css)
+/app/assets/builds/*
+!/app/assets/builds/.keep
+
 # Ignore yarn files
 /yarn-error.log
 yarn-debug.log*

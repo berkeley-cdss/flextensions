@@ -112,6 +112,13 @@ $escaped-characters: (
   (")", "%29"),
 );
 
+// font-awesome-sass emits `font-path(...)` when Sprockets' Sass helpers are
+// available and falls back to `#{$fa-font-path}/#{$file}` otherwise. Dart Sass
+// runs as a plain CLI here, so the fallback is what we get — point it at the
+// logical path of the gem's webfonts (its assets/fonts directory is on the
+// Propshaft load path) and let Propshaft rewrite the url() to a digested one.
+$fa-font-path: "font-awesome";
+
 @import "bootstrap";
 
 // DataTables' Bootstrap 5 theme, imported straight out of node_modules (see
