@@ -15,6 +15,7 @@
             <th class="text-center">Email</th>
             <th class="text-center">Role</th>
             <th class="text-center">Approved Days</th>
+            <th class="text-center">Notes</th>
             <% if @course.staff_user?(current_user) %>
               <th class="text-center">
                 Extended Requests?
@@ -52,9 +53,25 @@
                 <% end %>
               </td>
               <td class="text-center"><%= enrollment.user.student_id %></td>
-              <td class="text-center"><%= enrollment.user.email %></td>
+              <td class="text-start text-nowrap"><%= enrollment.user.email %><%= copy_to_clipboard_button(enrollment.user.email, label: "Copy email address for #{enrollment.user.name}") %></td>
               <td class="text-center"><%= enrollment.display_role %></td>
               <td class="text-center"><%= enrollment.student? ? @approved_late_days.fetch(enrollment.user_id, 0) : '' %></td>
+
+              <td class="text-center">
+                <% if enrollment.student? %>
+                  <% note = enrollment.notes.present? ? enrollment.notes : '(no notes)' %>
+                  <button type="button"
+                          class="btn btn-link p-0 text-primary"
+                          data-bs-toggle="popover"
+                          data-bs-trigger="focus"
+                          data-bs-title="Staff notes"
+                          data-bs-content="<%= note %>"
+                          aria-label="Staff notes for <%= enrollment.user.name %>">
+                    <i class="fas fa-sticky-note" aria-hidden="true"></i>
+                  </button>
+                <% end %>
+              </td>
+
               <% if @course.staff_user?(current_user) %>
                 <td class="justify-content-center align-content-center"
                     data-order="<%= enrollment.allow_extended_requests ? 1 : 0 %>">

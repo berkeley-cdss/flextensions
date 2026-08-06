@@ -12,6 +12,11 @@ Feature: Course Enrollments
 		And I should see "User 4"
 		And I should see "User 5"
 
+	Scenario: Each row offers a button to copy that person's email
+		Given I'm logged in as a teacher
+		When I go to the Course Enrollments page
+		Then I should see a "Copy email address for User 3" button
+
 	@javascript
 	Scenario: Instructor toggles "Approved Extended?" on for a student
 		Given I'm logged in as a teacher

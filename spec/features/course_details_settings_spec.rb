@@ -53,7 +53,7 @@ RSpec.describe 'Course Details settings', type: :feature do
 
         expect(page).to have_button('Delete Course', disabled: true)
         expect(page).not_to have_link('Delete Course')
-        tooltip = find('[data-controller="tooltip"]')
+        tooltip = find('[data-bs-toggle="tooltip"]')
         expect(tooltip['title']).to eq('Disable student extension requests before deleting this course.')
       end
     end
