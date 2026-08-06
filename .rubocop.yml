@@ -1,10 +1,12 @@
 AllCops:
   NewCops: enable
-  TargetRubyVersion: 4.0
+# Minimum Ruby the app must run on (EB may deploy on 3.4; see Gemfile).
+  TargetRubyVersion: 3.4
   Exclude:
     - 'db/**/*'
     - 'config/**/*'
     - 'script/**/*'
+    - '.github/**/*'
     - 'bin/**/*'
     - 'vendor/**/*'
     - 'node_modules/**/*'

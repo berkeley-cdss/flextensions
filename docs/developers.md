@@ -3,25 +3,30 @@ title: Developing Flextensions
 permalink: /developers/
 ---
 
-# Standing Up the Application
+## Standing Up the Application
+
 This guide walks you through setting up the Flextensions app on your local machine and on your Heroku server and preparing it for development and deployment.
 
 ## Set Up in Your Local Environment
 
 ### Clone the Repository
 
-```
+```bash
 git clone git@github.com:berkeley-cdss/flextensions.git
 cd flextensions
 ```
+
 ---
 
 ### Set Up Ruby Environment
+
 #### (If you are on Windows, please use WSL instead).
 
 Install `mise`, such as `brew install mise` or any other ruby language manager.
 
-Make sure you are using Ruby 4.0:
+Either Ruby 3.4 or 4.0 will work. Local dev and CI run 4.0, but Elastic
+Beanstalk may deploy on a Ruby 3.4 platform branch, so the app must remain
+compatible with both (the Gemfile allows `>= 3.4, < 5`):
 
 ```
 mise use ruby@4.0
@@ -103,11 +108,46 @@ You may need to run:
 rake hypershield:refresh:dry_run
 ```
 
+### Background and Scheduled Jobs
+
+Background jobs run on [GoodJob](https://github.com/bensheldon/good_job), backed by
+the app's Postgres database. In production and staging GoodJob runs *inside* the
+Puma process (`config.good_job.execution_mode = :async`), so Elastic Beanstalk does
+not need a worker tier, a Procfile `worker` entry, or an EC2 crontab.
+
+Recurring jobs are defined once, in `config/application.rb` under
+`config.good_job.cron`, and executed by GoodJob's own cron thread wherever
+`config.good_job.enable_cron` is true (production and staging). Times use an
+explicit `America/Los_Angeles` timezone field, so they do not depend on the
+server clock, and GoodJob's unique index on `(cron_key, cron_at)` means an
+occurrence is enqueued once even if several processes are running.
+
+| Cron key | Schedule | Job |
+|----------|----------|-----|
+| `pending_digests_hourly` | Top of every hour | `PendingRequestsNotificationJob('hourly')` |
+| `pending_digests_daily` | 4:00 PM PT daily | `PendingRequestsNotificationJob('daily')` |
+| `pending_digests_weekly` | 4:00 PM PT Thursdays | `PendingRequestsNotificationJob('weekly')` |
+
+Each run emails the courses whose **Pending Request Notifications** setting matches
+that frequency and that currently have pending requests.
+
+Admins can inspect queues, schedules and past runs at `/admin/good_job`. To send a
+digest by hand (locally, or to backfill after downtime):
+
+```sh
+bundle exec rake 'notifications:send_pending_digests[hourly]'
+```
+
+Set `GOOD_JOB_ENABLE_CRON=false` on an instance to stop it from enqueueing
+recurring jobs — for example when moving them to a dedicated worker started with
+`bundle exec good_job start --enable-cron`.
+
 ---
 
-# Standing Up the Application on Heroku
+## Standing Up the Application on Heroku
 
 1. Setup the following ENV variables in heroku, with the same values in your local .env file.
+
 ```bash
 APP_HOST
 CANVAS_CLIENT_ID

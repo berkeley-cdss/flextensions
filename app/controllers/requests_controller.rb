@@ -27,7 +27,10 @@ class RequestsController < ApplicationController
   def show
     @assignment = @request.assignment
     @number_of_days = @request.calculate_days_difference if @request.requested_due_date.present? && @assignment&.due_date.present?
-    @student_enrollment = @course.enrollments.find_by(user: @request.user) if @course.staff_user?(current_user)
+    if @course.staff_user?(current_user)
+      @review = RequestReviewPresenter.new(@request)
+      @student_enrollment = @review.enrollment
+    end
     render_role_based_view
   end
 
@@ -359,7 +362,7 @@ class RequestsController < ApplicationController
   rescue StandardError => e
     Rails.logger.error("Mass approve failed for request #{request.id}: #{e.message}")
     Rails.error.report(e, handled: true,
-                       context: { component: 'mass_approve', request_id: request.id, actor_id: current_user&.id })
+                       context: { component: 'mass_approve', request_id: request.id, actor_id: current_user.id })
     false
   end
 

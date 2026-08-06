@@ -1,9 +1,11 @@
 source 'https://rubygems.org'
 
-ruby '~> 4.0'
+# Local dev and CI run Ruby 4.0 (see .tool-versions); Elastic Beanstalk may
+# deploy on a Ruby 3.4 or 4.0 platform branch, so allow both.
+ruby '>= 3.4', '< 5'
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
-gem 'rails', '~> 8.1.0'
+gem 'rails', '~> 8.1.3'
 
 # Use postgres for all env dbs
 gem 'pg'
@@ -78,6 +80,7 @@ gem 'dotenv-rails', require: 'dotenv/load'
 #
 gem 'blazer'
 gem 'hypershield'
+gem 'good_job', '~> 4.19'
 
 #### Frontend related tools
 # The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
@@ -120,8 +123,7 @@ group :test do
   gem 'rspec-retry'
   gem 'selenium-webdriver'
   gem 'shoulda-matchers', '~> 8.0'
-  gem 'simplecov', '~> 0.22.0', require: false
-  gem 'simplecov_json_formatter'
+  gem 'simplecov', '~> 1.0.3', require: false
   gem 'timecop'
   gem 'webmock'
 end

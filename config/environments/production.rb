@@ -45,12 +45,12 @@ Rails.application.configure do
   # config.action_cable.allowed_request_origins = [ "http://example.com", /http:\/\/example.*/ ]
   config.hosts.clear
 
-  # Assume all access to the app is happening through a SSL-terminating reverse proxy.
-  # Can be used together with config.force_ssl for Strict-Transport-Security and secure cookies.
-  # config.assume_ssl = true
-
-  # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  #config.force_ssl = true
+  # TLS is terminated at the load balancer, which forwards plain HTTP to the
+  # app. assume_ssl tells Rails to treat those forwarded requests as secure so
+  # force_ssl does not redirect-loop; force_ssl then redirects any HTTP access
+  # to HTTPS, sends Strict-Transport-Security, and marks cookies secure.
+  config.assume_ssl = true
+  config.force_ssl = true
 
   # Setup logging with Lograge [https://github.com/roidrage/lograge]
   # See config/initializers/lograge.rb for more details.
@@ -74,8 +74,31 @@ Rails.application.configure do
   # config.cache_store = :mem_cache_store
 
   # Use a real queuing backend for Active Job (and separate queues per environment).
-  # config.active_job.queue_adapter = :resque
+  # The adapter itself is set in config/application.rb (config.active_job.queue_adapter = :good_job).
   # config.active_job.queue_name_prefix = "flextensions_production"
+
+  # --- Background jobs (GoodJob) ---
+  # Run GoodJob *inside* the Puma web process using its own in-process scheduler
+  # and worker thread pool (separate from Puma's request threads). This suits a
+  # single-instance-per-environment deployment: no separate worker process or
+  # tier is required, and it does not depend on Elastic Beanstalk starting a
+  # Procfile `worker` process.
+  #
+  # To scale out later (dedicated worker tier or multiple web instances), switch
+  # execution_mode to :external here and run `bundle exec good_job start` as its
+  # own process (e.g. via a Procfile `worker` entry or a systemd unit).
+  config.good_job.execution_mode = :async
+  config.good_job.max_threads = ENV.fetch("GOOD_JOB_MAX_THREADS", 5).to_i
+  config.good_job.poll_interval = ENV.fetch("GOOD_JOB_POLL_INTERVAL", 30).to_i
+  config.good_job.shutdown_timeout = 25
+  config.good_job.queues = ENV.fetch("GOOD_JOB_QUEUES", "*")
+  # Run the recurring jobs defined in config/application.rb (the pending request
+  # digests) from this process. No EC2 crontab or `leader_only` container
+  # command is involved: GoodJob's cron thread lives in the same async capsule
+  # as the workers, so it starts and stops with Puma. Set GOOD_JOB_ENABLE_CRON
+  # to "false" to silence recurring jobs on an instance (e.g. when moving them
+  # to a dedicated worker running `good_job start --enable-cron`).
+  config.good_job.enable_cron = ENV.fetch("GOOD_JOB_ENABLE_CRON", "true") != "false"
 
   # config.action_mailer.perform_caching = false
 

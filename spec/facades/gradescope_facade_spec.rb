@@ -49,6 +49,7 @@ describe GradescopeFacade do
           'id' => 'assignment_789012',
           'title' => 'Homework 1',
           'submission_window' => {
+            'release_date' => '2025-11-25T00:00:00Z',
             'due_date' => '2025-11-30T23:59:59Z',
             'hard_due_date' => '2025-12-02T23:59:59Z'
           }
@@ -107,8 +108,10 @@ describe GradescopeFacade do
         result = facade.get_all_assignments(course_id)
         expect(result.first.id).to eq(789012)
         expect(result.first.name).to eq('Homework 1')
+        expect(result.first.release_date).to eq('2025-11-25T00:00:00Z')
         expect(result.last.id).to eq(345678)
         expect(result.last.name).to eq('Homework 2')
+        expect(result.last.release_date).to be_nil
       end
     end
 

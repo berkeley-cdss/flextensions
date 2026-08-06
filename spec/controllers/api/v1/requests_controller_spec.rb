@@ -15,6 +15,7 @@ module API
                             external_assignment_id: 'abc123', due_date: 7.days.from_now, late_due_date: 10.days.from_now)
       end
       let(:student) { create(:user, email: 'student@example.com', canvas_uid: '201', name: 'Student One') }
+      let(:api_user) { create(:user, email: 'api-user@example.com', canvas_uid: 'api-user-1') }
 
       let(:valid_params) do
         {
@@ -26,6 +27,8 @@ module API
           reason: 'Medical emergency'
         }
       end
+
+      before { session[:user_id] = api_user.canvas_uid }
 
       describe 'POST /api/v1/courses/:course_id/lmss/:lms_id/assignments/:assignment_id/requests' do
         context 'outside the test environment' do

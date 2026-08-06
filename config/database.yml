@@ -85,13 +85,17 @@ test:
 # Read https://guides.rubyonrails.org/configuring.html#configuring-a-database
 # for a full overview on how database connection configuration can be specified.
 #
+# GoodJob runs in-process (:async), so the pool must cover Puma's request
+# threads plus GoodJob's worker threads plus one connection for its
+# LISTEN/NOTIFY listener (and a little headroom).
 staging:
   <<: *default
-  pool: 5
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5).to_i + ENV.fetch("GOOD_JOB_MAX_THREADS", 5).to_i + 2 %>
   timeout: 5000
   database: flextensions_staging
 
 production:
   <<: *default
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5).to_i + ENV.fetch("GOOD_JOB_MAX_THREADS", 5).to_i + 2 %>
   timeout: 5000
   database: flextensions_production

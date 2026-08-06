@@ -1,3 +1,4 @@
+@freeze_time
 Feature: Extension Requests
 
 Background:
