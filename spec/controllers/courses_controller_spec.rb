@@ -165,13 +165,21 @@ RSpec.describe CoursesController, type: :controller do
   end
 
   describe 'POST #sync_assignments' do
-    it 'syncs assignments and returns OK' do
+    it 'syncs assignments and returns OK for staff' do
+      Enrollment.create!(user: user, course: course, role: 'teacher')
       allow(Course).to receive(:create_or_update_from_canvas)
 
       post :sync_assignments, params: { id: course.id }
 
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body).to eq({ 'message' => 'Assignments synced successfully.' })
+    end
+
+    it 'returns forbidden for a non-staff user' do
+      post :sync_assignments, params: { id: course.id }
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.parsed_body).to eq({ 'error' => 'You do not have permission.' })
     end
   end
 
@@ -414,6 +422,11 @@ RSpec.describe CoursesController, type: :controller do
         enrollment_user_ids = assigns(:enrollments).map(&:user_id)
         expect(enrollment_user_ids).to include(user.id)
       end
+
+      it 'assigns @approved_late_days' do
+        get :enrollments, params: { id: course.id }
+        expect(assigns(:approved_late_days)).to be_a(Hash)
+      end
     end
 
     context 'when user is a TA (staff but not course admin)' do
@@ -473,6 +486,14 @@ RSpec.describe CoursesController, type: :controller do
 
       expect(response).to redirect_to(courses_path)
       expect(flash[:notice]).to eq('Course deleted successfully.')
+    end
+
+    it 'does not delete unrelated courses that happen to have no enrollments' do
+      bystander = Course.create!(course_name: 'Bystander', canvas_id: '999', course_code: 'BYS101')
+
+      expect do
+        delete :delete, params: { id: course.id }
+      end.not_to change { Course.exists?(bystander.id) }.from(true)
     end
   end
 end

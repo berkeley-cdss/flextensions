@@ -38,6 +38,23 @@ RSpec.describe PendingRequestsNotificationJob, type: :job do
       expect(mail.body.encoded).to include("http://localhost:3000/courses/#{course.id}/requests")
     end
 
+    it 'sends email to courses set to hourly' do
+      course.course_settings.update!(pending_notification_frequency: 'hourly', pending_notification_email: 'prof@example.com')
+      Request.create!(course: course, assignment: assignment, user: student, status: 'pending',
+                      reason: 'Need more time', requested_due_date: 5.days.from_now)
+
+      expect { described_class.perform_now('hourly') }.to change { ActionMailer::Base.deliveries.count }.by(1)
+      expect(ActionMailer::Base.deliveries.last.to).to eq([ 'prof@example.com' ])
+    end
+
+    it 'does not send hourly digests to courses set to another frequency' do
+      course.course_settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof@example.com')
+      Request.create!(course: course, assignment: assignment, user: student, status: 'pending',
+                      reason: 'Need more time', requested_due_date: 5.days.from_now)
+
+      expect { described_class.perform_now('hourly') }.not_to(change { ActionMailer::Base.deliveries.count })
+    end
+
     it 'skips courses with zero pending requests' do
       course.course_settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof@example.com')
 

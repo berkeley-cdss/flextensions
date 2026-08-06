@@ -33,8 +33,6 @@
 #  fk_rails_...  (last_processed_by_user_id => users.id)
 #  fk_rails_...  (user_id => users.id)
 #
-require 'csv'
-
 class Request < ApplicationRecord
   belongs_to :course
   belongs_to :assignment
@@ -69,6 +67,20 @@ class Request < ApplicationRecord
   end
 
   # Class methods
+
+  # Returns { user_id => total_approved_late_days } for all users in a course
+  # only the widest approved extension is counted.
+  def self.total_approved_late_days_by_user(course)
+    rows = where(course: course, status: 'approved')
+      .joins(:assignment)
+      .group(:user_id, :assignment_id)
+      .pluck(:user_id, Arel.sql('GREATEST(0, MAX(requested_due_date::date - assignments.due_date::date))'))
+
+    rows.each_with_object(Hash.new(0)) do |(user_id, max_days), totals|
+      totals[user_id] += max_days
+    end
+  end
+
   def self.merge_date_and_time!(request_params)
     return unless request_params[:requested_due_date].present? && request_params[:due_time].present?
 
@@ -309,24 +321,6 @@ class Request < ApplicationRecord
       mapping: mapping,
       deliver_later: false # or true if you prefer .deliver_later
     )
-  end
-
-  def self.to_csv(requests)
-    headers = [ 'Assignment', 'Student Name', 'Student ID', 'Requested At', 'Original Due Date', 'Requested Due Date', 'Status' ]
-    CSV.generate(headers: true) do |csv|
-      csv << headers
-      requests.find_each do |request|
-        csv << [
-          request.assignment&.name,
-          request.user&.name,
-          request.user&.student_id,
-          request.created_at,
-          request.assignment&.due_date,
-          request.requested_due_date,
-          request.status
-        ]
-      end
-    end
   end
 
   private

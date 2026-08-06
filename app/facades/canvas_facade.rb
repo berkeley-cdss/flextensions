@@ -116,6 +116,11 @@ class CanvasFacade < LmsFacade
     new(token)
   end
 
+  # See LmsFacade.assignment_url.
+  def self.assignment_url(base_url, external_course_id, external_assignment_id)
+    "#{base_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
+  end
+
   # rubocop:disable Layout/LineLength
   # Depaginate a Canvas API response
   # call as: CanvasFacade.depaginate_response(response)

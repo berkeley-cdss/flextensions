@@ -2,7 +2,7 @@
   <div class="row">
     <div class="col-12">
       <%= render "courses/course_title" %>
-      <h1 class="sr-only">Course Enrollments</h1>
+      <h1 class="visually-hidden">Course Enrollments</h1>
 
       <%= render "shared/extension_status_warning", course: @course %>
 
@@ -14,6 +14,7 @@
             <th class="text-center">Student ID</th>
             <th class="text-center">Email</th>
             <th class="text-center">Role</th>
+            <th class="text-center">Approved Days</th>
             <% if @course.staff_user?(current_user) %>
               <th class="text-center">
                 Extended Requests?
@@ -51,8 +52,9 @@
                 <% end %>
               </td>
               <td class="text-center"><%= enrollment.user.student_id %></td>
-              <td class="text-center"><%= enrollment.user.email %></td>
+              <td class="text-start text-nowrap"><%= enrollment.user.email %><%= copy_to_clipboard_button(enrollment.user.email, label: "Copy email address for #{enrollment.user.name}") %></td>
               <td class="text-center"><%= enrollment.display_role %></td>
+              <td class="text-center"><%= enrollment.student? ? @approved_late_days.fetch(enrollment.user_id, 0) : '' %></td>
               <% if @course.staff_user?(current_user) %>
                 <td class="justify-content-center align-content-center"
                     data-order="<%= enrollment.allow_extended_requests ? 1 : 0 %>">
@@ -79,18 +81,22 @@
       </table>
       </div>
 
-      <div class="text-start mt-4">
-        <button class="btn btn-outline-primary"
-                data-controller="enrollments"
-                data-action="click->enrollments#sync"
-                data-enrollments-course-id-value="<%= @course.id %>">
-          Sync Enrollments
-        </button>
-        <p class="text-muted mt-2 mb-0">
-          Enrollments last synced at
-          <%= @enrollments_last_synced_at ? @enrollments_last_synced_at.strftime('%a, %b %-d at %-I:%M%P') : 'never' %>
-        </p>
-      </div>
+      <% if @course.staff_user?(current_user) %>
+        <div class="text-start mt-4">
+          <button class="btn btn-outline-primary"
+                  data-controller="enrollments"
+                  data-action="click->enrollments#sync"
+                  data-enrollments-course-id-value="<%= @course.id %>"
+                  data-enrollments-target="syncBtn">
+            <span data-enrollments-target="syncLabel">Sync Enrollments</span>
+            <span data-enrollments-target="syncSpinner" class="spinner-border spinner-border-sm ms-1 d-none" role="status" aria-hidden="true"></span>
+          </button>
+          <p class="text-muted mt-2 mb-0">
+            Enrollments last synced at
+            <%= @enrollments_last_synced_at ? @enrollments_last_synced_at.strftime('%a, %b %-d at %-I:%M%P') : 'never' %>
+          </p>
+        </div>
+      <% end %>
     </div>
   </div>
 </div>

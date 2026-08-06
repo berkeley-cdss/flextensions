@@ -7,9 +7,13 @@ version: 0.2
 
 phases:
   install:
-    # Use a Ruby version that matches the EB platform
+    # This MUST match the Elastic Beanstalk platform's Ruby version.
+    # The staging environment runs the "Ruby 3.3 on Amazon Linux 2023"
+    # platform branch (currently ruby 3.3.11), so building with any other
+    # version breaks deploys. Bump this only together with an EB platform
+    # upgrade to a Ruby 3.4 branch.
     runtime-versions:
-      ruby: 3.4
+      ruby: 3.3
 
     commands:
       - echo "Installing system dependencies for build..."
@@ -25,6 +29,10 @@ phases:
     commands:
       - echo "Saving git commit info"
       - git rev-parse HEAD > REVISION 2>/dev/null || echo "unknown" > REVISION
+      # Stamped into the artifact rather than onto the instance, so every server
+      # behind the load balancer reports the same release. Surfaced in the
+      # footer and at /status/version; see app/services/deployment_info.rb.
+      - date -u +%Y-%m-%dT%H:%M:%SZ > DEPLOYED_AT
       - echo "Pre-compiling assets for production..."
       - export RAILS_ENV=production
       - export SECRET_KEY_BASE=$(bundle exec rails secret)

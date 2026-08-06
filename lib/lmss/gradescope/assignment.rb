@@ -1,11 +1,12 @@
 module Lmss
   module Gradescope
     class Assignment < BaseAssignment
-      attr_reader :id, :name, :due_date, :late_due_date
+      attr_reader :id, :name, :release_date, :due_date, :late_due_date
 
       def initialize(data)
         @id = parse_id(data['id'])
         @name = data['title']
+        @release_date = data.dig('submission_window', 'release_date')
         @due_date = data.dig('submission_window', 'due_date')
         @late_due_date = data.dig('submission_window', 'hard_due_date')
       end

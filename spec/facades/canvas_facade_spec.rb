@@ -974,4 +974,11 @@ describe CanvasFacade do
       end.to raise_error(FailedPipelineError)
     end
   end
+
+  describe '.assignment_url' do
+    it 'builds the assignment URL from the base URL and external ids' do
+      expect(described_class.assignment_url('https://bcourses.berkeley.edu', '4567', '89'))
+        .to eq('https://bcourses.berkeley.edu/courses/4567/assignments/89')
+    end
+  end
 end

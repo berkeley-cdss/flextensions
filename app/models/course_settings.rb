@@ -52,7 +52,9 @@ class CourseSettings < ApplicationRecord
     {{course_name}} Staff
   LIQUID
 
-  VALID_NOTIFICATION_FREQUENCIES = %w[daily weekly].freeze
+  # Each frequency needs a matching GoodJob cron entry in config/application.rb,
+  # otherwise nothing ever enqueues the digest for courses that select it.
+  VALID_NOTIFICATION_FREQUENCIES = %w[hourly daily weekly].freeze
 
   belongs_to :course
   validates :course_id, uniqueness: true
@@ -110,7 +112,7 @@ class CourseSettings < ApplicationRecord
   end
 
   def extract_gradescope_course_id(gradescope_course_url)
-    match = gradescope_course_url.match(%r{gradescope\.com/courses/(\d+)})
-    match[1]
+    match = gradescope_course_url&.match(%r{gradescope\.com/courses/(\d+)})
+    match && match[1]
   end
 end

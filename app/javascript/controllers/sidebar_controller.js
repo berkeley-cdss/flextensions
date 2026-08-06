@@ -1,67 +1,52 @@
 import { Controller } from "@hotwired/stimulus"
 
+// Drives the mobile sidebar drawer. All show/hide styling lives in CSS (see
+// _custom_bootstrap.scss): this controller only toggles the sidebar's
+// `expanded` class and the body's `sidebar-open` class.
 export default class extends Controller {
   connect() {
-    this.updateMobileSidebarToggle()
-    window.addEventListener('resize', this.updateMobileSidebarToggle.bind(this))
-    document.addEventListener('click', this.handleOutsideClick.bind(this))
+    this.handleResize = this.handleResize.bind(this)
+    this.handleOutsideClick = this.handleOutsideClick.bind(this)
+    window.addEventListener('resize', this.handleResize)
+    document.addEventListener('click', this.handleOutsideClick)
   }
 
-  updateMobileSidebarToggle() {
-    const sidebar = document.getElementById("sidebar")
-    const btn = document.getElementById('mobileSidebarToggle')
-    const closeBtn = document.getElementById('mobileSidebarClose')
-    if (!btn || !closeBtn) return
+  disconnect() {
+    window.removeEventListener('resize', this.handleResize)
+    document.removeEventListener('click', this.handleOutsideClick)
+  }
 
-    if (window.innerWidth < 768) {
-      btn.style.display = 'inline-flex'
-    } else {
-      btn.style.display = 'none'
-      closeBtn.style.display = 'none'
-      sidebar?.classList.remove('expanded')
-      document.body.classList.remove('sidebar-open')
+  handleResize() {
+    // The drawer only exists below the md breakpoint; reset it when the
+    // viewport grows past that so the page isn't left scroll-locked.
+    if (window.innerWidth >= 768) {
+      this.closeSidebar()
     }
   }
 
   toggleSidebar() {
-    const sidebar = document.getElementById("sidebar")
-    const sidebarCloseBtn = document.getElementById("mobileSidebarClose")
-    const sidebarToggleBtn = document.getElementById("mobileSidebarToggle")
-    sidebar.classList.toggle('expanded')
-    if (sidebar.classList.contains('expanded')) {
-      document.body.classList.add('sidebar-open')
-      mobileSidebarToggle.style.display = 'none'
-      sidebarCloseBtn.style.display = 'inline-flex'
-    } else {
-      document.body.classList.remove('sidebar-open')
-      sidebarCloseBtn.style.display = 'none'
-      mobileSidebarToggle.style.display = 'inline-flex'
-    }
+    const sidebar = document.getElementById('sidebar')
+    if (!sidebar) return
+
+    const expanded = sidebar.classList.toggle('expanded')
+    document.body.classList.toggle('sidebar-open', expanded)
   }
 
   closeSidebar() {
-    const sidebar = document.getElementById("sidebar")
-    const sidebarCloseBtn = document.getElementById("mobileSidebarClose")
-    const sidebarToggleBtn = document.getElementById("mobileSidebarToggle")
-    sidebar.classList.remove('expanded')
+    document.getElementById('sidebar')?.classList.remove('expanded')
     document.body.classList.remove('sidebar-open')
-    sidebarCloseBtn.style.display = 'none'
-    sidebarToggleBtn.style.display = 'inline-flex'
   }
 
   handleOutsideClick(e) {
-    const sidebar = document.getElementById("sidebar")
-    const sidebarCloseBtn = document.getElementById("mobileSidebarClose")
-    const sidebarToggleBtn = document.getElementById("mobileSidebarToggle")
+    const sidebar = document.getElementById('sidebar')
+    const toggleBtn = document.getElementById('mobileSidebarToggle')
     if (window.innerWidth >= 768) return
-    if (!sidebar.classList.contains('expanded')) return
+    if (!sidebar || !sidebar.classList.contains('expanded')) return
 
-    if (
-      !sidebar.contains(e.target) &&
-      e.target !== sidebarToggleBtn && !sidebarToggleBtn.contains(e.target) &&
-      e.target !== sidebarCloseBtn && !sidebarCloseBtn.contains(e.target)
-    ) {
-      this.closeSidebar()
-    }
+    // Ignore clicks inside the drawer (including its close button) and on the
+    // toggle button, which handles itself.
+    if (sidebar.contains(e.target) || (toggleBtn && toggleBtn.contains(e.target))) return
+
+    this.closeSidebar()
   }
 }
