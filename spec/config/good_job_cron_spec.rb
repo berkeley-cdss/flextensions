@@ -23,15 +23,15 @@ RSpec.describe 'GoodJob cron schedule' do # rubocop:disable RSpec/DescribeClass
     expect(occurrences.size).to eq(24)
   end
 
-  it 'runs the daily digest at 8:00 AM Pacific' do
+  it 'runs the daily digest at 4:00 PM Pacific' do
     occurrence = Fugit.parse_cron(cron[:pending_digests_daily][:cron]).next_time(Time.utc(2026, 1, 1))
 
-    expect(occurrence.to_t.in_time_zone('America/Los_Angeles').strftime('%H:%M')).to eq('08:00')
+    expect(occurrence.to_t.in_time_zone('America/Los_Angeles').strftime('%H:%M')).to eq('16:00')
   end
 
-  it 'runs the weekly digest on Fridays at 5:00 PM Pacific, as the settings page promises' do
+  it 'runs the weekly digest on Thursdays at 4:00 PM Pacific, as the settings page promises' do
     occurrence = Fugit.parse_cron(cron[:pending_digests_weekly][:cron]).next_time(Time.utc(2026, 1, 1))
 
-    expect(occurrence.to_t.in_time_zone('America/Los_Angeles').strftime('%A %H:%M')).to eq('Friday 17:00')
+    expect(occurrence.to_t.in_time_zone('America/Los_Angeles').strftime('%A %H:%M')).to eq('Thursday 16:00')
   end
 end

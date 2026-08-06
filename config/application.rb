@@ -59,13 +59,13 @@ module Flextensions
         description: 'Pending extension request digests for courses set to hourly'
       },
       pending_digests_daily: {
-        cron: '0 8 * * * America/Los_Angeles',
+        cron: '0 16 * * * America/Los_Angeles',
         class: 'PendingRequestsNotificationJob',
         args: [ 'daily' ],
         description: 'Pending extension request digests for courses set to daily'
       },
       pending_digests_weekly: {
-        cron: '0 17 * * 5 America/Los_Angeles',
+        cron: '0 16 * * 4 America/Los_Angeles',
         class: 'PendingRequestsNotificationJob',
         args: [ 'weekly' ],
         description: 'Pending extension request digests for courses set to weekly'

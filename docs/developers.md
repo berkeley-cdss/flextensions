@@ -3,20 +3,23 @@ title: Developing Flextensions
 permalink: /developers/
 ---
 
-# Standing Up the Application
+## Standing Up the Application
+
 This guide walks you through setting up the Flextensions app on your local machine and on your Heroku server and preparing it for development and deployment.
 
 ## Set Up in Your Local Environment
 
 ### Clone the Repository
 
-```
+```bash
 git clone git@github.com:berkeley-cdss/flextensions.git
 cd flextensions
 ```
+
 ---
 
 ### Set Up Ruby Environment
+
 #### (If you are on Windows, please use WSL instead).
 
 Install `mise`, such as `brew install mise` or any other ruby language manager.
@@ -122,8 +125,8 @@ occurrence is enqueued once even if several processes are running.
 | Cron key | Schedule | Job |
 |----------|----------|-----|
 | `pending_digests_hourly` | Top of every hour | `PendingRequestsNotificationJob('hourly')` |
-| `pending_digests_daily` | 8:00 AM PT daily | `PendingRequestsNotificationJob('daily')` |
-| `pending_digests_weekly` | 5:00 PM PT Fridays | `PendingRequestsNotificationJob('weekly')` |
+| `pending_digests_daily` | 4:00 PM PT daily | `PendingRequestsNotificationJob('daily')` |
+| `pending_digests_weekly` | 4:00 PM PT Thursdays | `PendingRequestsNotificationJob('weekly')` |
 
 Each run emails the courses whose **Pending Request Notifications** setting matches
 that frequency and that currently have pending requests.
@@ -141,9 +144,10 @@ recurring jobs — for example when moving them to a dedicated worker started wi
 
 ---
 
-# Standing Up the Application on Heroku
+## Standing Up the Application on Heroku
 
 1. Setup the following ENV variables in heroku, with the same values in your local .env file.
+
 ```bash
 APP_HOST
 CANVAS_CLIENT_ID
