@@ -153,11 +153,10 @@
 								on <%= @request.updated_at.strftime('%a, %b %-d, %Y %-I:%M%P') %>
 								by <%= @request.auto_approved ? 'Auto Approval System' : (@request.last_processed_by_user&.name || 'Unknown') %>
 							</p>
-							<% if @request.status == 'approved' && @review.provisioned? %>
-								<p class="text-success small mb-0">
-									<i class="fas fa-check-circle"></i> Extension provisioned in the LMS.
-								</p>
-							<% end %>
+							<%# Disabled: an "Extension provisioned in the LMS" confirmation
+							    based on @review.provisioned? (external_extension_id). Left off
+							    until we confirm every LMS reliably returns an id on approval;
+							    otherwise its absence would look like a failure when it isn't. %>
 						</div>
 					<% end %>
 
