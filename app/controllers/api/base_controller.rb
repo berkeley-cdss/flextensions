@@ -1,6 +1,7 @@
 module API
   class BaseController < ActionController::API
     before_action :accessControlAllowOrigin
+    before_action :require_api_available!
     before_action :authenticate_api!
 
     private
@@ -9,11 +10,27 @@ module API
       response.set_header('Access-Control-Allow-Origin', '*')
     end
 
-    # Gate for the JSON API. A request is authenticated when it carries either
-    # the web session cookie (a logged-in user) or, eventually, a dedicated API
-    # token. Anything else is rejected with 401 so the write endpoints below are
-    # no longer reachable anonymously. Controllers that are intentionally public
-    # (health checks, the API schema) opt out with
+    # Master gate for the JSON API. Authenticating a real API caller depends on
+    # a token scheme that has not been built yet: no API tokens are issued or
+    # validated (see #user_from_api_token), so every token presented today is one
+    # that "does not exist." Rather than silently fall back to the shared web
+    # session cookie -- which would let any logged-in user reach these write
+    # endpoints and, e.g., enroll themselves as course staff -- we refuse every
+    # request outside the test environment until real token authentication
+    # exists. Specs run in the test environment and continue to exercise the
+    # controllers. Genuinely public endpoints (the health-check ping and the API
+    # schema) opt out with `skip_before_action :require_api_available!`.
+    def require_api_available!
+      return if Rails.env.test?
+
+      render json: { error: 'This endpoint is not available' }, status: :forbidden
+    end
+
+    # Session/token authentication check, applied after #require_api_available!.
+    # In the test environment (the only place the guard above lets requests
+    # through) a request is authenticated when it carries the web session cookie
+    # or, eventually, a dedicated API token; anything else is rejected with 401.
+    # Controllers that are intentionally public opt out with
     # `skip_before_action :authenticate_api!`.
     def authenticate_api!
       return if current_api_user.present?

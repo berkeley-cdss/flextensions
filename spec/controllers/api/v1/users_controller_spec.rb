@@ -6,6 +6,21 @@ module API
 
       before { session[:user_id] = api_user.canvas_uid }
 
+      describe 'availability guard outside the test environment' do
+        before do
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+        end
+
+        it 'refuses #create with :forbidden and does not write data' do
+          expect do
+            post :create, params: { email: 'blocked@example.com' }
+          end.not_to change(User, :count)
+
+          expect(response).to have_http_status(:forbidden)
+          expect(response.parsed_body['error']).to eq('This endpoint is not available')
+        end
+      end
+
       describe 'authentication' do
         it 'rejects requests without a session or API token' do
           session[:user_id] = nil
