@@ -234,7 +234,7 @@
                                     <div class="col-sm-8">
                                         <%= select_tag 'course_settings[pending_notification_frequency]',
                                                        options_for_select(
-                                                         [['No notifications', ''], ['Daily', 'daily'], ['Once weekly (Fridays)', 'weekly']],
+                                                         [['No notifications', ''], ['Hourly', 'hourly'], ['Daily', 'daily'], ['Once weekly (Thursdays)', 'weekly']],
                                                          @course.course_settings&.pending_notification_frequency
                                                        ),
                                                        class: 'form-select',
@@ -253,7 +253,7 @@
                                                           placeholder: 'instructor@berkeley.edu',
                                                           data: { course_settings_target: 'pendingNotificationEmail' },
                                                           disabled: @course.course_settings&.pending_notification_frequency.blank? %>
-                                        <div class="form-text">Weekly notifications are sent on Fridays at 5:00 PM PT.</div>
+                                        <div class="form-text">Hourly notifications are sent at the top of each hour, daily notifications at 4:00 PM PT, and weekly notifications on Thursdays at 4:00 PM PT. Emails are only sent when the course has pending requests.</div>
                                     </div>
                                 </div>
 
