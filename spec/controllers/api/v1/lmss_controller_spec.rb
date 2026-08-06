@@ -26,6 +26,21 @@ module API
         User.destroy_all
       end
 
+      describe 'availability guard outside the test environment' do
+        before do
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+        end
+
+        it 'refuses #create with :forbidden and does not write data' do
+          expect do
+            post :create, params: { course_id: @course.id, lms_id: @lms.id, external_course_id: @external_course_id }
+          end.not_to change(CourseToLms, :count)
+
+          expect(response).to have_http_status(:forbidden)
+          expect(json_response['error']).to eq('This endpoint is not available')
+        end
+      end
+
       describe 'POST #create' do
         context 'when lms_id is missing' do
           it 'returns status :bad_request' do
