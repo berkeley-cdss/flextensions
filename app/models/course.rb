@@ -198,6 +198,21 @@ class Course < ApplicationRecord
     (links.where.not(external_course_id: nil).first || links.first)&.external_course_id
   end
 
+  # Absolute URL of the course page, for links embedded in outbound
+  # notifications (email, Slack). Falls back to a relative path when no host is
+  # configured so links still render in development.
+  def course_link
+    base_host = ENV['APP_HOST'].presence || Rails.application.routes.default_url_options[:host].presence
+    return Rails.application.routes.url_helpers.course_path(self) if base_host.blank?
+
+    normalized_host = base_host.start_with?('http://', 'https://') ? base_host : "https://#{base_host}"
+    "#{normalized_host.chomp('/')}/courses/#{id}"
+  end
+
+  def requests_link
+    "#{course_link}/requests"
+  end
+
   # TODO: Add specs for these 3 simple methods
   def students
     enrollments.where(role: Enrollment::STUDENT_ROLE).map(&:user)
