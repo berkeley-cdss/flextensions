@@ -122,6 +122,7 @@
 				<div class="mb-4" data-controller="student-notes"
 					data-student-notes-url-value="<%= update_notes_course_enrollment_path(@course, @student_enrollment) %>">
 					<h3 class="mb-2 h6">Staff Notes for <%= @request.user.name %></h3>
+					<p>Notes are shared across all requests for each student.</p>
 					<div data-student-notes-target="display">
 						<div class="p-3 bg-light rounded" data-student-notes-target="content">
 							<%= @student_enrollment.notes.present? ? simple_format(@student_enrollment.notes) : content_tag(:span, 'No notes yet.', class: 'text-muted') %>
