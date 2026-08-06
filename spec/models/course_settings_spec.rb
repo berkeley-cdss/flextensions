@@ -208,6 +208,12 @@ RSpec.describe CourseSettings, type: :model do
         expect(course_settings).to be_valid
       end
 
+      it 'accepts "hourly"' do
+        course_settings.pending_notification_frequency = 'hourly'
+        course_settings.pending_notification_email = 'test@example.com'
+        expect(course_settings).to be_valid
+      end
+
       it 'accepts "daily"' do
         course_settings.pending_notification_frequency = 'daily'
         course_settings.pending_notification_email = 'test@example.com'

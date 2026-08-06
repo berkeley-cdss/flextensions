@@ -50,31 +50,37 @@
           </tbody>
         </table>
       </div>
-      <div class="text-center d-flex justify-content-center gap-2"
-           data-controller="assignment"
-           data-assignment-course-id-value="<%= @course.id %>"
-           data-assignment-bulk-url-value="<%= bulk_update_assignments_course_path(@course) %>">
-        <button class="btn btn-success"
-                data-action="click->assignment#enableAll">
-          Enable All
-        </button>
-        <button class="btn btn-secondary"
-                data-action="click->assignment#disableAll">
-          Disable All
-        </button>
-        <button class="btn btn-info"
-                data-controller="assignment"
-                data-action="click->assignment#sync"
-                data-assignment-course-id-value="<%= @course.id %>"
-                data-assignment-target="syncBtn">
-          <span data-assignment-target="syncLabel">Sync Assignments</span>
-          <span data-assignment-target="syncSpinner" class="spinner-border spinner-border-sm ms-1 d-none" role="status" aria-hidden="true"></span>
-        </button>
-        <p class="text-muted mt-2 mb-0">
-          Assignments last synced at
-          <%= @assignments_last_synced_at ? @assignments_last_synced_at.strftime('%a, %b %-d at %-I:%M%P') : 'never' %>
-        </p>
-      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="mt-4 col align-self-start text-start">
+      <button class="btn btn-outline-primary"
+        data-controller="assignment"
+        data-action="click->assignment#sync"
+        data-assignment-course-id-value="<%= @course.id %>"
+        data-assignment-target="syncBtn">
+        <span data-assignment-target="syncLabel">Sync Assignments</span>
+        <span data-assignment-target="syncSpinner" class="spinner-border spinner-border-sm ms-1 d-none" role="status" aria-hidden="true"></span>
+      </button>
+      <p class="text-muted mt-2 mb-0">
+        Assignments last synced at
+        <%= @assignments_last_synced_at ? @assignments_last_synced_at.strftime('%a, %b %-d at %-I:%M%P') : 'never' %>
+      </p>
+    </div>
+
+    <div class="mt-4 col text-end"
+        data-controller="assignment"
+        data-assignment-course-id-value="<%= @course.id %>"
+        data-assignment-bulk-url-value="<%= bulk_update_assignments_course_path(@course) %>">
+      <button class="btn btn-success"
+              data-action="click->assignment#enableAll">
+        Enable All
+      </button>
+      <button class="btn btn-secondary"
+              data-action="click->assignment#disableAll">
+        Disable All
+      </button>
     </div>
   </div>
 </div>

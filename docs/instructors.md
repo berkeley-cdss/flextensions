@@ -105,7 +105,7 @@ Control when and how requests are automatically approved:
   Automatically approves requests made within the specified number of days before the assignment due date. Leave blank to disable.
 
 - **Auto approve extended requests within days**
-  From the Enrollments page, you can mark a student to allow for 'Extended Requests'. When enabled, this setting allows a limited number of students to have requests automatically approved over a longer window. This is useful for students with known extenuating circumstances or accommodations. 
+  From the Enrollments page, you can mark a student to allow for 'Extended Requests'. When enabled, this setting allows a limited number of students to have requests automatically approved over a longer window. This is useful for students with known extenuating circumstances or accommodations.
 
 - **Maximum requests to auto-approve**
   Sets a per-student limit on auto-approved requests. Use `0` for no limit.
@@ -151,6 +151,22 @@ You can specify a **Course Reply Email Address** for outgoing emails. This will 
 💡 Ensure this address is monitored regularly by course staff.
 
 After setting these options, click **Save Settings** to save.
+
+### Pending Request Notifications
+
+Flextensions can email course staff a reminder of how many extension requests are
+still waiting for a decision. Choose how often you want that reminder under
+**Pending Request Notifications**, and enter the address it should go to:
+
+| Setting | When it is sent |
+|---------|-----------------|
+| No notifications | Never (the default) |
+| Hourly | At the top of every hour |
+| Daily | 4:00 PM PT every day |
+| Once weekly (Thursdays) | 4:00 PM PT on Thursdays |
+
+Reminders are only sent when the course actually has pending requests, so a quiet
+course will not receive hourly email.
 
 ### Email Template Customization
 
