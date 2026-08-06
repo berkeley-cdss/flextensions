@@ -323,6 +323,12 @@ class Request < ApplicationRecord
     )
   end
 
+  # Absolute URL for reviewing this request, used in Slack and email
+  # notifications.
+  def request_link
+    "#{course.requests_link}/#{id}"
+  end
+
   private
 
   def flag_auto_approval_breakdown(reason)
@@ -378,13 +384,5 @@ class Request < ApplicationRecord
 
     success = SlackNotifier.notify(slack_message, course.course_settings.slack_webhook_url)
     Rails.logger.error "Failed to send Slack notification for request #{id} in course #{course.id}. Please check your webhook URL." unless success
-  end
-
-  def request_link
-    base_host = ENV['APP_HOST'].presence || Rails.application.routes.default_url_options[:host].presence
-    return Rails.application.routes.url_helpers.course_request_path(course, id) if base_host.blank?
-
-    normalized_host = base_host.start_with?('http://', 'https://') ? base_host : "https://#{base_host}"
-    "#{normalized_host.chomp('/')}/courses/#{course.id}/requests/#{id}"
   end
 end

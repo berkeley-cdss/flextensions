@@ -1,0 +1,16 @@
+Hello,
+
+You have <%= @pending_requests.size %> pending extension <%= 'request'.pluralize(@pending_requests.size) %> in <%= @course.course_code %> (<%= [@course.course_name, @course.semester].compact_blank.join(', ') %>): <%= @course.course_link %>
+
+Please review them on the requests page: <%= @course.requests_link %>
+In the past <%= @period_label %> <%= @auto_approved_count %> <%= 'request'.pluralize(@auto_approved_count) %> <%= @auto_approved_count == 1 ? 'has' : 'have' %> been auto approved.
+
+Here are the individual pending requests:
+<% @listed_requests.each do |request| -%>
+* <%= request.user.name.presence || 'Unknown student' %>, <%= request.assignment.name %>, <%= pluralize(request.calculate_days_difference, 'day') %>: <%= request.request_link %>
+<% end -%>
+<% if @unlisted_count.positive? -%>
+* …and <%= @unlisted_count %> more: <%= @course.requests_link %>
+<% end -%>
+
+Thanks!
