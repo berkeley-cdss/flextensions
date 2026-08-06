@@ -30,6 +30,21 @@ module API
         User.destroy_all
       end
 
+      describe 'availability guard outside the test environment' do
+        before do
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+        end
+
+        it 'refuses #create with :forbidden and does not write data' do
+          expect do
+            post :create, params: valid_params
+          end.not_to change(Assignment, :count)
+
+          expect(response).to have_http_status(:forbidden)
+          expect(json_response['error']).to eq('This endpoint is not available')
+        end
+      end
+
       describe 'GET /api/v1/courses/:course_id/lmss/:lms_id/assignments' do
         it 'throws a 501 error' do
           get :index, params: { course_id: mock_course.id, lms_id: mock_lms.id }
