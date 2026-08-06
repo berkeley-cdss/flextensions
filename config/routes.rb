@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  mount Faultline::Engine, at: "/admin/errors"
   if Rails.env.development?
     mount LetterOpenerWeb::Engine, at: "/letter_opener"
   end
@@ -29,10 +30,11 @@ Rails.application.routes.draw do
     member do
       post :sync_assignments
       post :sync_enrollments
+      patch :bulk_update_assignments
+      get :sync_status
       get :enrollments
       delete :delete
     end
-    resources :extensions, only: [:create]
     resources :requests do
       member do
         post :approve
@@ -43,12 +45,13 @@ Rails.application.routes.draw do
         post :create_for_student
         post :mass_approve
         post :mass_reject
-        get :export, defaults: { format: :csv }
+        get :export, to: 'requests/exports#show', defaults: { format: :csv }
       end
     end
-    resources :user_to_courses, only: [] do
+    resources :enrollments, only: [] do
       member do
         patch :toggle_allow_extended_requests
+        patch :update_notes
       end
     end
     resource :form_setting, only: [:edit, :update], path: 'settings/form'
@@ -71,4 +74,5 @@ Rails.application.routes.draw do
 
   # This is protected by `require_admin` via blazer.yml
   mount Blazer::Engine, at: "admin/blazer"
+  mount GoodJob::Engine, at: "admin/good_job"
 end

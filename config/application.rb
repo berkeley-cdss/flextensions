@@ -21,7 +21,7 @@ Bundler.require(*Rails.groups)
 module Flextensions
   class Application < Rails::Application
     # Initialize configuration defaults for originally generated Rails version.
-    config.load_defaults 7.2
+    config.load_defaults 8.1
 
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
@@ -40,6 +40,37 @@ module Flextensions
     config.active_record.default_timezone = :utc
     config.time_zone = 'Pacific Time (US & Canada)'
     config.generators.system_tests = nil
+    config.active_job.queue_adapter = :good_job
+
+    # Recurring jobs, run by GoodJob's built-in cron. The schedule is defined
+    # for every environment so it is visible in one place, but GoodJob only acts
+    # on it where `enable_cron` is true (production/staging — see
+    # config/environments/production.rb).
+    #
+    # Times are Pacific (the timezone is the trailing cron field) so they match
+    # what instructors see in course settings, regardless of the server clock.
+    # Each occurrence is enqueued at most once even if several processes are
+    # running: GoodJob has a unique index on (cron_key, cron_at).
+    config.good_job.cron = {
+      pending_digests_hourly: {
+        cron: '0 * * * * America/Los_Angeles',
+        class: 'PendingRequestsNotificationJob',
+        args: [ 'hourly' ],
+        description: 'Pending extension request digests for courses set to hourly'
+      },
+      pending_digests_daily: {
+        cron: '0 16 * * * America/Los_Angeles',
+        class: 'PendingRequestsNotificationJob',
+        args: [ 'daily' ],
+        description: 'Pending extension request digests for courses set to daily'
+      },
+      pending_digests_weekly: {
+        cron: '0 16 * * 4 America/Los_Angeles',
+        class: 'PendingRequestsNotificationJob',
+        args: [ 'weekly' ],
+        description: 'Pending extension request digests for courses set to weekly'
+      }
+    }
 
     # We do not require the master key and insetad use environment variables
     # Review .env.example for required variables.

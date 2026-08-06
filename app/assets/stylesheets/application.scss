@@ -81,12 +81,22 @@ $primary: $berkeley-blue;
 // TODO: This may be a little too bright for some elements, consider using a medium or dark shade instead
 $secondary: $california-gold;
 
+// Inline <code>: a dark red in light mode; a lighter tint in dark mode so it
+// stays readable on the dark surface. (Light surfaces that persist in dark
+// mode re-pin --bs-code-color — see _custom_bootstrap.scss.)
+$code-color: #be0303;
+$code-color-dark: #ea868f;
+
+// Dark mode: Bootstrap's unchecked switch knob is 25% white, which is nearly
+// invisible on the dark track. Use a solid white knob instead.
+$form-switch-color-dark: $white;
+
 @import "bootstrap";
 @import "custom_bootstrap";
 @import "font-awesome";
 
-@import "datatables/dataTables.bootstrap5.css";
-@import "datatables/responsive.bootstrap5.css";
+// NOTE: DataTables CSS is intentionally not imported here. See the comment in
+// app/views/layouts/application.html.erb for why it is served from public/.
 
 @each $name, $value in $colors {
   .bg-#{$name} {
@@ -123,5 +133,42 @@ $secondary: $california-gold;
       --bs-table-color: #{color-contrast($value)};
       --bs-table-border-color: #{mix(black, $value, 15%)};
     }
+  }
+}
+
+// Section-header rows (e.g. the semester dividers on the course dashboards) use
+// a solid `.table-blue-light` variant. Opt them out of Bootstrap's zebra
+// striping so the striped overlay can't override their background/text colors
+// and drop contrast below WCAG AA — most visibly in dark mode, where the
+// striped text color flips to white and became unreadable on the light-blue
+// header. `initial` resets these custom properties so Bootstrap's var() chain
+// falls back to the variant's own --bs-table-bg / --bs-table-color.
+//
+// The two selectors mirror Bootstrap's and DataTables' striped selectors so
+// they match their specificity and win by source order (this file is compiled
+// after both) — no !important required.
+.table-striped > tbody > tr.table-blue-light > *,
+table.table.dataTable.table-striped > tbody > tr.table-blue-light > * {
+  --bs-table-bg-type: initial;
+  --bs-table-color-type: initial;
+}
+
+// An enlarged form-switch (used for the primary "Enable Extensions" toggle).
+// Bootstrap sizes switches via the input's width/height and the row's
+// left padding + negative input margin; scale all three together.
+.form-switch.checkbox-xl {
+  min-height: 1.75rem;
+  padding-left: 3.5em;
+
+  .form-check-input {
+    width: 3em;
+    height: 1.5em;
+    margin-left: -3.5em;
+    margin-top: 0.05em;
+  }
+
+  .form-check-label {
+    font-size: 1.2rem;
+    padding-top: 0.1em;
   }
 }

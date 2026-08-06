@@ -1,10 +1,28 @@
 <% selected_season, selected_year = Course.parse_semester(@course.semester) %>
-<div class="container-fluid mb-5">
+<div class="container-fluid mb-5"
+     data-controller="course-settings">
     <div class="row">
         <div class="col-12">
             <%= render "courses/course_title" %>
             <h1 class="sr-only">Course Details</h1>
-            <%= form_with model: @course, url: course_path(@course), method: :patch do |form| %>
+            <%= form_with model: @course, url: course_path(@course), method: :patch,
+                          data: {
+                            controller: 'unsaved-changes',
+                            action: 'input->unsaved-changes#markDirty change->unsaved-changes#markDirty submit->unsaved-changes#save'
+                          } do |form| %>
+                <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+                    <div class="toast border-info" role="status" aria-live="polite" aria-atomic="true"
+                         data-unsaved-changes-target="toast" data-bs-autohide="false">
+                        <div class="toast-header">
+                            <i class="fas fa-circle-info text-info me-2" aria-hidden="true"></i>
+                            <strong class="me-auto">Unsaved changes</strong>
+                            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body">
+                            You have unsaved changes to your course. Please select save if you wish to keep your changes.
+                        </div>
+                    </div>
+                </div>
                 <div class="card rounded-0 mb-4">
                     <div class="card-header bg-light">
                         <h2 class="card-title mb-0 h5">Course Details</h2>
@@ -49,15 +67,183 @@
                                                        'aria-label': 'Semester year' %>
                                     </div>
                                 </div>
-                                <% if @course.semester.present? %>
-                                    <small class="text-muted">Current semester: <%= @course.semester %></small>
-                                <% end %>
+                                <small class="text-muted">Current semester: <%= @course.semester.presence || 'Unknown Semester' %></small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row">
+                            <div class="col-sm-8 offset-sm-4">
+                                <div class="form-check form-switch">
+                                    <%= form.check_box :demo_course, class: 'form-check-input', id: 'demo-course' %>
+                                    <label class="form-check-label" for="demo-course">Demo course</label>
+                                </div>
+                                <small class="text-muted">Marks this as a demo/sandbox course so it can be excluded from usage metrics.</small>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="text-center mb-4">
+                <% requests_off = !@course.course_settings&.enable_extensions %>
+                <div class="card rounded-0 mb-4<%= ' border border-info border-2' if requests_off %>">
+                    <div class="card-header bg-light">
+                        <h2 class="card-title mb-0 h5">Enable Extensions</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check form-switch checkbox-xl">
+                            <%= hidden_field_tag 'course_settings[enable_extensions]', false %>
+                            <%= check_box_tag 'course_settings[enable_extensions]',
+                                             true,
+                                             @course.course_settings&.enable_extensions,
+                                             class: 'form-check-input',
+                                             id: 'course-enable' %>
+                            <label class="form-check-label" for="course-enable">Enable Students to request extensions</label>
+                        </div>
+                        <% if requests_off %>
+                            <p class="text-info-emphasis mb-0 mt-2" id="requests-off-notice">
+                                <i class="fas fa-circle-info me-1" aria-hidden="true"></i>
+                                Students cannot request extensions for this course until this is enabled.
+                            </p>
+                        <% end %>
+                    </div>
+                </div>
+
+                <div class="card rounded-0 mb-4">
+                    <div class="card-header bg-light">
+                        <h2 class="card-title mb-0 h5">Gradescope</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <%= hidden_field_tag 'course_settings[enable_gradescope]', false %>
+                                <%= check_box_tag 'course_settings[enable_gradescope]',
+                                                 true,
+                                                 @course.course_settings&.enable_gradescope,
+                                                 class: 'form-check-input',
+                                                 id: 'enable-gradescope' %>
+                                <label class="form-check-label" for="enable-gradescope">Link Gradescope course</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row">
+                            <label for="gradescope-course-url" class="col-sm-4 col-form-label">Course's Gradescope URL</label>
+                            <div class="col-sm-8">
+                                <%= url_field_tag 'course_settings[gradescope_course_url]',
+                                                  @course.course_settings&.gradescope_course_url,
+                                                  class: 'form-control',
+                                                  id: 'gradescope-course-url',
+                                                  placeholder: 'https://www.gradescope.com/courses/123456',
+                                                  data: { course_settings_target: "gradescopeField" },
+                                                  disabled: !@course.course_settings&.enable_gradescope,
+                                                  pattern: 'https://(www\.)?gradescope\.com/courses/\d+/?',
+                                                  title: 'Must be a valid Gradescope course URL (e.g. https://www.gradescope.com/courses/123456)' %>
+                                <small class="text-muted">
+                                    Please invite the user <code class="js-copytext"><%= ENV.fetch('GRADESCOPE_EMAIL') { 'gradescope-bot@berkeley.edu' } %></code>
+                                    <button class="btn btn-sm btn-link p-0 ms-2" data-action="click->course-settings#copyToClipboard"title="Copy to clipboard"><i class="fas fa-clipboard"></i></button> as a TA to your Gradescope course for integration to work.
+                                </small>
+                                <script>
+                                  document.querySelectorAll('.js-copytext').forEach(el => {
+                                    el.closest('small').querySelector('[data-action*="copyToClipboard"]')?.addEventListener('click', function(e) {
+                                      e.preventDefault();
+                                      navigator.clipboard.writeText(el.textContent);
+                                      this.innerHTML = '<i class="fas fa-check"></i>';
+                                      setTimeout(() => {
+                                        this.innerHTML = '<i class="fas fa-clipboard"></i>';
+                                      }, 2000);
+                                    });
+                                  });
+                                </script>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card rounded-0 mb-4">
+                    <div class="card-header bg-light">
+                        <h2 class="card-title mb-0 h5">Staff Notifications</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <%= hidden_field_tag 'course_settings[enable_slack_webhook_url]', false %>
+                                <%= check_box_tag 'course_settings[enable_slack_webhook_url]',
+                                                 true,
+                                                 @course.course_settings&.enable_slack_webhook_url,
+                                                 class: 'form-check-input',
+                                                 id: 'enable-slack' %>
+                                <label class="form-check-label" for="enable-slack">Enable Slack Notifications</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row border-bottom pb-3">
+                            <label for="slack-webhook" class="col-sm-4 col-form-label">Slack Webhook URL</label>
+                            <div class="col-sm-8">
+                                <%= text_field_tag 'course_settings[slack_webhook_url]',
+                                                  @course.course_settings&.slack_webhook_url,
+                                                  class: 'form-control',
+                                                  id: 'slack-webhook',
+                                                  placeholder: 'https://hooks.slack.com/services/...',
+                                                  data: { course_settings_target: "slackWebhookField" },
+                                                  disabled: !@course.course_settings&.enable_slack_webhook_url %>
+                                <div class="form-text">
+                                    <i class="fas fa-circle-info me-1" aria-hidden="true"></i>
+                                    <%= link_to 'Instructions on how to create a Slack Webhook',
+                                                'https://berkeley-cdss.github.io/flextensions/integrations/#slack',
+                                                target: '_blank', rel: 'noopener' %>.
+                                    All notifications will arrive in as an individual Slack message.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row">
+                            <label for="pending-notification-frequency" class="col-sm-4 col-form-label">Pending Request Notifications</label>
+                            <div class="col-sm-8">
+                                <%= select_tag 'course_settings[pending_notification_frequency]',
+                                               options_for_select(
+                                                 [['No notifications', ''], ['Hourly', 'hourly'], ['Daily', 'daily'], ['Once weekly (Thursdays)', 'weekly']],
+                                                 @course.course_settings&.pending_notification_frequency
+                                               ),
+                                               class: 'form-select',
+                                               id: 'pending-notification-frequency',
+                                               data: { action: 'change->course-settings#togglePendingNotificationEmail' } %>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row">
+                            <label for="pending-notification-email" class="col-sm-4 col-form-label">Notification Email</label>
+                            <div class="col-sm-8">
+                                <%= email_field_tag 'course_settings[pending_notification_email]',
+                                                  @course.course_settings&.pending_notification_email,
+                                                  class: 'form-control',
+                                                  id: 'pending-notification-email',
+                                                  placeholder: 'instructor@berkeley.edu',
+                                                  data: { course_settings_target: 'pendingNotificationEmail' },
+                                                  disabled: @course.course_settings&.pending_notification_frequency.blank? %>
+                                <div class="form-text">Hourly notifications are sent at the top of each hour, daily notifications at 4:00 PM PT, and weekly notifications on Thursdays at 4:00 PM PT. Emails are only sent when the course has pending requests.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <% if @course.course_settings&.enable_extensions %>
+                            <span class="d-inline-block" tabindex="0"
+                                  data-bs-toggle="tooltip"
+                                  data-bs-placement="top"
+                                  title="Disable student extension requests before deleting this course.">
+                                <%= button_tag 'Delete Course', type: 'button', class: 'btn btn-danger', disabled: true, id: 'delete-course' %>
+                            </span>
+                        <% else %>
+                            <%= link_to 'Delete Course',
+                                        delete_course_path(@course),
+                                        method: :delete,
+                                        class: 'btn btn-danger',
+                                        id: 'delete-course',
+                                        data: {
+                                            confirm: 'Are you sure you want to delete this course? This action cannot be undone.'
+                                        } %>
+                        <% end %>
+                    </div>
                     <%= form.submit 'Save Course Details', class: 'btn btn-success px-4' %>
                 </div>
             <% end %>

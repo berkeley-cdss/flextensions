@@ -6,8 +6,9 @@ RSpec.describe CourseSettingsController, type: :controller do
   let(:course) { Course.create!(course_name: 'Test Course', canvas_id: '123') }
 
   before do
+    Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }
     instructor.lms_credentials.create!(
-      lms_name: 'canvas',
+      lms_id: 1,
       token: 'fake_token',
       refresh_token: 'fake_refresh_token',
       expire_time: 1.hour.from_now
@@ -17,38 +18,35 @@ RSpec.describe CourseSettingsController, type: :controller do
   describe 'instructor access' do
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
       allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
     end
 
     describe 'POST #update' do
-      it 'creates new course settings when none exist' do
-        expect(CourseSettings.where(course_id: course.id).count).to eq(0)
+      it 'updates the settings created automatically with the course' do
+        expect(CourseSettings.where(course_id: course.id).count).to eq(1)
 
         patch :update, params: {
           course_id: course.id,
           course_settings: {
-            enable_extensions: 'true',
             auto_approve_days: '3',
             auto_approve_extended_request_days: '5',
-            enable_emails: 'true'
+            max_auto_approve: '2'
           },
           page: 'approvals'
         }
 
-        # Now verify a new settings record was created
         expect(CourseSettings.where(course_id: course.id).count).to eq(1)
         expect(response).to redirect_to(approvals_course_settings_path(course.id))
         expect(flash[:notice]).to eq('Course settings updated successfully.')
         settings = CourseSettings.find_by(course_id: course.id)
-        expect(settings.enable_extensions).to be true
         expect(settings.auto_approve_days).to eq(3)
+        expect(settings.auto_approve_extended_request_days).to eq(5)
       end
 
       it 'updates existing course settings' do
-        # Create existing settings
-        course_settings = CourseSettings.create!(
-          course: course,
+        course_settings = course.course_settings
+        course_settings.update!(
           enable_extensions: false,
           auto_approve_days: 1,
           auto_approve_extended_request_days: 2,
@@ -61,7 +59,6 @@ RSpec.describe CourseSettingsController, type: :controller do
         patch :update, params: {
           course_id: course.id,
           course_settings: {
-            enable_extensions: 'true',
             auto_approve_days: '3'
           },
           page: 'approvals'
@@ -73,23 +70,19 @@ RSpec.describe CourseSettingsController, type: :controller do
 
         # Force reload to get updated values
         course_settings.reload
-        expect(course_settings.enable_extensions).to be true
         expect(course_settings.auto_approve_days).to eq(3)
       end
 
       it 'handles update failures gracefully' do
-        CourseSettings.create!(
-          course: course,
+        course.course_settings.update!(
           enable_extensions: false,
           auto_approve_days: 1
         )
-
-        expect(CourseSettings.where(course_id: course.id).count).to eq(1)
         allow_any_instance_of(CourseSettings).to receive(:update).and_return(false)
 
         patch :update, params: {
           course_id: course.id,
-          course_settings: { enable_extensions: 'true' },
+          course_settings: { auto_approve_days: '3' },
           page: 'approvals'
         }
 
@@ -97,23 +90,16 @@ RSpec.describe CourseSettingsController, type: :controller do
         expect(flash[:alert]).to include('Failed to update course settings:')
       end
 
-      it 'resets email templates and redirects' do
-        CourseSettings.create!(
-          course: course,
-          enable_extensions: true,
-          email_subject: 'Custom Subject',
-          email_template: 'Custom Template'
-        )
-
+      it 'saves the email notification fields from the Email Templates page' do
         patch :update, params: {
           course_id: course.id,
-          reset_email_template: true,
+          course_settings: { enable_emails: 'true', reply_email: 'staff@example.com' },
           page: 'emails'
         }
 
-        expect(response).to redirect_to(emails_course_settings_path(course.id))
-        expect(flash[:notice]).to eq('Email templates reset to defaults.')
-        # We won't test the exact content since that requires knowledge of the constants
+        settings = course.reload.course_settings
+        expect(settings.enable_emails).to be true
+        expect(settings.reply_email).to eq('staff@example.com')
       end
     end
 
@@ -152,14 +138,11 @@ RSpec.describe CourseSettingsController, type: :controller do
 
     before do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
       allow_any_instance_of(Course).to receive(:user_role).with(instructor).and_return('instructor')
 
-      # Create settings to enable extensions
-      CourseSettings.create!(
-        course: course,
-        enable_extensions: true
-      )
+      # Enable extensions on the course's settings
+      course.course_settings.update!(enable_extensions: true)
 
       # Clear instance variables before each test
       controller.instance_variable_set(:@pending_requests_count, nil)
@@ -182,7 +165,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
       patch :update, params: {
         course_id: course.id,
-        course_settings: { enable_extensions: 'true' },
+        course_settings: { auto_approve_days: '3' },
         page: 'approvals'
       }
 
@@ -196,7 +179,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
       patch :update, params: {
         course_id: course.id,
-        course_settings: { enable_extensions: 'true' },
+        course_settings: { auto_approve_days: '3' },
         page: 'approvals'
       }
 
@@ -208,17 +191,16 @@ RSpec.describe CourseSettingsController, type: :controller do
     before do
       session[:user_id] = student.canvas_uid
       student.lms_credentials.create!(
-        lms_name: 'canvas',
+        lms_id: 1,
         token: 'student_token',
         refresh_token: 'student_refresh_token',
         expire_time: 1.hour.from_now
       )
-      UserToCourse.create!(user: student, course: course, role: 'student')
+      Enrollment.create!(user: student, course: course, role: 'student')
       allow_any_instance_of(Course).to receive(:user_role).with(student).and_return('student')
 
-      # Create some course settings to attempt to modify
-      CourseSettings.create!(
-        course: course,
+      # Configure course settings to attempt to modify
+      course.course_settings.update!(
         enable_extensions: false,
         auto_approve_days: 1
       )
@@ -241,17 +223,6 @@ RSpec.describe CourseSettingsController, type: :controller do
       expect(course.reload.course_settings.enable_extensions).to be false
       expect(course.reload.course_settings.auto_approve_days).to eq(1)
     end
-
-    it 'denies access to reset email templates' do
-      patch :update, params: {
-        course_id: course.id,
-        reset_email_template: true,
-        page: 'emails'
-      }
-
-      expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('You do not have access to this page.')
-    end
   end
 
   describe 'authentication issues' do
@@ -270,7 +241,7 @@ RSpec.describe CourseSettingsController, type: :controller do
 
     it 'redirects to courses path when course is not found' do
       session[:user_id] = instructor.canvas_uid
-      UserToCourse.create!(user: instructor, course: course, role: 'instructor')
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
 
       patch :update, params: {
         course_id: 999,

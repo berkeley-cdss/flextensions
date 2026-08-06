@@ -6,19 +6,21 @@ module API
         response.parsed_body
       end
 
+      let(:api_user) { User.create!(email: 'api-user@example.com', canvas_uid: 'api-user-1') }
+
       before do
         @course = Course.create!(course_name: 'Mock CS169 Course')
         @lms = Lms.first
         @external_course_id = 'mock_external_course_id'
+        session[:user_id] = api_user.canvas_uid
       end
 
       after do
         # Clean up the specifically created data
         LmsCredential.destroy_all
-        Extension.destroy_all
         Assignment.destroy_all
         CourseToLms.destroy_all
-        UserToCourse.destroy_all
+        Enrollment.destroy_all
         Course.destroy_all
         Lms.destroy_all
         User.destroy_all
@@ -29,7 +31,7 @@ module API
           it 'returns status :bad_request' do
             post :create, params: { course_id: @course.id, external_course_id: @external_course_id }
             expect(response).to have_http_status(:bad_request)
-            expect(response.body).to include('param is missing or the value is empty: lms_id')
+            expect(response.body).to include('param is missing or the value is empty or invalid: lms_id')
           end
         end
 

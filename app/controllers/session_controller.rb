@@ -1,4 +1,6 @@
 class SessionController < ApplicationController
+  skip_before_action :authenticated!, only: %i[omniauth_callback omniauth_failure]
+
   ## Login work flow explained here
   # Currently the login only supports third-party authentication with Canvas.
   # But the structure to support multiple login methods is largely in place.
@@ -54,12 +56,11 @@ class SessionController < ApplicationController
 
     # dev provider doesnt have real credentials so its stubbed
     expires_at = creds.expires_at || 30.days.from_now.to_i
-    refresh_token = creds.refresh_token || 'none'
 
     access_token = OAuth2::AccessToken.new(
       OAuth2::Client.new('', ''), # client never used – stub
-      creds.token,
-      refresh_token: refresh_token,
+      creds.token.presence || 'developer-stub-token', # oauth2 >= 2.0 rejects a blank token
+      refresh_token: creds.refresh_token,
       expires_at: expires_at
     )
 
@@ -85,6 +86,7 @@ class SessionController < ApplicationController
     redirect_to courses_path, notice: "Logged in! Welcome, #{user_data['name']}!"
   rescue StandardError => e
     Rails.logger.error("OmniAuth callback error: #{e.message}")
+    Rails.error.report(e, handled: true, context: { component: 'omniauth_callback' })
     redirect_to root_path, alert: 'Authentication failed. Invalid credentials.'
   end
 
@@ -104,8 +106,8 @@ class SessionController < ApplicationController
 
     # Ensure enrollment in the test course (as student so they can request extensions)
     if test_course
-      UserToCourse.find_or_create_by!(user_id: user.id, course_id: test_course.id) do |utc|
-        utc.role = 'student'
+      Enrollment.find_or_create_by!(user_id: user.id, course_id: test_course.id) do |enrollment|
+        enrollment.role = 'student'
       end
     end
   end
@@ -170,6 +172,11 @@ class SessionController < ApplicationController
     user.save!
     update_user_credential(user, auth_token)
 
+    # Guard against session fixation: issue a fresh session before storing the
+    # authenticated user's identity, so any session id an attacker may have
+    # fixated is discarded at the moment of login.
+    reset_session
+
     # Store user ID in session for authentication
     session[:username] = user.name
     session[:user_id] = user.canvas_uid
@@ -184,14 +191,14 @@ class SessionController < ApplicationController
       user.lms_credentials.first.update(
         token: token.token,
         refresh_token: token.refresh_token,
-        expire_time: Time.zone.at(token.expires_at)
+        expire_time: Time.zone.at(token.expires_at || 30.days.from_now.to_i)
       )
     else
       user.lms_credentials.create!(
-        lms_name: 'canvas',
+        lms_id: Lms.CANVAS_LMS.id,
         token: token.token,
         refresh_token: token.refresh_token,
-        expire_time: Time.zone.at(token.expires_at)
+        expire_time: Time.zone.at(token.expires_at || 30.days.from_now.to_i)
       )
     end
   end

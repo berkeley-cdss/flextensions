@@ -4,43 +4,48 @@
 			aria-controls="navbar-center" aria-expanded="false" aria-label="Toggle navigation">
 			<span class="navbar-toggler-icon"></span>
 		</button>
-		<div class="color-mode-toggler">
+		<div class="d-lg-none">
 			<a class="navbar-brand col-lg-3 me-0" href="./">Flextensions</a>
 		</div>
-		<div class="color-mode-toggler">
+		<div class="d-lg-none">
 			<%= render "layouts/color_mode_btn" %>
 		</div>
 
 		<div class="collapse navbar-collapse d-lg-flex" id="navbar-center">
-			<a class="navbar-brand col-lg-3 me-0 color-mode-toggler-m" href="/courses">Flextensions</a>
+			<a class="navbar-brand col-lg-3 me-0 d-none d-lg-block" href="/courses">Flextensions</a>
 			<ul class="navbar-nav col-lg-6 justify-content-lg-center">
 				<li class="nav-item">
 					<a class="nav-link active" aria-current="page" href="/courses">Home</a>
 				</li>
-
 				<li class="nav-item">
 					<a class="nav-link" href="https://berkeley-cdss.github.io/flextensions/" target="_blank">Help</a>
 				</li>
 			</ul>
 			<div class="d-lg-flex col-lg-3 justify-content-lg-end">
 				<ul class="navbar-nav">
-					<% if session[:user_id].present? %>
+					<% if current_user.logged_in? %>
 						<!-- Display this when there's a logged-in user -->
 						<li class="nav-item dropdown">
 							<a class="nav-link dropdown-toggle testid-username" href="#" data-bs-toggle="dropdown"
-								aria-expanded="false" aria-label="User menu for <%= session[:username] %>"><%= session[:username] %></a>
-							<ul class="dropdown-menu">
+                aria-expanded="false" aria-label="User menu for <%= current_user.name %>"><%= current_user.name %>
+              </a>
+							<ul class="dropdown-menu" id="user-dropdown-menu">
+								<% if current_user.admin? %>
+									<li><h6 class="dropdown-header">Admin Tools</h6></li>
+									<li><a class="dropdown-item" href="<%= blazer_path %>">Dashboards</a></li>
+									<li><a class="dropdown-item" href="<%= good_job_path %>">Background Jobs</a></li>
+									<li><hr class="dropdown-divider"></li>
+								<% end %>
 								<li><a class="dropdown-item testid-logout-button" href="/logout/">Logout</a></li>
 							</ul>
 						</li>
 					<% else %>
-						<%# TODO: Need a test case for this. %>
 						<li class="nav-item">
-							<%= link_to 'Login', '/auth/canvas', class: 'btn btn-primary', id: 'login-button-index' %>
+							<%= button_to 'Login', '/auth/canvas', method: :post, class: 'btn btn-primary', id: 'login-button-index' %>
 						</li>
 					<% end %>
 					<li>
-						<div class="color-mode-toggler-m">
+						<div class="d-none d-lg-block">
 							<%= render "layouts/color_mode_btn" %>
 						</div>
 					</li>
@@ -58,8 +63,7 @@
 		data-controller="sidebar"
 		data-sidebar-target="toggleBtn"
 		data-action="click->sidebar#toggleSidebar"
-		aria-label="Open sidebar"
-		style="display: none;">
+		aria-label="Open sidebar">
 	<i class="fa-solid fa-arrow-right"></i>
 </button>
 <% end %>

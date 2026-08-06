@@ -31,6 +31,19 @@ class LmsFacade
   end
 
   ##
+  # Builds the URL to an assignment in the LMS's web UI. Each LMS owns its own
+  # URL structure, so subclasses implement this rather than callers assuming a
+  # shared shape across LMSs.
+  #
+  # @param  [String] base_url the LMS base URL (e.g. https://bcourses.berkeley.edu).
+  # @param  [String] external_course_id the course's id in the LMS.
+  # @param  [String] external_assignment_id the assignment's id in the LMS.
+  # @return [String] the URL to the assignment.
+  def self.assignment_url(base_url, external_course_id, external_assignment_id)
+    raise NotImplementedError
+  end
+
+  ##
   # It's not clear whether this needs to exist for all facades.
   # Many APIs paginate responses, and we should be able to use 1 method
   # to handle depagination

@@ -31,7 +31,7 @@ jobs:
     steps:
     # - name: Install packages
     #   run: sudo apt-get update
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1
       with:
@@ -49,6 +49,10 @@ jobs:
       env:
         CHROME_DATA_DIR: /tmp/chrome-data-rspec
         COVERAGE: "true"
+        COVERAGE_COMMAND: rspec
+    - name: Report coverage
+      if: always()
+      run: ruby .github/scripts/coverage_summary.rb "RSpec coverage"
     - name: Submit QLTY Coverage Report
       uses: qltysh/qlty-action/coverage@v1
       if: env.QLTY_COVERAGE_TOKEN != ''

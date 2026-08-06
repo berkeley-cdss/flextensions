@@ -43,16 +43,16 @@ module API
         end
 
         # Check if the user has been already added to the course
-        existing_user_to_course = UserToCourse.find_by(course_id: course_id, user_id: user_id)
-        if existing_user_to_course
+        existing_enrollment = Enrollment.find_by(course_id: course_id, user_id: user_id)
+        if existing_enrollment
           render json: { error: 'The user is already added to the course.' }, status: :unprocessable_content
           return
         end
 
         # Add the user to the course with the desired role
-        new_user_to_course = UserToCourse.new(course_id: course_id, user_id: user_id, role: role)
-        new_user_to_course.save
-        render_response(new_user_to_course,
+        new_enrollment = Enrollment.new(course_id: course_id, user_id: user_id, role: role)
+        new_enrollment.save
+        render_response(new_enrollment,
                         'User added to the course successfully.',
                         'Failed to add the user the to course.')
       end

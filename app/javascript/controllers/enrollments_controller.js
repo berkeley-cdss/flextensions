@@ -1,37 +1,61 @@
 import { Controller } from "@hotwired/stimulus";
 import DataTable from "datatables.net-bs5";
+import { pollUntilDone } from "controllers/sync_poller";
+import "bootstrap";
 import "datatables.net-responsive";
 import "datatables.net-responsive-bs5";
 
 export default class extends Controller {
-	static targets = ["checkbox"]
+	static targets = ["checkbox", "syncBtn", "syncLabel", "syncSpinner"]
 	static values = { courseId: Number }
 
+	// The `enrollments` controller is attached to both the table and the "Sync
+	// Enrollments" button, so only build the DataTable from the table element.
 	connect() {
-		if (!DataTable.isDataTable('#enrollments-table')) {
-			// Define a custom sorting function for the Role column
-			DataTable.ext.type.order['role-pre'] = function (data) {
-				const rolePriority = { teacher: 4, leadta: 3, "lead ta": 3, ta: 2, student: 1 };
-				if (typeof data !== 'string') {
-					data = String(data).trim();
-				}
-				return rolePriority[data.toLowerCase()] || 4;
-			};
-
-			new DataTable('#enrollments-table', {
-				paging: true,
-				searching: true,
-				ordering: true,
-				info: true,
-				responsive: true,
-				pageLength: 100,
-				lengthMenu: [[-1, 25, 50, 100, 500], ["All", 25, 50, 100, 500]],
-				columns: document.querySelectorAll('#enrollments-table thead th').length === 5
-					? [null, null, null, { orderDataType: 'role-pre' }, null]
-					: [null, null, null, { orderDataType: 'role-pre' }],
-				order: [[3, 'des'], [0, 'asc']] // Sort Role first, then Name
-			});
+		if (this.element.id === "enrollments-table") {
+			this.initializeTable();
 		}
+		this.initializePopovers();
+	}
+
+	initializeTable() {
+		if (DataTable.isDataTable('#enrollments-table')) return;
+
+		// Sort the Role column by seniority rather than alphabetically. Registered
+		// as a type-based pre-sort formatter and applied to the column via
+		// `type: 'role'` in columnDefs below.
+		DataTable.ext.type.order['role-pre'] = function (data) {
+			const rolePriority = { teacher: 4, leadta: 3, "lead ta": 3, ta: 2, student: 1 };
+			return rolePriority[String(data).trim().toLowerCase()] || 4;
+		};
+
+		const roleColumnIndex = 3;
+		const table = new DataTable('#enrollments-table', {
+			paging: true,
+			searching: true,
+			ordering: true,
+			info: true,
+			responsive: true,
+			pageLength: 100,
+			lengthMenu: [[-1, 25, 50, 100, 500], ["All", 25, 50, 100, 500]],
+			// Target the Role column by index so this works regardless of how many
+			// columns render (the Extended Requests column is staff-only).
+			columnDefs: [{ targets: roleColumnIndex, type: 'role' }],
+			order: [[roleColumnIndex, 'desc'], [0, 'asc']] // Sort Role first, then Name
+		});
+		// DataTables re-renders tbody rows on each draw (paging/search/sort), so
+		// re-attach popovers to the fresh nodes.
+		table.on('draw', () => this.initializePopovers());
+	}
+
+	// Bootstrap 5 does not auto-initialize popovers; opt them in for the note
+	// buttons (tbody) and the Extended Requests help popover (thead).
+	initializePopovers() {
+		const bs = window.bootstrap;
+		if (!bs) return;
+
+		document.querySelectorAll('#enrollments-table [data-bs-toggle="popover"]')
+			.forEach((el) => bs.Popover.getOrCreateInstance(el));
 	}
 
 	async toggleExtended(event) {
@@ -76,30 +100,39 @@ export default class extends Controller {
 		window.dispatchEvent(new CustomEvent('flash', { detail: { type: type, message: message } }));
 	}
 
-	sync() {
-		const button = event.currentTarget;
-		button.disabled = true;
+	async sync() {
+		const button = this.syncBtnTarget;
+		const label = this.syncLabelTarget;
+		const spinner = this.syncSpinnerTarget;
 		const courseId = this.courseIdValue;
-		const token = document.querySelector('meta[name="csrf-token"]').content;		fetch(`/courses/${courseId}/sync_enrollments`, {
-		  method: "POST",
-		  headers: {
-			"Content-Type": "application/json",
-			"X-CSRF-Token": token,
-		  },
-		})
-		  .then((response) => {
-			if (!response.ok) {
-			  throw new Error(`Failed to sync enrollments. ${response.status} - ${response.statusText}`);
-			}
-			return response.json();
-		  })
-		  .then((data) => {
-			flash("notice", data.message || "Enrollments synced successfully.");
+		const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+		button.disabled = true;
+		label.textContent = "Syncing...";
+		spinner.classList.remove("d-none");
+
+		try {
+			// Capture timestamp before sync so we can detect when job finishes
+			const statusBefore = await fetch(`/courses/${courseId}/sync_status`).then(r => r.json());
+			const beforeTs = statusBefore.roster_synced_at;
+
+			const response = await fetch(`/courses/${courseId}/sync_enrollments`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
+			});
+
+			if (!response.ok) throw new Error(`Failed to sync enrollments. ${response.status}`);
+
+			await pollUntilDone(courseId, "roster_synced_at", beforeTs);
+
+			flash("notice", "Enrollments synced successfully.");
 			location.reload();
-		  })
-		  .catch((error) => {
+		} catch (error) {
 			flash("alert", error.message || "An error occurred while syncing enrollments.");
-			location.reload();
-		});
-	  }
+			button.disabled = false;
+			label.textContent = "Sync Enrollments";
+			spinner.classList.add("d-none");
+		}
+	}
+
 }

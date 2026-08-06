@@ -12,6 +12,11 @@ Feature: Course Enrollments
 		And I should see "User 4"
 		And I should see "User 5"
 
+	Scenario: Each row offers a button to copy that person's email
+		Given I'm logged in as a teacher
+		When I go to the Course Enrollments page
+		Then I should see a "Copy email address for User 3" button
+
 	@javascript
 	Scenario: Instructor toggles "Approved Extended?" on for a student
 		Given I'm logged in as a teacher
@@ -35,3 +40,16 @@ Feature: Course Enrollments
 		And I click the name link for student "User 3"
 		Then I should be on the "Requests page" with param show_all=true
 		And the requests table search should be filtered
+
+	Scenario: Instructor sees the Sync Enrollments button
+		Given I'm logged in as a teacher
+		When I go to the Course Enrollments page
+		Then I should see a "Sync Enrollments" button
+
+	@javascript
+	Scenario: Clicking Sync Enrollments disables the button and shows a spinner
+		Given I'm logged in as a teacher
+		When I go to the Course Enrollments page
+		And I click the "Sync Enrollments" button
+		Then the "Sync Enrollments" button should be disabled
+		And I should see a loading spinner

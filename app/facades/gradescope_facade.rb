@@ -15,6 +15,10 @@ class GradescopeFacade < LmsFacade
     new
   end
 
+  def self.assignment_url(base_url, external_course_id, external_assignment_id)
+    "#{base_url}/courses/#{external_course_id}/assignments/#{external_assignment_id}"
+  end
+
   ### Review the Canvas Facade for methods which might need to be implemented here.
   # Add those methods to the base facade as well.
 
@@ -44,6 +48,8 @@ class GradescopeFacade < LmsFacade
       raise e
     rescue => e
       Rails.logger.error "Failed to fetch Gradescope assignments: #{e.message}"
+      Rails.error.report(e, handled: true,
+                         context: { component: 'gradescope', operation: 'get_all_assignments', course_id: course_id })
       []
     end
   end
@@ -70,6 +76,8 @@ class GradescopeFacade < LmsFacade
       overrides_data.map { |data| Lmss::Gradescope::Override.new(data) }
     rescue => e
       Rails.logger.error "Failed to fetch assignment extensions: #{e.message}"
+      Rails.error.report(e, handled: true,
+                         context: { component: 'gradescope', operation: 'get_assignment_overrides', course_id: course_id, assignment_id: assignment_id })
       []
     end
   end

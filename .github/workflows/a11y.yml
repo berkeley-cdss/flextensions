@@ -16,7 +16,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
         ports:
-         - 5432:5432
+          - 5432:5432
         options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
     env:
       # Do not install production/staging-only gems in test environment
@@ -28,23 +28,29 @@ jobs:
     steps:
     - name: Install packages
       run: sudo apt-get update && sudo apt-get install --no-install-recommends -y google-chrome-stable
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1
       with:
         ruby-version: .tool-versions
         bundler-cache: true
-     - name: Set up Database
-       run: bundle exec rails db:setup
-     - name: Create separate Chrome data directories
-       run: |
-         mkdir -p /tmp/chrome-data-rspec
-     - name: Run RSpec Accessibility Tests
-       run: bundle exec rspec spec/ --tag a11y
-       env:
-         CHROME_DATA_DIR: /tmp/chrome-data-rspec
-      - name: Upload Screenshot
-        uses: actions/upload-artifact@v2
-        with:
-          name: screenshot
-          path: /tmp/chrome-data-rspec/screenshots
+    - name: Set up Database
+      run: bundle exec rails db:setup
+    - name: Create separate Chrome data directories
+      run: |
+        mkdir -p /tmp/chrome-data-rspec
+    - name: Run RSpec Accessibility Tests
+      run: bundle exec rspec spec/ --tag a11y
+      env:
+        CHROME_DATA_DIR: /tmp/chrome-data-rspec
+    # The specs call page.save_screenshot(name) before each axe assertion, so
+    # Capybara writes one screenshot per page/theme/role to its default save
+    # path (tmp/capybara) — including for the pages that fail. Upload the whole
+    # directory on failure so the failing screenshots are available to inspect.
+    - name: Upload a11y failure screenshots
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: a11y-failure-screenshots
+        path: tmp/capybara/
+        if-no-files-found: ignore

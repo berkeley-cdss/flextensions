@@ -3,22 +3,24 @@ Given(/^a course exists$/) do
   @course = create(:course, course_name: 'Physics 110A', canvas_id: 'Phys110A', course_code: 'PHYS110A')
 
   teacher = create(:teacher, email: 'user1@berkeley.edu', canvas_uid: 'canvas_uid_1')
-  create(:user_to_course, user: teacher, course: @course, role: 'teacher')
+  create(:enrollment, user: teacher, course: @course, role: 'teacher')
 
   ta = create(:ta, email: 'user2@berkeley.edu', canvas_uid: 'canvas_uid_2')
-  create(:user_to_course, user: ta, course: @course, role: 'ta')
+  create(:enrollment, user: ta, course: @course, role: 'ta')
 
   3.times do |i|
     student = create(:student, email: "user#{i + 3}@berkeley.edu", canvas_uid: "canvas_uid_#{i + 3}")
-    create(:user_to_course, user: student, course: @course, role: 'student')
+    create(:enrollment, user: student, course: @course, role: 'student')
   end
 end
 
-Given(/^(?:I am|I'm|I) (?:logged|log) in as a (teacher|ta|student)$/i) do |role|
+Given(/^(?:I am|I'm|I) (?:logged|log) in as an? (teacher|ta|student|admin)$/i) do |role|
   emails = {
     'teacher' => 'user1@berkeley.edu',
     'ta' => 'user2@berkeley.edu',
-    'student' => 'user3@berkeley.edu'
+    'student' => 'user3@berkeley.edu',
+    # Not part of `a course exists`, so this is created on demand.
+    'admin' => 'admin@berkeley.edu'
   }
   email = emails[role.downcase]
   user = User.find_by(email: email) || create(role.to_sym, email: email)
@@ -133,7 +135,7 @@ end
 # Then the enrollment for "User 3" should allow/disallow extended requests
 Then(/^the enrollment for "([^"]*)" should (allow|disallow) extended requests$/) do |user_name, state|
   user = User.find_by!(name: user_name)
-  enrollment = UserToCourse.find_by!(user: user, course: @course, role: 'student')
+  enrollment = Enrollment.find_by!(user: user, course: @course, role: 'student')
   expected = (state == 'allow')
   expect(enrollment.reload.allow_extended_requests).to eq(expected)
 end
@@ -142,7 +144,7 @@ end
 # Given the enrollment for "User 3" allows extended requests
 Given(/^the enrollment for "([^"]*)" allows extended requests$/) do |user_name|
   user = User.find_by!(name: user_name)
-  enrollment = UserToCourse.find_by!(user: user, course: @course, role: 'student')
+  enrollment = Enrollment.find_by!(user: user, course: @course, role: 'student')
   enrollment.update!(allow_extended_requests: true)
 end
 
@@ -196,7 +198,7 @@ Then(/^the requests table search should be filtered$/) do
 end
 
 Given(/^a pending request exists$/) do
-  student = User.joins(:user_to_courses).find_by(user_to_courses: { course: @course, role: 'student' })
+  student = User.joins(:enrollments).find_by(enrollments: { course: @course, role: 'student' })
   assignment = Assignment.first
   @pending_request = create(:request, user: student, course: @course, assignment: assignment)
 end
@@ -216,6 +218,41 @@ end
 Then(/^I should be on the request page for that request$/) do
   expected_path = "/courses/#{@course.id}/requests/#{@pending_request.id}"
   expect(page.current_path).to eq(expected_path)
+end
+
+###################
+#    SYNC UI      #
+###################
+
+# Then I should see a "Sync Enrollments" button
+Then(/^I should see a "([^"]*)" button$/) do |label|
+  expect(page).to have_button(label)
+end
+
+# When I click the "Sync Enrollments" button
+When(/^I click the "([^"]*)" button$/) do |label|
+  # csrf_meta_tags renders nothing when allow_forgery_protection = false (test env).
+  # Inject a placeholder token so JS fetch handlers don't throw before disabling the button.
+  page.execute_script(<<~JS)
+    if (!document.querySelector('meta[name="csrf-token"]')) {
+      const m = document.createElement('meta');
+      m.name = 'csrf-token';
+      m.content = 'test-csrf-token';
+      document.head.appendChild(m);
+    }
+  JS
+  click_button(label)
+end
+
+# Then the "Sync Enrollments" button should be disabled
+# When sync starts, the label changes to "Syncing..." so we check for that text + disabled
+Then(/^the "([^"]*)" button should be disabled$/) do |_label|
+  expect(page).to have_button("Syncing...", disabled: true)
+end
+
+# Then I should see a loading spinner
+Then(/^I should see a loading spinner$/) do
+  expect(page).to have_css('.spinner-border:not(.d-none)', visible: true)
 end
 
 Given(/^I deny the request for "([^"]*)"$/) do |assignment_name|

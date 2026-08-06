@@ -16,12 +16,14 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
         build_canvas_assignment(
           'id' => '123',
           'name' => 'Assignment 1',
+          'unlock_at' => '2025-01-10T23:59:00Z',
           'due_at' => '2025-01-15T23:59:00Z',
           'lock_at' => '2025-01-20T23:59:00Z'
         ),
         build_canvas_assignment(
           'id' => '456',
           'name' => 'Assignment 2',
+          'unlock_at' => nil,
           'due_at' => '2025-02-15T23:59:00Z',
           'lock_at' => nil
         )
@@ -41,11 +43,13 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
 
       assignment1 = Assignment.find_by(external_assignment_id: '123')
       expect(assignment1.name).to eq('Assignment 1')
+      expect(assignment1.release_date).to eq(DateTime.parse('2025-01-10T23:59:00Z'))
       expect(assignment1.due_date).to eq(DateTime.parse('2025-01-15T23:59:00Z'))
       expect(assignment1.late_due_date).to eq(DateTime.parse('2025-01-20T23:59:00Z'))
 
       assignment2 = Assignment.find_by(external_assignment_id: '456')
       expect(assignment2.name).to eq('Assignment 2')
+      expect(assignment2.release_date).to be_nil
       expect(assignment2.due_date).to eq(DateTime.parse('2025-02-15T23:59:00Z'))
       expect(assignment2.late_due_date).to be_nil
     end
@@ -63,18 +67,37 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
       expect(existing_assignment.name).to eq('Assignment 1')
     end
 
-    it 'deletes assignments that no longer exist in Canvas' do
+    it 'disables assignments that no longer exist in Canvas without deleting them' do
       orphaned_assignment = create(:assignment,
         course_to_lms: course_to_lms,
         external_assignment_id: '999',
-        name: 'Orphaned Assignment'
+        name: 'Orphaned Assignment',
+        due_date: 1.week.from_now,
+        enabled: true
       )
 
       expect {
         described_class.perform_now(course_to_lms.id, sync_user.id)
-      }.to change(Assignment, :count).by(1) # 2 new, 1 deleted = +1
+      }.to change(Assignment, :count).by(2) # 2 new, orphan kept
 
-      expect(Assignment.find_by(id: orphaned_assignment.id)).to be_nil
+      expect(orphaned_assignment.reload.enabled).to be(false)
+    end
+
+    context 'when Canvas returns no assignments' do
+      let(:canvas_assignments) { [] }
+
+      it 'does not disable existing assignments' do
+        existing_assignment = create(:assignment,
+          course_to_lms: course_to_lms,
+          external_assignment_id: '999',
+          due_date: 1.week.from_now,
+          enabled: true
+        )
+
+        described_class.perform_now(course_to_lms.id, sync_user.id)
+
+        expect(existing_assignment.reload.enabled).to be(true)
+      end
     end
 
     it 'returns sync results' do
@@ -84,7 +107,7 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
         added_assignments: 2,
         updated_assignments: 0,
         unchanged_assignments: 0,
-        deleted_assignments: 0,
+        disabled_assignments: 0,
         synced_at: be_within(1.second).of(Time.current)
       )
     end
@@ -97,6 +120,7 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
           build_canvas_assignment(
             'id' => '123',
             'name' => 'Assignment with base dates',
+            'unlock_at' => '2025-03-10T23:59:00Z',
             'due_at' => '2025-03-15T23:59:00Z',
             'lock_at' => '2025-03-20T23:59:00Z'
           )
@@ -107,6 +131,7 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
         described_class.perform_now(course_to_lms.id, sync_user.id)
 
         assignment = Assignment.find_by(external_assignment_id: '123')
+        expect(assignment.release_date).to eq(DateTime.parse('2025-03-10T23:59:00Z'))
         expect(assignment.due_date).to eq(DateTime.parse('2025-03-15T23:59:00Z'))
         expect(assignment.late_due_date).to eq(DateTime.parse('2025-03-20T23:59:00Z'))
       end
@@ -128,20 +153,75 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
     end
   end
 
+  describe '#sync_assignment' do
+    let(:job) { described_class.new }
+    let(:results) { { added_assignments: 0, updated_assignments: 0, unchanged_assignments: 0, deleted_assignments: 0 } }
+    let(:lms_assignment) do
+      build_canvas_assignment('id' => 'a123', 'name' => 'HW1', 'due_at' => '2025-06-01T23:59:00Z', 'lock_at' => nil)
+    end
 
-  # THIS MUST BE REWRITTEN
-  # This was moved from Course.sync_assignment
-  # It is now a helper method within the job.
-  describe '.sync_assignment' do
-    it 'creates or updates an assignment' do
-      pending 'moved from course_spec and should be rewritten'
-      assignment_data = { 'id' => 'a123', 'name' => 'HW1', 'due_at' => 1.day.from_now.to_s }
+    it 'creates a new assignment and updates results' do
+      lms_assignment = build_canvas_assignment(
+        'id' => 'a123', 'name' => 'HW1',
+        'due_at' => '2025-01-15T23:59:00Z', 'lock_at' => '2025-01-20T23:59:00Z'
+      )
+
       expect do
-        described_class.sync_assignment(course_to_lms, assignment_data)
-      end.to change(Assignment, :count).by(1)
+        job.send(:sync_assignment, course_to_lms, lms_assignment, results)
+      end.to change { Assignment.where(course_to_lms_id: course_to_lms.id).count }.by(1)
 
-      assignment = Assignment.last
+      assignment = Assignment.find_by(course_to_lms_id: course_to_lms.id, external_assignment_id: 'a123')
       expect(assignment.name).to eq('HW1')
+      expect(assignment.due_date).to eq(DateTime.parse('2025-01-15T23:59:00Z'))
+      expect(assignment.late_due_date).to eq(DateTime.parse('2025-01-20T23:59:00Z'))
+      expect(results[:added_assignments]).to eq(1)
+      expect(results[:updated_assignments]).to eq(0)
+      expect(results[:unchanged_assignments]).to eq(0)
+    end
+
+    it 'updates an existing assignment and updates results' do
+      existing_assignment = create(:assignment,
+        course_to_lms: course_to_lms,
+        external_assignment_id: 'a123',
+        name: 'Old HW Name',
+        due_date: DateTime.parse('2025-01-10T23:59:00Z')
+      )
+
+      lms_assignment = build_canvas_assignment(
+        'id' => 'a123', 'name' => 'HW1 Updated',
+        'due_at' => '2025-01-25T23:59:00Z', 'lock_at' => nil
+      )
+
+      expect do
+        job.send(:sync_assignment, course_to_lms, lms_assignment, results)
+      end.not_to change { Assignment.where(course_to_lms_id: course_to_lms.id).count }
+
+      existing_assignment.reload
+      expect(existing_assignment.name).to eq('HW1 Updated')
+      expect(existing_assignment.due_date).to eq(DateTime.parse('2025-01-25T23:59:00Z'))
+      expect(existing_assignment.late_due_date).to be_nil
+      expect(results[:added_assignments]).to eq(0)
+      expect(results[:updated_assignments]).to eq(1)
+      expect(results[:unchanged_assignments]).to eq(0)
+    end
+
+    it 'increments unchanged_assignments when nothing changed' do
+      create(:assignment,
+        course_to_lms: course_to_lms,
+        external_assignment_id: 'a123',
+        name: 'HW1',
+        due_date: DateTime.parse('2025-06-01T23:59:00Z'),
+        late_due_date: nil
+      )
+
+      lms_assignment = build_canvas_assignment(
+        'id' => 'a123', 'name' => 'HW1',
+        'due_at' => '2025-06-01T23:59:00Z', 'lock_at' => nil
+      )
+
+      job.send(:sync_assignment, course_to_lms, lms_assignment, results)
+
+      expect(results[:unchanged_assignments]).to eq(1)
     end
   end
 

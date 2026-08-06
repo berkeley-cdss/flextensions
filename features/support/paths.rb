@@ -26,6 +26,9 @@ module NavigationHelpers
     when /^Course Settings page$/
       "/courses/#{@course.id}/settings/approvals"
 
+    when /^Course Details page$/
+      "/courses/#{@course.id}/edit"
+
     when /^Form Settings page$/
       "/courses/#{@course.id}/settings/form/edit"
 

@@ -2,7 +2,7 @@
   <div class="row">
     <div class="col-12">
       <%= render "courses/course_title" %>
-      <h1 class="sr-only">Instructor View</h1>
+      <h1 class="visually-hidden">Instructor View</h1>
 
       <%= render "shared/extension_status_warning", course: @course %>
 
@@ -11,6 +11,7 @@
           <thead class="table-blue-medium text-white">
             <tr>
               <th style="min-width: 200px;">Assignment</th>
+              <th class="text-center">Release Date</th>
               <th class="text-center">Due Date</th>
               <th class="text-center">Late Due Date</th>
               <th class="text-center" style="width: 80px;">Enable</th>
@@ -26,6 +27,7 @@
                     <%= assignment_link_for(assignment, @course) %>
                   </div>
                 </td>
+                <td class="text-center"><%= assignment.release_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
                 <td class="text-center"><%= assignment.due_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
                 <td class="text-center"><%= assignment.late_due_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
                 <td class="justify-content-center align-content-center">
@@ -37,9 +39,7 @@
                            data-assignment-target="checkbox"
                            data-action="change->assignment#toggleAssignment"
                            data-assignment-id="<%= assignment.id %>"
-                           data-url="<%= toggle_enabled_assignment_path(assignment) %>"
-                           data-role="<%= @role %>"
-                           data-user-id="<%= @user.id %>">
+                           data-url="<%= toggle_enabled_assignment_path(assignment) %>">
                     <label class="visually-hidden" for="assignment-<%= assignment.id %>-enabled">
                       Enable <%= assignment.name %> assignment
                     </label>
@@ -50,19 +50,37 @@
           </tbody>
         </table>
       </div>
+    </div>
+  </div>
 
-      <div class="text-start mt-4">
-        <button class="btn btn-outline-primary"
-                data-controller="assignment"
-                data-action="click->assignment#sync"
-                data-assignment-course-id-value="<%= @course.id %>">
-          Sync Assignments
-        </button>
-        <p class="text-muted mt-2 mb-0">
-          Assignments last synced at
-          <%= @assignments_last_synced_at ? @assignments_last_synced_at.strftime('%a, %b %-d at %-I:%M%P') : 'never' %>
-        </p>
-      </div>
+  <div class="row">
+    <div class="mt-4 col align-self-start text-start">
+      <button class="btn btn-outline-primary"
+        data-controller="assignment"
+        data-action="click->assignment#sync"
+        data-assignment-course-id-value="<%= @course.id %>"
+        data-assignment-target="syncBtn">
+        <span data-assignment-target="syncLabel">Sync Assignments</span>
+        <span data-assignment-target="syncSpinner" class="spinner-border spinner-border-sm ms-1 d-none" role="status" aria-hidden="true"></span>
+      </button>
+      <p class="text-muted mt-2 mb-0">
+        Assignments last synced at
+        <%= @assignments_last_synced_at ? @assignments_last_synced_at.strftime('%a, %b %-d at %-I:%M%P') : 'never' %>
+      </p>
+    </div>
+
+    <div class="mt-4 col text-end"
+        data-controller="assignment"
+        data-assignment-course-id-value="<%= @course.id %>"
+        data-assignment-bulk-url-value="<%= bulk_update_assignments_course_path(@course) %>">
+      <button class="btn btn-success"
+              data-action="click->assignment#enableAll">
+        Enable All
+      </button>
+      <button class="btn btn-secondary"
+              data-action="click->assignment#disableAll">
+        Disable All
+      </button>
     </div>
   </div>
 </div>

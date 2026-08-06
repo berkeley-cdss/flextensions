@@ -11,11 +11,24 @@ RSpec.describe HomeController, type: :controller do
     end
 
     context 'when user is logged in' do
-      before { session[:user_id] = '12345' }
+      before { session[:user_id] = create(:user).canvas_uid }
 
       it 'redirects to courses_path' do
         get :index
         expect(response).to redirect_to(courses_path)
+      end
+    end
+
+    context 'when the session points at a user that no longer exists' do
+      before { session[:user_id] = 'nonexistent-uid' }
+
+      # current_user is a NullUser here, so the visitor is treated as logged
+      # out and stays on the landing page rather than being sent to /courses
+      # only to be bounced straight back by `authenticated!`.
+      it 'renders the index page' do
+        get :index
+        expect(response).to have_http_status(:ok)
+        expect(response).to render_template(:index)
       end
     end
   end

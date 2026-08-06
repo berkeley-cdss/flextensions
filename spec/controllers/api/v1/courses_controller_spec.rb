@@ -2,6 +2,10 @@ require 'rails_helper'
 module API
   module V1
     describe CoursesController do
+      let(:api_user) { User.create!(email: 'api-user@example.com', canvas_uid: 'api-user-1') }
+
+      before { session[:user_id] = api_user.canvas_uid }
+
       describe 'POST #create' do
         context 'when the new course is successfully created' do
           let(:course_name) { 'New Course' }
