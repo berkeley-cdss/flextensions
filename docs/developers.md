@@ -144,6 +144,46 @@ recurring jobs — for example when moving them to a dedicated worker started wi
 
 ---
 
+## Deployment (Elastic Beanstalk)
+
+Staging and production run on the *Ruby 3.3 on Amazon Linux 2023* platform, built
+by CodeBuild (`buildspec.yml`) and deployed by CodePipeline.
+
+### There is deliberately no `Procfile`
+
+The repository intentionally ships **no root `Procfile`**. When one is absent,
+Elastic Beanstalk [generates the default](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/ruby-platform-procfile.html)
+for the Ruby platform:
+
+```
+web: bundle exec puma -C /opt/elasticbeanstalk/config/private/pumaconf.rb
+```
+
+That platform-provided `pumaconf.rb` binds Puma to the Unix socket
+`/var/run/puma/my_app.sock`, which is what the platform's nginx config proxies
+to (`upstream my_app { server unix:///var/run/puma/my_app.sock; }`). Note that
+this is *not* the generic `PORT` / TCP-5000 convention used by the Go and Java SE
+platforms — the Ruby platform does **not** set a `PORT` environment variable, so
+a `Procfile` line like `web: bundle exec rails server -p $PORT` starts Rails with
+an empty `--port` argument and the web process dies at boot with
+`Thor::MalformattedArgumentError: No value provided for option '--port'`.
+
+If you ever do need a custom `Procfile`, two platform behaviours are worth
+knowing:
+
+- **Comments are not supported.** Every line must match
+  `^[A-Za-z0-9_-]+:\s*[^\s].*$`. A `#` comment makes the whole file invalid, and
+  Elastic Beanstalk silently falls back to its generated default — so a
+  `Procfile` with comments *appears* to work while none of its lines are
+  actually running. Document the process model here instead.
+- The `web` process must bind `unix:///var/run/puma/my_app.sock`, not a TCP port,
+  or nginx will return 502.
+
+Because GoodJob runs in-process (see [Background and Scheduled Jobs](#background-and-scheduled-jobs)),
+the single platform-managed `web` process is all this app needs.
+
+---
+
 ## Standing Up the Application on Heroku
 
 1. Setup the following ENV variables in heroku, with the same values in your local .env file.
