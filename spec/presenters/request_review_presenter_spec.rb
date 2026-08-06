@@ -18,6 +18,12 @@ RSpec.describe RequestReviewPresenter do
                     reason: 'Need time', requested_due_date: 5.days.from_now)
   end
 
+  describe '#student_name' do
+    it "returns the requesting student's name" do
+      expect(presenter.student_name).to eq(student.name)
+    end
+  end
+
   describe '#student_requests' do
     it "returns the student's other requests in the course, excluding this one" do
       other_assignment = Assignment.create!(

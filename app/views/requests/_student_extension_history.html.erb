@@ -2,7 +2,15 @@
     instructor can spot patterns before approving/denying. Locals: review
     (RequestReviewPresenter), course. %>
 <div class="mb-4">
-	<h3 class="mb-2 h6">This Student's Extension History in <%= course.course_code.presence || 'this Course' %></h3>
+	<h3 class="mb-2 h6"><%= review.student_name %>'s Extension History in <%= course.course_code.presence || 'this Course' %></h3>
+	<p class="mb-2">
+		<strong>Extended requests?</strong>
+		<% if review.allow_extended_requests? %>
+			<span class="badge text-bg-success" title="This student is allowed to request longer extensions than the standard limit.">Yes</span>
+		<% else %>
+			<span class="badge text-bg-info">No</span>
+		<% end %>
+	</p>
 	<p class="text-muted small mb-2">
 		<span class="badge text-bg-success"><%= review.approved_count %> approved</span>
 		<span class="badge text-bg-info"><%= review.pending_count %> pending</span>

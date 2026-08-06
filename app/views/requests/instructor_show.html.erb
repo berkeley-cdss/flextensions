@@ -32,26 +32,23 @@
 							<% if @request.user.email.present? %>
 								<%= mail_to @request.user.email, @request.user.email, class: "ms-2" %>
 							<% end %>
-							<% if @review.allow_extended_requests? %>
-								<span class="badge text-bg-warning ms-2" title="This student is allowed to request longer extensions than the standard limit.">Extended requests allowed</span>
-							<% end %>
 						</div>
-						<p class="mb-2 text-muted small">
-							<strong>Submitted:</strong>
-							<%= @request.created_at.strftime('%a, %b %-d, %Y %-I:%M%P') %>
-							<% if @assignment&.due_date.present? %>
-								<% if @review.submitted_after_deadline? %>
-									<span class="badge text-bg-danger ms-1">after original deadline</span>
-								<% else %>
-									<span class="badge text-bg-secondary ms-1">before original deadline</span>
-								<% end %>
-							<% end %>
-						</p>
 						<% if @request.assignment.present? %>
 							<p class="mb-2">
 								<strong class="fs-5">Assignment:</strong>
 								<span class="fs-5"><%= @request.assignment.name %></span>
 								<%= assignment_link_for(@request.assignment, @course) %>
+							</p>
+							<p class="mb-2 text-muted small">
+								<strong>Request submitted at</strong>
+								<%= @request.created_at.strftime('%a, %b %-d, %Y %-I:%M%P') %>
+								<% if @assignment&.due_date.present? %>
+									<% if @review.submitted_after_deadline? %>
+										<span class="badge text-bg-danger ms-1">after original deadline</span>
+									<% else %>
+										<span class="badge text-bg-secondary ms-1">before original deadline</span>
+									<% end %>
+								<% end %>
 							</p>
 							<div class="row">
 								<div class="col-md-6">

@@ -8,6 +8,10 @@ class RequestReviewPresenter
     @course = request.course
   end
 
+  def student_name
+    @request.user.name
+  end
+
   # The student's other extension requests in this course, newest first.
   def student_requests
     @student_requests ||= @course.requests
