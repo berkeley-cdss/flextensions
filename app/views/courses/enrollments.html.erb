@@ -60,15 +60,15 @@
               <td class="text-center">
                 <% if enrollment.student? %>
                   <% note = enrollment.notes.present? ? enrollment.notes : '(no notes)' %>
-                  <span class="text-primary"
-                        role="img"
-                        tabindex="0"
-                        data-bs-toggle="tooltip"
-                        data-bs-title="<%= note %>"
-                        title="<%= note %>"
-                        aria-label="Note: <%= note %>">
+                  <button type="button"
+                          class="btn btn-link p-0 text-primary"
+                          data-bs-toggle="popover"
+                          data-bs-trigger="focus"
+                          data-bs-title="Staff notes"
+                          data-bs-content="<%= note %>"
+                          aria-label="Staff notes for <%= enrollment.user.name %>">
                     <i class="fas fa-sticky-note" aria-hidden="true"></i>
-                  </span>
+                  </button>
                 <% end %>
               </td>
 

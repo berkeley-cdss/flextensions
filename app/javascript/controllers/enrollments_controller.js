@@ -15,7 +15,7 @@ export default class extends Controller {
 		if (this.element.id === "enrollments-table") {
 			this.initializeTable();
 		}
-		this.initializeTooltipsAndPopovers();
+		this.initializePopovers();
 	}
 
 	initializeTable() {
@@ -44,18 +44,16 @@ export default class extends Controller {
 			order: [[roleColumnIndex, 'desc'], [0, 'asc']] // Sort Role first, then Name
 		});
 		// DataTables re-renders tbody rows on each draw (paging/search/sort), so
-		// re-attach tooltips to the fresh nodes.
-		table.on('draw', () => this.initializeTooltipsAndPopovers());
+		// re-attach popovers to the fresh nodes.
+		table.on('draw', () => this.initializePopovers());
 	}
 
-	// Bootstrap 5 does not auto-initialize tooltips/popovers; opt them in for the
-	// note icons (tbody) and the Extended Requests help popover (thead).
-	initializeTooltipsAndPopovers() {
+	// Bootstrap 5 does not auto-initialize popovers; opt them in for the note
+	// buttons (tbody) and the Extended Requests help popover (thead).
+	initializePopovers() {
 		const bs = window.bootstrap;
 		if (!bs) return;
 
-		document.querySelectorAll('#enrollments-table [data-bs-toggle="tooltip"]')
-			.forEach((el) => bs.Tooltip.getOrCreateInstance(el));
 		document.querySelectorAll('#enrollments-table [data-bs-toggle="popover"]')
 			.forEach((el) => bs.Popover.getOrCreateInstance(el));
 	}
