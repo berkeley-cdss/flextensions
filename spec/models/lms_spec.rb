@@ -1,6 +1,17 @@
 # spec/models/lms_spec.rb
 require 'rails_helper'
 
+# == Schema Information
+#
+# Table name: lmss
+#
+#  id             :bigint           not null, primary key
+#  lms_base_url   :string
+#  lms_name       :string
+#  use_auth_token :boolean
+#  created_at     :datetime         not null
+#  updated_at     :datetime         not null
+#
 RSpec.describe Lms, type: :model do
   # Clear the in-memory cache around each example so tests exercise (and don't
   # leak) the preloaded state; other specs re-warm it lazily from the seed row.

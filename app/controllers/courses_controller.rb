@@ -1,7 +1,7 @@
 class CoursesController < ApplicationController
-  before_action :set_course, only: %i[show edit sync_assignments sync_enrollments sync_status bulk_update_assignments enrollments delete]
+  before_action :set_course, only: %i[show edit update sync_assignments sync_enrollments sync_status bulk_update_assignments enrollments delete]
   # Currently exclude routes that expect JSON.
-  before_action :require_course_staff!, only: %i[edit enrollments delete]
+  before_action :require_course_staff!, only: %i[edit update enrollments delete]
   before_action :set_pending_request_count
 
   def index
@@ -20,7 +20,6 @@ class CoursesController < ApplicationController
     # TODO: This shouldn't be possible. Remove?
     return redirect_to courses_path, alert: 'No Canvas LMS data found for this course.' unless @course.has_canvas_linked?
 
-    @side_nav = 'show'
     @course.regenerate_readonly_api_token_if_blank
 
     if @course.staff_user?(current_user)
@@ -59,7 +58,7 @@ class CoursesController < ApplicationController
   end
 
   def edit
-    @side_nav = 'edit'
+    @course_settings = @course.course_settings || @course.build_course_settings
   end
 
   def create
@@ -68,6 +67,24 @@ class CoursesController < ApplicationController
       .select { |c| params[:courses]&.include?(c['id'].to_s) }
       .each { |course_api| Course.create_or_update_from_canvas(course_api, token, current_user) }
     redirect_to courses_path, notice: 'Selected courses and their assignments have been imported successfully.'
+  end
+
+  def update
+    @course_settings = @course.course_settings || @course.build_course_settings
+
+    attrs = course_params.to_h
+    # Only overwrite the semester when both dropdowns are set; this preserves a
+    # value stored in an unexpected format that the picker left blank.
+    semester = combined_semester
+    attrs[:semester] = semester if semester.present?
+
+    if @course.update(attrs) && @course_settings.update(course_settings_params)
+      after_course_details_saved
+    else
+      errors = (@course.errors.full_messages + @course_settings.errors.full_messages).to_sentence
+      flash.now[:alert] = "Failed to update course details: #{errors}"
+      render :edit, status: :unprocessable_content
+    end
   end
 
   def sync_assignments
@@ -110,9 +127,9 @@ class CoursesController < ApplicationController
   end
 
   def enrollments
-    @side_nav = 'enrollments'
     @enrollments = @course.enrollments.includes(:user)
     @enrollments_last_synced_at = enrollments_last_synced_at
+    @approved_late_days = Request.total_approved_late_days_by_user(@course)
     @approved_late_days = Request.total_approved_late_days_by_user(@course)
   end
 
@@ -125,6 +142,47 @@ class CoursesController < ApplicationController
   end
 
   private
+
+  def course_params
+    params.expect(course: [ :course_name, :course_code, :demo_course ])
+  end
+
+  # Course-level settings edited alongside the course itself on Course Details.
+  def course_settings_params
+    params.fetch(:course_settings, {}).permit(
+      :enable_extensions,
+      :enable_gradescope,
+      :gradescope_course_url,
+      :enable_slack_webhook_url,
+      :slack_webhook_url,
+      :pending_notification_frequency,
+      :pending_notification_email
+    )
+  end
+
+  # Redirects after a successful save, sending a Slack ping when the webhook
+  # was just enabled.
+  def after_course_details_saved
+    unless @course_settings.slack_webhook_just_enabled?
+      return redirect_to edit_course_path(@course), notice: 'Course details updated successfully.'
+    end
+
+    if SlackNotifier.notify(@course_settings.slack_enabled_message, @course_settings.slack_webhook_url)
+      redirect_to edit_course_path(@course), notice: 'Course details updated successfully. Check your Slack channel for notifications.'
+    else
+      redirect_to edit_course_path(@course), alert: 'Failed to send Slack notification. Please check the webhook URL.'
+    end
+  end
+
+  # Combines the season + year dropdowns into a "Season Year" string, or nil
+  # when either is blank.
+  def combined_semester
+    season = params.dig(:course, :semester_season)
+    year = params.dig(:course, :semester_year)
+    return nil if season.blank? || year.blank?
+
+    "#{season} #{year}"
+  end
 
   # Returns the time the roster was last synced from Canvas, or nil if never synced.
   def enrollments_last_synced_at

@@ -1,4 +1,3 @@
-# rubocop:disable Layout/LineLength
 # == Schema Information
 #
 # Table name: course_settings
@@ -6,8 +5,8 @@
 #  id                                 :bigint           not null, primary key
 #  auto_approve_days                  :integer          default(0)
 #  auto_approve_extended_request_days :integer          default(0)
-#  email_subject                      :string           default("Extension Request Status: {{status}} - {{course_code}}")
-#  email_template                     :text             default("Dear {{student_name}},\n\nYour extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.\n\nExtension Details:\n- Original Due Date: {{original_due_date}}\n- New Due Date: {{new_due_date}}\n- Extension Days: {{extension_days}}\n\nIf you have any questions, please contact the course staff.\n\nBest regards,\n{{course_name}} Staff")
+#  email_subject                      :string
+#  email_template                     :text             default("")
 #  enable_emails                      :boolean          default(FALSE)
 #  enable_extensions                  :boolean          default(FALSE)
 #  enable_gradescope                  :boolean          default(FALSE)
@@ -36,7 +35,8 @@
 # rubocop:enable Layout/LineLength
 
 class CourseSettings < ApplicationRecord
-  DEFAULT_EMAIL_TEMPLATE = <<~LIQUID.freeze
+  DEFAULT_EMAIL_SUBJECT = 'Extension Request Status: {{status}} - {{course_code}}'.freeze
+  DEFAULT_EMAIL_TEMPLATE = <<~TEMPLATE.freeze
     Hello {{student_name}},
 
     Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
@@ -46,11 +46,11 @@ class CourseSettings < ApplicationRecord
     - New Due Date: {{new_due_date}}
     - Extension Days: {{extension_days}}
 
-    If you have any questions, please reach out to your course staff.
+    If you have any questions, please contact your course staff.
 
-    Thank you,
-    {{course_name}} Staff
-  LIQUID
+    Thanks,
+    The {{course_name}} Team
+  TEMPLATE
 
   # Each frequency needs a matching GoodJob cron entry in config/application.rb,
   # otherwise nothing ever enqueues the digest for courses that select it.
@@ -67,6 +67,9 @@ class CourseSettings < ApplicationRecord
   # Clear a stored email when notifications are turned off, so re-enabling
   # doesn't silently reuse a stale address.
   before_save -> { self.pending_notification_email = nil if pending_notification_frequency.nil? }
+  # Seed the email templates on the row itself so the stored value is the
+  # source of truth (the columns no longer carry a meaningful DB default).
+  before_create :apply_default_email_templates
 
   validate :gradescope_url_is_valid, if: :enable_gradescope?
   validates :pending_notification_frequency, inclusion: { in: VALID_NOTIFICATION_FREQUENCIES }, allow_nil: true
@@ -79,10 +82,26 @@ class CourseSettings < ApplicationRecord
     .where.not(pending_notification_email: nil)
   }
 
+  def apply_default_email_templates
+    self.email_subject = DEFAULT_EMAIL_SUBJECT if email_subject.blank?
+    self.email_template = DEFAULT_EMAIL_TEMPLATE if email_template.blank?
+  end
+
   def automatic_approval_enabled?
     return false unless enable_extensions?
 
     auto_approve_days.positive? || auto_approve_extended_request_days.positive?
+  end
+
+  # True when this save just turned on the Slack webhook, so callers know to
+  # send a confirmation ping.
+  def slack_webhook_just_enabled?
+    enable_slack_webhook_url && slack_webhook_url.present? && saved_change_to_slack_webhook_url?
+  end
+
+  def slack_enabled_message
+    ":wave: Slack notifications have been enabled for *#{course.course_name}* " \
+      "(#{course.course_code}). You will now receive updates here!"
   end
 
   def ensure_system_user_for_auto_approval

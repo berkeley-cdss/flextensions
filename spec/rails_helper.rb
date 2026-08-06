@@ -64,6 +64,9 @@ RSpec.configure do |config|
     Rails.root.join('spec/fixtures')
   ]
 
+  # Enables travel_to/freeze_time for deterministic, time-dependent specs.
+  config.include ActiveSupport::Testing::TimeHelpers
+
   config.before(:suite) do
     Rails.application.load_seed
   end

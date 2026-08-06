@@ -134,6 +134,172 @@ RSpec.describe CoursesController, type: :controller do
       expect(response).to redirect_to(courses_path)
       expect(flash[:alert]).to eq('You do not have access to this page.')
     end
+
+    context 'as an instructor' do
+      let(:instructor) { User.create!(email: 'teacher@example.com', canvas_uid: '999', name: 'Teacher') }
+
+      before do
+        session[:user_id] = instructor.canvas_uid
+        instructor.lms_credentials.create!(
+          lms_id: 1, token: 't', expire_time: 1.hour.from_now
+        )
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+      end
+
+      it 'renders the Course Details page' do
+        get :edit, params: { id: course.id }
+
+        expect(response).to render_template(:edit)
+      end
+    end
+  end
+
+  describe 'PATCH #update' do
+    let(:instructor) { User.create!(email: 'teacher@example.com', canvas_uid: '999', name: 'Teacher') }
+
+    before do
+      session[:user_id] = instructor.canvas_uid
+      instructor.lms_credentials.create!(
+        lms_id: 1, token: 't', expire_time: 1.hour.from_now
+      )
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
+    end
+
+    it 'updates the name, code and semester from the dropdowns' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'New Name', course_code: 'NEW1', semester_season: 'Fall', semester_year: '2025' }
+      }
+
+      expect(response).to redirect_to(edit_course_path(course))
+      expect(flash[:notice]).to eq('Course details updated successfully.')
+      course.reload
+      expect(course.course_name).to eq('New Name')
+      expect(course.course_code).to eq('NEW1')
+      expect(course.semester).to eq('Fall 2025')
+    end
+
+    it 'can flag the course as a demo course' do
+      patch :update, params: { id: course.id, course: { course_name: 'Test Course', demo_course: '1' } }
+
+      expect(course.reload.demo_course).to be true
+    end
+
+    it 'leaves the semester unchanged when the dropdowns are blank' do
+      course.update!(semester: 'weird-format')
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Kept Name', semester_season: '', semester_year: '' }
+      }
+
+      course.reload
+      expect(course.course_name).to eq('Kept Name')
+      expect(course.semester).to eq('weird-format')
+    end
+
+    it 'redirects non-instructor users' do
+      session[:user_id] = user.canvas_uid
+
+      patch :update, params: { id: course.id, course: { course_name: 'Nope' } }
+
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(course.reload.course_name).to eq('Test Course')
+    end
+
+    it 're-renders with an alert when validation fails' do
+      patch :update, params: { id: course.id, course: { course_name: '' } }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(flash[:alert]).to include('Failed to update course details')
+    end
+
+    it 'saves the course-settings fields shown on Course Details' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: {
+          enable_extensions: 'true',
+          enable_gradescope: 'true',
+          gradescope_course_url: 'https://www.gradescope.com/courses/123456'
+        }
+      }
+
+      expect(response).to redirect_to(edit_course_path(course))
+      settings = course.reload.course_settings
+      expect(settings.enable_extensions).to be true
+      expect(settings.enable_gradescope).to be true
+      expect(settings.gradescope_course_url).to eq('https://www.gradescope.com/courses/123456')
+    end
+
+    it 'sends a Slack ping when the webhook is newly enabled' do
+      expect(SlackNotifier).to receive(:notify).and_return(true)
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: {
+          enable_slack_webhook_url: 'true',
+          slack_webhook_url: 'https://hooks.slack.com/services/T/B/x'
+        }
+      }
+
+      expect(response).to redirect_to(edit_course_path(course))
+      expect(flash[:notice]).to include('Check your Slack channel')
+    end
+
+    it 'warns when the Slack ping fails' do
+      allow(SlackNotifier).to receive(:notify).and_return(false)
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: {
+          enable_slack_webhook_url: 'true',
+          slack_webhook_url: 'https://hooks.slack.com/services/T/B/x'
+        }
+      }
+
+      expect(flash[:alert]).to include('Failed to send Slack notification')
+    end
+
+    it 'persists pending notification settings' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: { pending_notification_frequency: 'daily', pending_notification_email: 'prof@berkeley.edu' }
+      }
+
+      settings = course.reload.course_settings
+      expect(settings.pending_notification_frequency).to eq('daily')
+      expect(settings.pending_notification_email).to eq('prof@berkeley.edu')
+    end
+
+    it 'clears the stored email when the frequency is set to blank' do
+      course.course_settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof@berkeley.edu')
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: { pending_notification_frequency: '', pending_notification_email: '' }
+      }
+
+      settings = course.reload.course_settings
+      expect(settings.pending_notification_frequency).to be_nil
+      expect(settings.pending_notification_email).to be_nil
+    end
+
+    it 'shows a validation error for an invalid notification email' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: { pending_notification_frequency: 'daily', pending_notification_email: 'not-an-email' }
+      }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(flash[:alert]).to include('Failed to update course details')
+    end
   end
 
   describe 'POST #create' do

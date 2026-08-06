@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_05_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_06_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -94,8 +94,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000001) do
     t.integer "auto_approve_extended_request_days", default: 0
     t.bigint "course_id", null: false
     t.datetime "created_at", null: false
-    t.string "email_subject", default: "Extension Request Status: {{status}} - {{course_code}}"
-    t.text "email_template", default: "Dear {{student_name}},\n\nYour extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.\n\nExtension Details:\n- Original Due Date: {{original_due_date}}\n- New Due Date: {{new_due_date}}\n- Extension Days: {{extension_days}}\n\nIf you have any questions, please contact the course staff.\n\nBest regards,\n{{course_name}} Staff"
+    t.string "email_subject"
+    t.text "email_template", default: ""
     t.boolean "enable_emails", default: false
     t.boolean "enable_extensions", default: false
     t.boolean "enable_gradescope", default: false

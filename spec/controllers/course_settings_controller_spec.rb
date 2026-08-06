@@ -26,23 +26,22 @@ RSpec.describe CourseSettingsController, type: :controller do
       it 'updates the settings created automatically with the course' do
         expect(CourseSettings.where(course_id: course.id).count).to eq(1)
 
-        post :update, params: {
+        patch :update, params: {
           course_id: course.id,
           course_settings: {
-            enable_extensions: 'true',
             auto_approve_days: '3',
             auto_approve_extended_request_days: '5',
-            enable_emails: 'true'
+            max_auto_approve: '2'
           },
-          tab: 'general'
+          page: 'approvals'
         }
 
         expect(CourseSettings.where(course_id: course.id).count).to eq(1)
-        expect(response).to redirect_to(course_settings_path(course.id, tab: 'general'))
+        expect(response).to redirect_to(approvals_course_settings_path(course.id))
         expect(flash[:notice]).to eq('Course settings updated successfully.')
         settings = CourseSettings.find_by(course_id: course.id)
-        expect(settings.enable_extensions).to be true
         expect(settings.auto_approve_days).to eq(3)
+        expect(settings.auto_approve_extended_request_days).to eq(5)
       end
 
       it 'updates existing course settings' do
@@ -57,22 +56,20 @@ RSpec.describe CourseSettingsController, type: :controller do
 
         expect(CourseSettings.where(course_id: course.id).count).to eq(1)
 
-        post :update, params: {
+        patch :update, params: {
           course_id: course.id,
           course_settings: {
-            enable_extensions: 'true',
             auto_approve_days: '3'
           },
-          tab: 'general'
+          page: 'approvals'
         }
 
         expect(CourseSettings.where(course_id: course.id).count).to eq(1) # Still only 1 record
-        expect(response).to redirect_to(course_settings_path(course.id, tab: 'general'))
+        expect(response).to redirect_to(approvals_course_settings_path(course.id))
         expect(flash[:notice]).to eq('Course settings updated successfully.')
 
         # Force reload to get updated values
         course_settings.reload
-        expect(course_settings.enable_extensions).to be true
         expect(course_settings.auto_approve_days).to eq(3)
       end
 
@@ -83,101 +80,45 @@ RSpec.describe CourseSettingsController, type: :controller do
         )
         allow_any_instance_of(CourseSettings).to receive(:update).and_return(false)
 
-        post :update, params: {
+        patch :update, params: {
           course_id: course.id,
-          course_settings: { enable_extensions: 'true' },
-          tab: 'general'
+          course_settings: { auto_approve_days: '3' },
+          page: 'approvals'
         }
 
-        expect(response).to redirect_to(course_settings_path(course.id, tab: 'general'))
+        expect(response).to redirect_to(approvals_course_settings_path(course.id))
         expect(flash[:alert]).to include('Failed to update course settings:')
       end
 
-      it 'resets email templates and redirects' do
-        course.course_settings.update!(
-          enable_extensions: true,
-          email_subject: 'Custom Subject',
-          email_template: 'Custom Template'
-        )
-
-        post :update, params: {
+      it 'saves the email notification fields from the Email Templates page' do
+        patch :update, params: {
           course_id: course.id,
-          reset_email_template: true,
-          tab: 'email'
+          course_settings: { enable_emails: 'true', reply_email: 'staff@example.com' },
+          page: 'emails'
         }
 
-        expect(response).to redirect_to(course_settings_path(course.id, tab: 'email'))
-        expect(flash[:notice]).to eq('Email templates reset to defaults.')
-        # We won't test the exact content since that requires knowledge of the constants
+        settings = course.reload.course_settings
+        expect(settings.enable_emails).to be true
+        expect(settings.reply_email).to eq('staff@example.com')
       end
     end
-  end
 
-  describe 'pending notification params' do
-    before do
-      session[:user_id] = instructor.canvas_uid
-      Enrollment.create!(user: instructor, course: course, role: 'teacher')
-      course.course_settings.update!(enable_extensions: true)
+    describe 'GET #approvals' do
+      it 'renders the approvals page' do
+        get :approvals, params: { course_id: course.id }
+
+        expect(response).to have_http_status(:ok)
+        expect(response).to render_template(:approvals)
+      end
     end
 
-    it 'persists pending notification settings' do
-      post :update, params: {
-        course_id: course.id,
-        course_settings: {
-          pending_notification_frequency: 'daily',
-          pending_notification_email: 'prof@berkeley.edu'
-        },
-        tab: 'general'
-      }
+    describe 'GET #emails' do
+      it 'renders the email templates page' do
+        get :emails, params: { course_id: course.id }
 
-      settings = CourseSettings.find_by(course_id: course.id)
-      expect(settings.pending_notification_frequency).to eq('daily')
-      expect(settings.pending_notification_email).to eq('prof@berkeley.edu')
-    end
-
-    it 'normalizes blank frequency to nil' do
-      post :update, params: {
-        course_id: course.id,
-        course_settings: {
-          pending_notification_frequency: '',
-          pending_notification_email: ''
-        },
-        tab: 'general'
-      }
-
-      settings = CourseSettings.find_by(course_id: course.id)
-      expect(settings.pending_notification_frequency).to be_nil
-    end
-
-    it 'clears stored email when frequency is set to blank' do
-      settings = CourseSettings.find_by(course_id: course.id)
-      settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof@berkeley.edu')
-
-      post :update, params: {
-        course_id: course.id,
-        course_settings: {
-          pending_notification_frequency: '',
-          pending_notification_email: ''
-        },
-        tab: 'general'
-      }
-
-      settings.reload
-      expect(settings.pending_notification_frequency).to be_nil
-      expect(settings.pending_notification_email).to be_nil
-    end
-
-    it 'shows validation errors for invalid email with frequency set' do
-      post :update, params: {
-        course_id: course.id,
-        course_settings: {
-          pending_notification_frequency: 'daily',
-          pending_notification_email: 'not-an-email'
-        },
-        tab: 'general'
-      }
-
-      expect(flash[:alert]).to include('Failed to update course settings:')
+        expect(response).to have_http_status(:ok)
+        expect(response).to render_template(:emails)
+      end
     end
   end
 
@@ -222,10 +163,10 @@ RSpec.describe CourseSettingsController, type: :controller do
       requests = instance_double(ActiveRecord::Relation, count: 1)
       allow(Request).to receive(:where).with(course_id: course.id, status: 'pending').and_return(requests)
 
-      post :update, params: {
+      patch :update, params: {
         course_id: course.id,
-        course_settings: { enable_extensions: 'true' },
-        tab: 'general'
+        course_settings: { auto_approve_days: '3' },
+        page: 'approvals'
       }
 
       expect(assigns(:pending_requests_count)).to eq(1)
@@ -236,10 +177,10 @@ RSpec.describe CourseSettingsController, type: :controller do
       requests = instance_double(ActiveRecord::Relation, count: 0)
       allow(Request).to receive(:where).with(course_id: course.id, status: 'pending').and_return(requests)
 
-      post :update, params: {
+      patch :update, params: {
         course_id: course.id,
-        course_settings: { enable_extensions: 'true' },
-        tab: 'general'
+        course_settings: { auto_approve_days: '3' },
+        page: 'approvals'
       }
 
       expect(assigns(:pending_requests_count)).to eq(0)
@@ -266,13 +207,13 @@ RSpec.describe CourseSettingsController, type: :controller do
     end
 
     it 'denies access to update course settings' do
-      post :update, params: {
+      patch :update, params: {
         course_id: course.id,
         course_settings: {
           enable_extensions: 'true',
           auto_approve_days: '99'
         },
-        tab: 'general'
+        page: 'approvals'
       }
 
       expect(response).to redirect_to(courses_path)
@@ -282,27 +223,16 @@ RSpec.describe CourseSettingsController, type: :controller do
       expect(course.reload.course_settings.enable_extensions).to be false
       expect(course.reload.course_settings.auto_approve_days).to eq(1)
     end
-
-    it 'denies access to reset email templates' do
-      post :update, params: {
-        course_id: course.id,
-        reset_email_template: true,
-        tab: 'email'
-      }
-
-      expect(response).to redirect_to(courses_path)
-      expect(flash[:alert]).to eq('You do not have access to this page.')
-    end
   end
 
   describe 'authentication issues' do
     it 'redirects to root path when user is not authenticated' do
       session[:user_id] = 'non_existent_id'
 
-      post :update, params: {
+      patch :update, params: {
         course_id: course.id,
         course_settings: { enable_extensions: 'true' },
-        tab: 'general'
+        page: 'approvals'
       }
 
       expect(response).to redirect_to(root_path)
@@ -313,10 +243,10 @@ RSpec.describe CourseSettingsController, type: :controller do
       session[:user_id] = instructor.canvas_uid
       Enrollment.create!(user: instructor, course: course, role: 'teacher')
 
-      post :update, params: {
+      patch :update, params: {
         course_id: 999,
         course_settings: { enable_extensions: 'true' },
-        tab: 'general'
+        page: 'approvals'
       }
 
       expect(response).to redirect_to(courses_path)

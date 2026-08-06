@@ -5,8 +5,8 @@
 #  id                                 :bigint           not null, primary key
 #  auto_approve_days                  :integer          default(0)
 #  auto_approve_extended_request_days :integer          default(0)
-#  email_subject                      :string           default("Extension Request Status: {{status}} - {{course_code}}")
-#  email_template                     :text             default("Dear {{student_name}},\n\nYour extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.\n\nExtension Details:\n- Original Due Date: {{original_due_date}}\n- New Due Date: {{new_due_date}}\n- Extension Days: {{extension_days}}\n\nIf you have any questions, please contact the course staff.\n\nBest regards,\n{{course_name}} Staff")
+#  email_subject                      :string
+#  email_template                     :text             default("")
 #  enable_emails                      :boolean          default(FALSE)
 #  enable_extensions                  :boolean          default(FALSE)
 #  enable_gradescope                  :boolean          default(FALSE)
@@ -54,6 +54,21 @@ RSpec.describe CourseSettings, type: :model do
     it 'defaults to enabled with zero hours' do
       expect(course_settings.enable_min_hours_before_deadline).to be true
       expect(course_settings.min_hours_before_deadline).to eq(0)
+    end
+  end
+
+  describe 'default email templates' do
+    it 'seeds the subject and body from the constants when a row is created' do
+      expect(course_settings.email_subject).to eq(described_class::DEFAULT_EMAIL_SUBJECT)
+      expect(course_settings.email_template).to eq(described_class::DEFAULT_EMAIL_TEMPLATE)
+    end
+
+    it 'keeps explicitly provided values' do
+      other = create(:course)
+      other.course_settings.update!(email_subject: 'Custom', email_template: 'Custom body')
+
+      expect(other.course_settings.reload.email_subject).to eq('Custom')
+      expect(other.course_settings.reload.email_template).to eq('Custom body')
     end
   end
 

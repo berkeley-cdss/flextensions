@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["emailField", "tab", "gradescopeField", "slackWebhookField", "pendingNotificationEmail"];
+  static targets = ["emailField", "gradescopeField", "slackWebhookField", "pendingNotificationEmail"];
 
   connect() {
     this.toggleEmailFields();
@@ -60,18 +60,6 @@ export default class extends Controller {
 
     if (frequencySelect && emailField) {
       emailField.disabled = !frequencySelect.value;
-    }
-  }
-
-  updateUrlParam(event) {
-    const tabName = event.currentTarget.dataset.tab;
-    const url = new URL(window.location);
-    url.searchParams.set('tab', tabName);
-    window.history.pushState({}, '', url);
-
-    const tabInput = document.getElementById('tab');
-    if (tabInput) {
-      tabInput.value = tabName;
     }
   }
 }

@@ -1,0 +1,123 @@
+<div class="container-fluid mb-5">
+    <div class="row">
+        <div class="col-12">
+            <%= render "courses/course_title" %>
+            <h1 class="sr-only">Email Templates</h1>
+            <%= form_with url: course_settings_path(@course), method: :patch,
+                          data: {
+                            controller: 'email-template course-settings unsaved-changes',
+                            action: 'input->unsaved-changes#markDirty change->unsaved-changes#markDirty submit->unsaved-changes#save',
+                            'email-template-default-subject-value': CourseSettings::DEFAULT_EMAIL_SUBJECT,
+                            'email-template-default-body-value': CourseSettings::DEFAULT_EMAIL_TEMPLATE
+                          } do |form| %>
+                <%= render 'shared/unsaved_changes_toast' %>
+                <div class="card rounded-0 mb-4">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h2 class="card-title mb-0 h5">Email Template</h2>
+                        <%= button_tag "Reset to Default",
+                                      type: "button",
+                                      class: "btn btn-secondary btn-sm",
+                                      data: { action: 'email-template#reset unsaved-changes#markDirty' } %>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info" role="note">
+                            These notifications are sent to students when each request is approved or denied.
+                            We strongly recommend keeping these enabled and setting a reply to address to an
+                            account which is monitored by multiple course staff.
+                            <br><br>
+                            In the near future we will expand this functionality to have two separate templates
+                            for approvals and denials. As of now, the same template is used regardless of the outcome.
+                            <br><br>
+                            If you will not monitor replies from students, we recommend you use an invalid email
+                            address like <code>noreply@berkeley.edu</code> <em>and</em> add a note to the template.
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <%= hidden_field_tag 'course_settings[enable_emails]', false %>
+                                <%= check_box_tag 'course_settings[enable_emails]',
+                                                 true,
+                                                 @course.course_settings&.enable_emails,
+                                                 class: 'form-check-input',
+                                                 id: 'enable-email' %>
+                                <label class="form-check-label" for="enable-email">Enable email notifications</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 row">
+                            <label for="reply-email" class="col-sm-4 col-form-label">Course Reply Email Address</label>
+                            <div class="col-sm-8">
+                                <%= email_field_tag 'course_settings[reply_email]',
+                                                  @course.course_settings&.reply_email,
+                                                  class: 'form-control',
+                                                  id: 'reply-email',
+                                                  placeholder: 'example@example.com',
+                                                  data: { course_settings_target: "emailField" },
+                                                  disabled: !@course.course_settings&.enable_emails %>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="mb-3">
+                            <label for="email-subject" class="form-label">Email Subject</label>
+                            <%= text_field_tag 'course_settings[email_subject]',
+                                             @course.course_settings&.email_subject || CourseSettings::DEFAULT_EMAIL_SUBJECT,
+                                             class: 'form-control',
+                                             id: 'email-subject',
+                                             data: { 'email-template-target': 'subject' } %>
+                            <small class="text-muted">Use {{variable_name}} to insert dynamic values</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email-template" class="form-label">Email Body</label>
+                            <%= text_area_tag 'course_settings[email_template]',
+                                            @course.course_settings&.email_template || CourseSettings::DEFAULT_EMAIL_TEMPLATE,
+                                            class: 'form-control',
+                                            id: 'email-template',
+                                            rows: 10,
+                                            data: { 'email-template-target': 'body' } %>
+                        </div>
+
+                        <div class="card bg-light mt-3">
+                            <div class="card-body">
+                                <h3 class="card-title h5">Available Variables</h3>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <p class="mb-1 fw-bold">Student Information:</p>
+                                        <ul class="list-unstyled">
+                                            <li><code>{{student_name}}</code> - Full name</li>
+                                            <li><code>{{student_email}}</code> - Email</li>
+                                            <li><code>{{student_id}}</code> - ID number</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <p class="mb-1 fw-bold">Course Information:</p>
+                                        <ul class="list-unstyled">
+                                            <li><code>{{course_name}}</code> - Course name</li>
+                                            <li><code>{{course_code}}</code> - Course code</li>
+                                            <li><code>{{assignment_name}}</code> - Assignment</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <p class="mb-1 fw-bold">Extension Information:</p>
+                                        <ul class="list-unstyled">
+                                            <li><code>{{original_due_date}}</code> - Original due date</li>
+                                            <li><code>{{new_due_date}}</code> - New due date</li>
+                                            <li><code>{{extension_days}}</code> - Days extended</li>
+                                            <li><code>{{status}}</code> - Status (Approved/Denied)</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mb-4">
+                    <%= form.submit 'Save Settings', class: 'btn btn-success px-4' %>
+                </div>
+            <% end %>
+        </div>
+    </div>
+</div>

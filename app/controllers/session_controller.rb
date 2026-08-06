@@ -59,7 +59,7 @@ class SessionController < ApplicationController
 
     access_token = OAuth2::AccessToken.new(
       OAuth2::Client.new('', ''), # client never used – stub
-      creds.token,
+      creds.token.presence || 'developer-stub-token', # oauth2 >= 2.0 rejects a blank token
       refresh_token: creds.refresh_token,
       expires_at: expires_at
     )
