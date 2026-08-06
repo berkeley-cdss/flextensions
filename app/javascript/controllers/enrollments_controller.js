@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus";
 import DataTable from "datatables.net-bs5";
 import { pollUntilDone } from "controllers/sync_poller";
+import "bootstrap";
 import "datatables.net-responsive";
 import "datatables.net-responsive-bs5";
 
@@ -9,6 +10,8 @@ export default class extends Controller {
 	static values = { courseId: Number }
 
 	connect() {
+		this.initializeTooltips();
+
 		if (!DataTable.isDataTable('#enrollments-table')) {
 			// Define a custom sorting function for the Role column
 			DataTable.ext.type.order['role-pre'] = function (data) {
@@ -19,7 +22,7 @@ export default class extends Controller {
 				return rolePriority[data.toLowerCase()] || 4;
 			};
 
-			new DataTable('#enrollments-table', {
+			const table = new DataTable('#enrollments-table', {
 				paging: true,
 				searching: true,
 				ordering: true,
@@ -27,12 +30,24 @@ export default class extends Controller {
 				responsive: true,
 				pageLength: 100,
 				lengthMenu: [[-1, 25, 50, 100, 500], ["All", 25, 50, 100, 500]],
-				columns: document.querySelectorAll('#enrollments-table thead th').length === 6
-					? [null, null, null, { orderDataType: 'role-pre' }, null, null]
+				columns: document.querySelectorAll('#enrollments-table thead th').length === 7
+					? [null, null, null, { orderDataType: 'role-pre' }, null, null, null]
 					: [null, null, null, { orderDataType: 'role-pre' }, null],
 				order: [[3, 'des'], [0, 'asc']] // Sort Role first, then Name
 			});
+			table.on('draw', () => this.initializeTooltips());
+		} else {
+			const existingTable = DataTable('#enrollments-table');
+			existingTable.on('draw', () => this.initializeTooltips());
 		}
+	}
+
+	initializeTooltips() {
+		if (!window.bootstrap?.Tooltip) return;
+
+		document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
+			window.bootstrap.Tooltip.getOrCreateInstance(el);
+		});
 	}
 
 	async toggleExtended(event) {
