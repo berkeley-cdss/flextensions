@@ -93,6 +93,33 @@ RSpec.describe 'Course Details settings', type: :feature do
     end
   end
 
+  describe 'unsaved-changes wiring across the settings pages' do
+    around { |example| Capybara.using_driver(:rack_test) { example.run } }
+
+    before { page.set_rack_session(user_id: teacher.canvas_uid) }
+
+    {
+      'Course Details' => :edit_course_path,
+      'Automatic Approvals' => :approvals_course_settings_path,
+      'Email Templates' => :emails_course_settings_path,
+      'Request Form' => :edit_course_form_setting_path
+    }.each do |label, path_helper|
+      it "arms the unsaved-changes controller and toast on #{label}" do
+        visit public_send(path_helper, course)
+
+        expect(page).to have_selector("form[data-controller~='unsaved-changes']")
+        expect(page).to have_selector("[data-unsaved-changes-target='toast']", visible: :all)
+      end
+    end
+
+    it 'labels the staff new-request link "New Request" in the sidebar' do
+      visit edit_course_path(course)
+
+      expect(page).to have_link('New Request')
+      expect(page).to have_no_link('Request for Student')
+    end
+  end
+
   describe 'unsaved changes warning', :a11y, :js do
     before do
       page.set_rack_session(user_id: teacher.canvas_uid)

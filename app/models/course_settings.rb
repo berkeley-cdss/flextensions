@@ -5,7 +5,7 @@
 #  id                                 :bigint           not null, primary key
 #  auto_approve_days                  :integer          default(0)
 #  auto_approve_extended_request_days :integer          default(0)
-#  email_subject                      :string           default("Extension Request Status: {{status}} - {{course_code}}")
+#  email_subject                      :string
 #  email_template                     :text             default("")
 #  enable_emails                      :boolean          default(FALSE)
 #  enable_extensions                  :boolean          default(FALSE)
@@ -67,6 +67,9 @@ class CourseSettings < ApplicationRecord
   # Clear a stored email when notifications are turned off, so re-enabling
   # doesn't silently reuse a stale address.
   before_save -> { self.pending_notification_email = nil if pending_notification_frequency.nil? }
+  # Seed the email templates on the row itself so the stored value is the
+  # source of truth (the columns no longer carry a meaningful DB default).
+  before_create :apply_default_email_templates
 
   validate :gradescope_url_is_valid, if: :enable_gradescope?
   validates :pending_notification_frequency, inclusion: { in: VALID_NOTIFICATION_FREQUENCIES }, allow_nil: true
@@ -78,6 +81,11 @@ class CourseSettings < ApplicationRecord
     where(pending_notification_frequency: frequency)
     .where.not(pending_notification_email: nil)
   }
+
+  def apply_default_email_templates
+    self.email_subject = DEFAULT_EMAIL_SUBJECT if email_subject.blank?
+    self.email_template = DEFAULT_EMAIL_TEMPLATE if email_template.blank?
+  end
 
   def automatic_approval_enabled?
     return false unless enable_extensions?

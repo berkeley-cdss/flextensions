@@ -10,19 +10,31 @@
                             controller: 'unsaved-changes',
                             action: 'input->unsaved-changes#markDirty change->unsaved-changes#markDirty submit->unsaved-changes#save'
                           } do |form| %>
-                <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
-                    <div class="toast border-info" role="status" aria-live="polite" aria-atomic="true"
-                         data-unsaved-changes-target="toast" data-bs-autohide="false">
-                        <div class="toast-header">
-                            <i class="fas fa-circle-info text-info me-2" aria-hidden="true"></i>
-                            <strong class="me-auto">Unsaved changes</strong>
-                            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                <%= render 'shared/unsaved_changes_toast' %>
+                <% requests_off = !@course.course_settings&.enable_extensions %>
+                <div class="card rounded-0 mb-4<%= ' border border-info border-2' if requests_off %>">
+                    <div class="card-header bg-light">
+                        <h2 class="card-title mb-0 h5">Enable Extensions</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check form-switch checkbox-xl">
+                            <%= hidden_field_tag 'course_settings[enable_extensions]', false %>
+                            <%= check_box_tag 'course_settings[enable_extensions]',
+                                             true,
+                                             @course.course_settings&.enable_extensions,
+                                             class: 'form-check-input',
+                                             id: 'course-enable' %>
+                            <label class="form-check-label" for="course-enable">Enable Students to request extensions</label>
                         </div>
-                        <div class="toast-body">
-                            You have unsaved changes to your course. Please select save if you wish to keep your changes.
-                        </div>
+                        <% if requests_off %>
+                            <p class="text-info-emphasis mb-0 mt-2" id="requests-off-notice">
+                                <i class="fas fa-circle-info me-1" aria-hidden="true"></i>
+                                Students cannot request extensions for this course until this is enabled.
+                            </p>
+                        <% end %>
                     </div>
                 </div>
+
                 <div class="card rounded-0 mb-4">
                     <div class="card-header bg-light">
                         <h2 class="card-title mb-0 h5">Course Details</h2>
@@ -80,30 +92,6 @@
                                 <small class="text-muted">Marks this as a demo/sandbox course so it can be excluded from usage metrics.</small>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <% requests_off = !@course.course_settings&.enable_extensions %>
-                <div class="card rounded-0 mb-4<%= ' border border-info border-2' if requests_off %>">
-                    <div class="card-header bg-light">
-                        <h2 class="card-title mb-0 h5">Enable Extensions</h2>
-                    </div>
-                    <div class="card-body">
-                        <div class="form-check form-switch checkbox-xl">
-                            <%= hidden_field_tag 'course_settings[enable_extensions]', false %>
-                            <%= check_box_tag 'course_settings[enable_extensions]',
-                                             true,
-                                             @course.course_settings&.enable_extensions,
-                                             class: 'form-check-input',
-                                             id: 'course-enable' %>
-                            <label class="form-check-label" for="course-enable">Enable Students to request extensions</label>
-                        </div>
-                        <% if requests_off %>
-                            <p class="text-info-emphasis mb-0 mt-2" id="requests-off-notice">
-                                <i class="fas fa-circle-info me-1" aria-hidden="true"></i>
-                                Students cannot request extensions for this course until this is enabled.
-                            </p>
-                        <% end %>
                     </div>
                 </div>
 

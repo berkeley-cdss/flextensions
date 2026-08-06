@@ -3,7 +3,12 @@
         <div class="col-12">
             <%= render "courses/course_title" %>
             <h1 class="sr-only">Automatic Approvals</h1>
-            <%= form_with url: course_settings_path(@course), method: :patch do |form| %>
+            <%= form_with url: course_settings_path(@course), method: :patch,
+                          data: {
+                            controller: 'unsaved-changes',
+                            action: 'input->unsaved-changes#markDirty change->unsaved-changes#markDirty submit->unsaved-changes#save'
+                          } do |form| %>
+                <%= render 'shared/unsaved_changes_toast' %>
                 <div class="card rounded-0 mb-4">
                     <div class="card-header bg-light">
                         <h2 class="card-title mb-0 h5">Automatic Approvals</h2>

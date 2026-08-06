@@ -5,17 +5,19 @@
             <h1 class="sr-only">Email Templates</h1>
             <%= form_with url: course_settings_path(@course), method: :patch,
                           data: {
-                            controller: 'email-template course-settings',
+                            controller: 'email-template course-settings unsaved-changes',
+                            action: 'input->unsaved-changes#markDirty change->unsaved-changes#markDirty submit->unsaved-changes#save',
                             'email-template-default-subject-value': CourseSettings::DEFAULT_EMAIL_SUBJECT,
                             'email-template-default-body-value': CourseSettings::DEFAULT_EMAIL_TEMPLATE
                           } do |form| %>
+                <%= render 'shared/unsaved_changes_toast' %>
                 <div class="card rounded-0 mb-4">
                     <div class="card-header bg-light d-flex justify-content-between align-items-center">
                         <h2 class="card-title mb-0 h5">Email Template</h2>
                         <%= button_tag "Reset to Default",
                                       type: "button",
                                       class: "btn btn-secondary btn-sm",
-                                      data: { action: 'email-template#reset' } %>
+                                      data: { action: 'email-template#reset unsaved-changes#markDirty' } %>
                     </div>
                     <div class="card-body">
                         <div class="alert alert-info" role="note">

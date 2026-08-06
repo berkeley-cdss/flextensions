@@ -37,7 +37,12 @@
 				</div>
 			</div>
 						
-		<%= form_with(model: [@course, @form_setting], url: course_form_setting_path(@course), method: :patch, local: true) do |f| %>
+		<%= form_with(model: [@course, @form_setting], url: course_form_setting_path(@course), method: :patch, local: true,
+		              data: {
+		                controller: 'unsaved-changes',
+		                action: 'input->unsaved-changes#markDirty change->unsaved-changes#markDirty submit->unsaved-changes#save'
+		              }) do |f| %>
+			<%= render 'shared/unsaved_changes_toast' %>
 			<% if @form_setting.errors.any? %>
 				<div id="error_explanation" class="alert alert-danger">
 					<h2><%= pluralize(@form_setting.errors.count, "error") %> prohibited this form setting from being saved:</h2>
