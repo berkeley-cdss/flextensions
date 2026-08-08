@@ -8,6 +8,11 @@
 // Do NOT use Sprockets require directives (require_tree, require_self)
 // in this file — they bypass SCSS compilation and break variable sharing.
 
+// Dart Sass deprecated the global color functions; `color.mix` is the
+// replacement for `mix`. @use has to precede every rule except variable
+// declarations, so it stays at the top even though the @imports are below.
+@use "sass:color";
+
 /**
   * UC Berkeley color palette based on the official brand guidelines:
   * https://brand.berkeley.edu/colors/
@@ -91,12 +96,40 @@ $code-color-dark: #ea868f;
 // invisible on the dark track. Use a solid white knob instead.
 $form-switch-color-dark: $white;
 
+// Bootstrap inlines a handful of icons (accordion chevron, switch knob, select
+// caret) as SVG data URIs, colored by variables that are computed with mix().
+// Dart Sass keeps the fractional channels mix() produces, so those colors
+// serialize as `rgb(50%, 57.45%, 73.14%)` where LibSass emitted a hex triplet
+// — which drops a bare `%` into a URI, and `%` alone is not a valid escape
+// sequence. Browsers pass it through, but escaping `%` first (the list is
+// applied in order) keeps the emitted data URIs well-formed.
+$escaped-characters: (
+  ("%", "%25"),
+  ("<", "%3c"),
+  (">", "%3e"),
+  ("#", "%23"),
+  ("(", "%28"),
+  (")", "%29"),
+);
+
+// font-awesome-sass emits `font-path(...)` when Sprockets' Sass helpers are
+// available and falls back to `#{$fa-font-path}/#{$file}` otherwise. Dart Sass
+// runs as a plain CLI here, so the fallback is what we get — point it at the
+// logical path of the gem's webfonts (its assets/fonts directory is on the
+// Propshaft load path) and let Propshaft rewrite the url() to a digested one.
+$fa-font-path: "font-awesome";
+
 @import "bootstrap";
+
+// DataTables' Bootstrap 5 theme, imported straight out of node_modules (see
+// config/initializers/dartsass.rb for the load path). It overrides Bootstrap's
+// own table styles, so it has to come after Bootstrap and before our overrides
+// in custom_bootstrap.
+@import "dataTables.bootstrap5";
+@import "responsive.bootstrap5";
+
 @import "custom_bootstrap";
 @import "font-awesome";
-
-// NOTE: DataTables CSS is intentionally not imported here. See the comment in
-// app/views/layouts/application.html.erb for why it is served from public/.
 
 @each $name, $value in $colors {
   .bg-#{$name} {
@@ -112,14 +145,14 @@ $form-switch-color-dark: $white;
   .table-#{$name} {
     --bs-table-bg: #{$value};
     --bs-table-color: #{color-contrast($value)};
-    --bs-table-border-color: #{mix(black, $value, 15%)};
+    --bs-table-border-color: #{color.mix(black, $value, 15%)};
 
     &,
     > th,
     > td {
       --bs-table-bg: #{$value};
       --bs-table-color: #{color-contrast($value)};
-      --bs-table-border-color: #{mix(black, $value, 15%)};
+      --bs-table-border-color: #{color.mix(black, $value, 15%)};
     }
   }
 
@@ -131,7 +164,7 @@ $form-switch-color-dark: $white;
     > tr > td {
       --bs-table-bg: #{$value};
       --bs-table-color: #{color-contrast($value)};
-      --bs-table-border-color: #{mix(black, $value, 15%)};
+      --bs-table-border-color: #{color.mix(black, $value, 15%)};
     }
   }
 }

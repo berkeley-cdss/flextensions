@@ -37,12 +37,21 @@ jobs:
       with:
         ruby-version: .tool-versions
         bundler-cache: true
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: npm
+    - name: Install npm packages
+      run: npm ci --omit=dev
     - name: Install Chrome and ChromeDriver
       uses: browser-actions/setup-chrome@v1
       with:
         chrome-version: stable
     - name: Setup Database
       run: bundle exec rails db:setup
+    - name: Build CSS
+      run: bundle exec rails dartsass:build
     - name: Create Chrome data directory
       run: mkdir -p /tmp/chrome-data-cucumber
     - name: Run non-JavaScript Cucumber tests

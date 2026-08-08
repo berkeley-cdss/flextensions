@@ -81,8 +81,9 @@ gem 'hypershield'
 gem 'good_job', '~> 4.19'
 
 #### Frontend related tools
-# The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
-gem 'sprockets-rails'
+# Rails 8's default asset pipeline: digests and serves what's on disk, and does
+# no compiling of its own [https://github.com/rails/propshaft]
+gem 'propshaft'
 
 # Use JavaScript with ESM import maps [https://github.com/rails/importmap-rails]
 gem 'importmap-rails'
@@ -91,10 +92,15 @@ gem 'importmap-rails'
 gem 'turbo-rails'
 
 gem 'bootstrap', '~> 5.3.8'
-# dependency for bootstrap # 03-10-2025 this is deprecated but still works
-gem 'sassc-rails', '~> 2.1'
-# alternative to sassc-rails, this is recommended but bootstrap 5.3.3 is still using "deprecated" @import statements which this gem doesn't like
-# gem 'dartsass-sprockets'
+# Compiles app/assets/stylesheets/application.scss to app/assets/builds with
+# Dart Sass (the only Sass implementation still maintained), which Propshaft
+# then digests and serves. Replaces sassc-rails, deprecated along with its
+# LibSass backend.
+#
+# Bootstrap 5.3 still uses `@import`, which Dart Sass deprecated; those warnings
+# are silenced in config/initializers/dartsass.rb. Bootstrap 6 moves to `@use`,
+# at which point the silencing can go away.
+gem 'dartsass-rails', '~> 0.5'
 
 # Font Awesome for icons
 gem 'font-awesome-sass'
