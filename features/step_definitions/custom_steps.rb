@@ -148,6 +148,58 @@ Given(/^the enrollment for "([^"]*)" allows extended requests$/) do |user_name|
   enrollment.update!(allow_extended_requests: true)
 end
 
+# Replaces the course's factory assignments with named ones, so a scenario can
+# pin the exact names and due dates it needs. A blank "due date" leaves the
+# assignment undated.
+# Given the course has assignments:
+#   | name  | due date            |
+#   | Lab 9 | 2026-08-31 17:00:00 |
+Given(/^the course has assignments:$/) do |assignments|
+  course_to_lms = @course.course_to_lmss.first
+  @course.assignments.destroy_all
+
+  assignments.hashes.each do |row|
+    due_date = row['due date'].presence && Time.zone.parse(row['due date'])
+    create(:assignment, course_to_lms: course_to_lms, name: row['name'], due_date: due_date)
+  end
+end
+
+# Clicks a column header until the table is sorted the requested way. The
+# header may already be sorted ascending (that is the default order), so this
+# clicks a second time when descending is wanted.
+# When I sort the "assignments-table" by "Assignment" ascending
+When(/^I sort the "([^"]*)" by "([^"]*)" (ascending|descending)$/) do |table_id, column, direction|
+  ordering_class = direction == 'ascending' ? 'dt-ordering-asc' : 'dt-ordering-desc'
+  header_selector = "##{table_id} thead th"
+  sorted_selector = "#{header_selector}.dt-ordering-asc, #{header_selector}.dt-ordering-desc"
+
+  2.times do
+    header = find(header_selector, text: column, exact_text: true)
+    break if header[:class].to_s.include?(ordering_class)
+
+    header.click
+    # Let the redraw land before deciding whether a second click is needed.
+    expect(page).to have_css(sorted_selector, text: column, exact_text: true)
+  end
+
+  expect(page).to have_css("#{header_selector}.#{ordering_class}", text: column, exact_text: true)
+end
+
+# Reads the first column of a table top to bottom and compares it to the
+# expected order.
+# Then the "assignments-table" rows should be in the order "Lab 9, Lab 10"
+Then(/^the "([^"]*)" rows should be in the order "([^"]*)"$/) do |table_id, expected_order|
+  expected = expected_order.split(',').map(&:strip)
+
+  # DataTables applies the ordering as it initializes, so wait for it to render
+  # its controls before reading the rows.
+  expect(page).to have_css('.dt-search input')
+  expect(page).to have_css("##{table_id} tbody tr", count: expected.size)
+
+  names = all("##{table_id} tbody tr td:first-of-type span").map { |name| name.text.strip }
+  expect(names).to eq(expected)
+end
+
 # this step is necessary to workaround ajax call to enable assignments
 # And I enable "Homework 1"
 Given(/^I (enable|disable) "([^"]*)"$/) do |action, assignment_name|

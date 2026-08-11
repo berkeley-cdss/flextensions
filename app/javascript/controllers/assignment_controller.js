@@ -4,6 +4,35 @@ import { pollUntilDone } from "controllers/sync_poller";
 import "datatables.net-responsive";
 import "datatables.net-responsive-bs5";
 
+// Column indexes of the assignments table.
+const NAME_COLUMN = 0;
+const DATE_COLUMNS = [1, 2, 3]; // Release Date, Due Date, Late Due Date
+const DUE_DATE_COLUMN = 2;
+
+// Sort names the way a person reads them: "Lab 9" before "Lab 10", and "apple"
+// next to "Apple" rather than after "Zebra". Registered as a type and applied to
+// the name column via `type: 'natural'` in columnDefs below.
+const nameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+DataTable.ext.type.order['natural-asc'] = (a, b) => nameCollator.compare(String(a), String(b));
+DataTable.ext.type.order['natural-desc'] = (a, b) => nameCollator.compare(String(b), String(a));
+
+// The date columns render a friendly string with no year ("Mon, Aug 31"), which as
+// text sorts by weekday name. Each cell carries its timestamp in `data-order`, so
+// order on that instead. Assignments with no date sort last in either direction.
+DataTable.ext.type.order['timestamp-pre'] = (data) => {
+	const timestamp = parseInt(data, 10);
+	return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+function compareTimestamps(a, b, direction) {
+	if (a === null || b === null) return a === b ? 0 : (a === null ? 1 : -1);
+
+	return (a - b) * direction;
+}
+
+DataTable.ext.type.order['timestamp-asc'] = (a, b) => compareTimestamps(a, b, 1);
+DataTable.ext.type.order['timestamp-desc'] = (a, b) => compareTimestamps(a, b, -1);
+
 // Connects to data-controller="assignment"
 export default class extends Controller {
   static targets = ["checkbox", "syncBtn", "syncLabel", "syncSpinner"]
@@ -19,6 +48,12 @@ export default class extends Controller {
 				responsive: true,
 				pageLength: 50,
 				lengthMenu: [[-1, 25, 50, 100, 500], ["All", 25, 50, 100, 500]],
+				columnDefs: [
+					{ targets: NAME_COLUMN, type: 'natural' },
+					{ targets: DATE_COLUMNS, type: 'timestamp' }
+				],
+				// Staff want to see what is due soonest, so lead with the due date.
+				order: [[DUE_DATE_COLUMN, 'asc']]
 			});
 		}
   }

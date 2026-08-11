@@ -21,15 +21,17 @@
             <% @assignments.each do |assignment| %>
               <tr>
                 <input type="hidden" class="assignment-id" name="assignment_id" value="<%= assignment.id %>">
-                <td>
+                <%# data-order gives DataTables something sortable: the name on its own (the
+                    cell also holds the LMS link) and the timestamp behind each formatted date. %>
+                <td data-order="<%= assignment.name %>">
                   <div class="d-flex justify-content-between align-items-center">
                     <span><%= assignment.name %></span>
                     <%= assignment_link_for(assignment, @course) %>
                   </div>
                 </td>
-                <td class="text-center"><%= assignment.release_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
-                <td class="text-center"><%= assignment.due_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
-                <td class="text-center"><%= assignment.late_due_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
+                <td class="text-center" data-order="<%= assignment.release_date&.to_i %>"><%= assignment.release_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
+                <td class="text-center" data-order="<%= assignment.due_date&.to_i %>"><%= assignment.due_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
+                <td class="text-center" data-order="<%= assignment.late_due_date&.to_i %>"><%= assignment.late_due_date&.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %></td>
                 <td class="justify-content-center align-content-center">
                   <div class="form-check form-switch mx-auto" style="width: 45px;">
                     <input class="form-check-input assignment-enabled-switch" type="checkbox"
