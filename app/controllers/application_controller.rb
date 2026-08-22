@@ -46,8 +46,22 @@ class ApplicationController < ActionController::Base
     end
 
     true
-  rescue StandardError
+  rescue StandardError => e
+    report_auth_error(e, 'authenticated!')
     handle_authentication_failure('An unexpected error occurred.')
+  end
+
+  # Both this check and SessionController#omniauth_callback wrap the whole auth
+  # path in a bare `rescue StandardError`, so any bug in there surfaces to the
+  # user as a generic "log in again" and to us as nothing at all. Record the
+  # exception class and where it came from: a bare message (e.g. "missing
+  # attribute 'lms_name'") is not enough to place the failure.
+  def report_auth_error(error, component)
+    Rails.logger.error(
+      "#{component} error: #{error.class}: #{error.message}\n" \
+      "#{Array(error.backtrace).first(5).join("\n")}"
+    )
+    Rails.error.report(error, handled: true, context: { component: component })
   end
 
   def handle_authentication_failure(message)

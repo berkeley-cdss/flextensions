@@ -85,9 +85,14 @@ class SessionController < ApplicationController
 
     redirect_to courses_path, notice: "Logged in! Welcome, #{user_data['name']}!"
   rescue StandardError => e
-    Rails.logger.error("OmniAuth callback error: #{e.message}")
-    Rails.error.report(e, handled: true, context: { component: 'omniauth_callback' })
-    redirect_to root_path, alert: 'Authentication failed. Invalid credentials.'
+    report_auth_error(e, 'omniauth_callback')
+    # Do not blame the user's credentials here. Anything reaching this rescue
+    # happened *after* the provider authenticated them successfully, so the
+    # cause is on our side (a bug, an outage, schema drift) -- saying "invalid
+    # credentials" sends whoever reports it looking at Canvas instead of at us.
+    redirect_to root_path,
+                alert: 'Authentication failed due to an error on our end. Please try again, and ' \
+                       'contact flextension@berkeley.edu if the problem continues.'
   end
 
   def omniauth_failure

@@ -74,14 +74,27 @@ RSpec.describe SessionController, type: :controller do
     end
 
     context 'when something inside the callback raises' do
-      it 'rescues and redirects with “Invalid credentials”' do
+      before do
         # Force an exception inside the action (e.g., token save blows up)
-        allow_any_instance_of(User).to receive(:save!).and_raise(StandardError)
+        allow_any_instance_of(User).to receive(:save!).and_raise(ActiveModel::MissingAttributeError,
+                                                                 "missing attribute 'lms_name' for LmsCredential")
+      end
 
+      it 'rescues and redirects without blaming the user credentials' do
         get :omniauth_callback, params: { provider: 'canvas' } # <= add provider
 
         expect(response).to redirect_to(root_path)
-        expect(flash[:alert]).to eq('Authentication failed. Invalid credentials.')
+        expect(flash[:alert]).to include('error on our end')
+        expect(flash[:alert]).not_to include('Invalid credentials')
+      end
+
+      it 'logs the exception class so the real failure is identifiable' do
+        allow(Rails.logger).to receive(:error)
+
+        get :omniauth_callback, params: { provider: 'canvas' }
+
+        expect(Rails.logger).to have_received(:error)
+          .with(/omniauth_callback error: ActiveModel::MissingAttributeError: missing attribute 'lms_name'/)
       end
     end
   end
