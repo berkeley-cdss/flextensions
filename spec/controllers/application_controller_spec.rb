@@ -149,6 +149,30 @@ RSpec.describe ApplicationController, type: :controller do
         expect(response.body).to eq('OK')
       end
     end
+
+    context 'when the check itself raises' do
+      before do
+        session[:user_id] = user.canvas_uid
+        allow_any_instance_of(User).to receive(:lms_credentials)
+          .and_raise(ActiveModel::MissingAttributeError, "missing attribute 'lms_name' for LmsCredential")
+      end
+
+      it 'logs the exception class rather than failing silently' do
+        allow(Rails.logger).to receive(:error)
+
+        get :index
+
+        expect(Rails.logger).to have_received(:error)
+          .with(/authenticated! error: ActiveModel::MissingAttributeError: missing attribute 'lms_name'/)
+      end
+
+      it 'still logs the user out safely' do
+        get :index
+
+        expect(response).to redirect_to(root_path)
+        expect(flash[:alert]).to eq('An unexpected error occurred.')
+      end
+    end
   end
 
   describe '#render_role_based_view' do
