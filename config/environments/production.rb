@@ -87,7 +87,18 @@ Rails.application.configure do
   # To scale out later (dedicated worker tier or multiple web instances), switch
   # execution_mode to :external here and run `bundle exec good_job start` as its
   # own process (e.g. via a Procfile `worker` entry or a systemd unit).
-  config.good_job.execution_mode = :async
+  #
+  # Overridable by environment so the scheduler can be switched off on a single
+  # environment without a code change. Elastic Beanstalk runs Puma in cluster
+  # mode with `preload_app!`, and in :async mode GoodJob starts its scheduler
+  # threads (and a Postgres connection) during preload, in the master process,
+  # before the fork -- Puma reports this as
+  # "WARNING: Detected 4 Thread(s) started in app boot". Setting
+  # GOOD_JOB_EXECUTION_MODE=external leaves jobs queued in the database with
+  # nothing executing them in-process, which is the quickest way to establish
+  # whether the scheduler is implicated in a deployment that boots but never
+  # passes its health check.
+  config.good_job.execution_mode = ENV.fetch('GOOD_JOB_EXECUTION_MODE', 'async').to_sym
   config.good_job.max_threads = ENV.fetch("GOOD_JOB_MAX_THREADS", 5).to_i
   config.good_job.poll_interval = ENV.fetch("GOOD_JOB_POLL_INTERVAL", 30).to_i
   config.good_job.shutdown_timeout = 25
