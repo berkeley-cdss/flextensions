@@ -38,6 +38,16 @@ RSpec.describe ApplicationController, type: :controller do
       expect(controller.current_user).to be_logged_in
     end
 
+    it 'does not adopt an account with a null canvas_uid when nobody is signed in' do
+      orphan = User.create!(email: 'orphan@example.com', canvas_uid: nil)
+
+      get :index
+
+      expect(controller.current_user).not_to eq(orphan)
+      expect(controller.current_user).to be_a(NullUser)
+      expect(controller.current_user).not_to be_logged_in
+    end
+
     it 'returns a NullUser instead of nil when nobody is signed in' do
       get :index
 

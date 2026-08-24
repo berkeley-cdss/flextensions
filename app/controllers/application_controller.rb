@@ -14,7 +14,7 @@ class ApplicationController < ActionController::Base
   def current_user
     return @current_user if defined?(@current_user)
 
-    @current_user = User.find_by(canvas_uid: session[:user_id]) || NullUser.new
+    @current_user = session_user || NullUser.new
   end
 
   # Because blazer is mounted as a module, `root_path` doesn't seem to work appropriately.
@@ -26,6 +26,22 @@ class ApplicationController < ActionController::Base
   end
 
   private
+
+  # `session[:user_id]` holds a Canvas uid and is nil for anybody not signed in.
+  #
+  # `User.find_by(canvas_uid: nil)` does NOT mean "no user": it compiles to
+  # `WHERE canvas_uid IS NULL LIMIT 1`, and `users.canvas_uid` is nullable, so it
+  # returns whichever account happens to have a null canvas_uid. Every anonymous
+  # request was therefore resolving to a real user -- in production, user 49812,
+  # which is why the load balancer's health check on `/` started redirecting to
+  # /courses instead of rendering the landing page. Bail out before the query
+  # when there is no session.
+  def session_user
+    canvas_uid = session[:user_id]
+    return nil if canvas_uid.blank?
+
+    User.find_by(canvas_uid: canvas_uid)
+  end
 
   def authenticated!
     return handle_authentication_failure('You must be logged in to access that page.') unless current_user.logged_in?
