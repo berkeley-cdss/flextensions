@@ -88,17 +88,31 @@ Rails.application.configure do
   # execution_mode to :external here and run `bundle exec good_job start` as its
   # own process (e.g. via a Procfile `worker` entry or a systemd unit).
   #
-  # Overridable by environment so the scheduler can be switched off on a single
-  # environment without a code change. Elastic Beanstalk runs Puma in cluster
-  # mode with `preload_app!`, and in :async mode GoodJob starts its scheduler
-  # threads (and a Postgres connection) during preload, in the master process,
-  # before the fork -- Puma reports this as
-  # "WARNING: Detected 4 Thread(s) started in app boot". Setting
-  # GOOD_JOB_EXECUTION_MODE=external leaves jobs queued in the database with
-  # nothing executing them in-process, which is the quickest way to establish
-  # whether the scheduler is implicated in a deployment that boots but never
-  # passes its health check.
-  config.good_job.execution_mode = ENV.fetch('GOOD_JOB_EXECUTION_MODE', 'async').to_sym
+  # TEMPORARY -- default is :external here, not :async. See below.
+  #
+  # Elastic Beanstalk runs Puma in cluster mode with `preload_app!` (2 workers,
+  # 8:32 threads). In :async mode GoodJob starts its scheduler threads, and a
+  # Postgres connection, during preload -- in the master process, before the
+  # fork. Puma reports this directly:
+  #
+  #   ! WARNING: Detected 4 Thread(s) started in app boot:
+  #   ! #<Thread:...@GoodJob::Scheduler(queues=* max_threads=5)-worker-1 ...>
+  #       - .../postgresql/database_statements.rb:167:in 'PG::Connection#exec'
+  #
+  # Production deploys currently boot, start nginx, join the load balancer, and
+  # then fail their health check for twelve minutes with memory flat -- the
+  # signature of a process that is alive but not serving. GoodJob's in-process
+  # scheduler is the largest behavioural difference between the release running
+  # in production (2026-07-03-1, Rails' in-memory :async adapter, no worker
+  # threads at all) and main, so it is the first thing to rule in or out.
+  #
+  # :external leaves jobs queued in the database with nothing executing them
+  # in-process. Staging keeps :async (config/environments/staging.rb) so it
+  # remains a working control.
+  #
+  # Revert this default to 'async' once the health check failure is understood;
+  # while it is in place, recurring digests do not run in production.
+  config.good_job.execution_mode = ENV.fetch('GOOD_JOB_EXECUTION_MODE', 'external').to_sym
   config.good_job.max_threads = ENV.fetch("GOOD_JOB_MAX_THREADS", 5).to_i
   config.good_job.poll_interval = ENV.fetch("GOOD_JOB_POLL_INTERVAL", 30).to_i
   config.good_job.shutdown_timeout = 25
