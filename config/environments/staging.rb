@@ -14,11 +14,4 @@ Rails.application.configure do
   # a single safe staging mailbox, preserving the original recipient(s) in the
   # subject line. See StagingEmailInterceptor.
   config.action_mailer.interceptors = %w[StagingEmailInterceptor]
-
-  # Keep GoodJob's in-process scheduler here. production.rb temporarily defaults
-  # this to :external while we establish whether it is behind the production
-  # health check failures; staging deploys cleanly today, so it stays on :async
-  # and remains the working control. Remove this line once production.rb goes
-  # back to :async.
-  config.good_job.execution_mode = ENV.fetch('GOOD_JOB_EXECUTION_MODE', 'async').to_sym
 end
