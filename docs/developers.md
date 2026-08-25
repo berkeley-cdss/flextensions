@@ -124,12 +124,21 @@ occurrence is enqueued once even if several processes are running.
 
 | Cron key | Schedule | Job |
 |----------|----------|-----|
+| `daily_enrollment_sync` | 3:00 AM PT daily | `DailyEnrollmentSyncJob` |
 | `pending_digests_hourly` | Top of every hour | `PendingRequestsNotificationJob('hourly')` |
 | `pending_digests_daily` | 4:00 PM PT daily | `PendingRequestsNotificationJob('daily')` |
 | `pending_digests_weekly` | 4:00 PM PT Thursdays | `PendingRequestsNotificationJob('weekly')` |
 
-Each run emails the courses whose **Pending Request Notifications** setting matches
-that frequency and that currently have pending requests.
+Each notification run emails the courses whose **Pending Request Notifications**
+setting matches that frequency and that currently have pending requests.
+
+The daily enrollment sweep considers Canvas-linked courses imported within the
+past five weeks and skips any roster synced less than six hours ago. Eligible
+per-course jobs are spaced evenly across the hour after the 3:00 AM sweep to
+avoid a burst of Canvas API calls. Canvas applies a separate quota to each OAuth
+access token, so syncs performed with different instructors' tokens do not
+consume one shared quota; courses that share an instructor can still share that
+token's quota. See the [Canvas API throttling documentation](https://developerdocs.instructure.com/services/canvas/basics/file.throttling).
 
 Admins can inspect queues, schedules and past runs at `/admin/good_job`. To send a
 digest by hand (locally, or to backfill after downtime):

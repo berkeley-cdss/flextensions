@@ -94,6 +94,12 @@ Rails.application.configure do
 
   config.hosts << "flextensions.lvh.me:3000"
 
+  if ENV["AGENT_WEB_HOST"].present?
+    # Superconductor serves previews through a tunneled host and embeds them in an iframe.
+    config.hosts << ENV["AGENT_WEB_HOST"]
+    config.action_dispatch.default_headers.delete("X-Frame-Options")
+  end
+
   config.action_mailer.delivery_method = :letter_opener_web
   config.action_mailer.perform_deliveries = true
   config.action_mailer.default_url_options = {
