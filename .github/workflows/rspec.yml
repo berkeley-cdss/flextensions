@@ -8,6 +8,12 @@ on:
 jobs:
   rspec:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Test every Ruby the app supports: the Elastic Beanstalk platform's
+        # 3.4 and the 4.0 we are rolling forward to (see docs/developers.md).
+        ruby: ['3.4', '4.0']
     services:
       postgres:
         image: postgres:17
@@ -35,7 +41,7 @@ jobs:
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: .tool-versions
+        ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
     - name: Setup Database
       run: |
@@ -55,7 +61,8 @@ jobs:
       run: ruby .github/scripts/coverage_summary.rb "RSpec coverage"
     - name: Submit QLTY Coverage Report
       uses: qltysh/qlty-action/coverage@v1
-      if: env.QLTY_COVERAGE_TOKEN != ''
+      # Only submit coverage once per run (from the 4.0 job).
+      if: env.QLTY_COVERAGE_TOKEN != '' && matrix.ruby == '4.0'
       with:
         token: ${{ secrets.QLTY_COVERAGE_TOKEN }}
         files: coverage/.resultset.json
