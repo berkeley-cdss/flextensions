@@ -48,6 +48,7 @@ Feature: Navigation
     Then I should see "Admin Tools" in the navbar dropdown
     And I should see "Dashboards" in the navbar dropdown
     And I should see "Background Jobs" in the navbar dropdown
+    And I should see "Errors" in the navbar dropdown
 
   Scenario: Non-admin user does not see admin tools in navbar dropdown
     Given a course exists
@@ -56,3 +57,4 @@ Feature: Navigation
     Then I should not see "Admin Tools" in the navbar dropdown
     And I should not see "Dashboards" in the navbar dropdown
     And I should not see "Background Jobs" in the navbar dropdown
+    And I should not see "Errors" in the navbar dropdown

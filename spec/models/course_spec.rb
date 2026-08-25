@@ -207,6 +207,15 @@ RSpec.describe Course, type: :model do
   describe '.find_or_create_course' do
     let(:token) { 'fake_token' }
 
+    it 'raises when Canvas fails to return the course' do
+      stub_request(:get, %r{api/v1/courses/canvas_123})
+        .to_return(status: 401, body: { errors: 'unauthorized' }.to_json)
+
+      expect {
+        described_class.find_or_create_course(course_data, token)
+      }.to raise_error(CanvasFacade::CanvasAPIError, /HTTP 401/)
+    end
+
     it 'creates a new course if not found' do
       # Stub the Faraday request
       stub_request(:get, %r{api/v1/courses/canvas_123})
@@ -501,6 +510,41 @@ end
       expect do
         described_class.create_or_update_from_canvas(course_data, 'fake_token', user)
       end.to change(described_class, :count).by(1).and change(FormSetting, :count).by(1)
+    end
+
+    it 'synchronously enrolls the creating user with their Canvas role' do
+      data = course_data.merge('enrollments' => [ { 'type' => 'student' }, { 'type' => 'teacher' } ])
+      stub_request(:get, %r{api/v1/courses/canvas_123})
+        .to_return(status: 200, body: { name: 'Intro to RSpec', course_code: 'RSPEC101' }.to_json)
+
+      course = described_class.create_or_update_from_canvas(data, 'fake_token', user)
+
+      expect(course.enrollments.exists?(user: user, role: 'teacher')).to be true
+    end
+  end
+
+  describe '#enroll_user_with_highest_role' do
+    let!(:course) { described_class.create!(canvas_id: 'canvas_enroll', course_name: 'Enroll Test', course_code: 'ENR101') }
+    let(:user) { create(:user) }
+
+    it 'enrolls the user with the highest-ranked role from the Canvas enrollments' do
+      course.enroll_user_with_highest_role(user, [ { 'type' => 'ta' }, { 'type' => 'teacher' } ])
+
+      expect(course.enrollments.find_by(user: user).role).to eq('teacher')
+    end
+
+    it 'does not duplicate an existing enrollment' do
+      Enrollment.create!(user: user, course: course, role: 'teacher')
+
+      expect {
+        course.enroll_user_with_highest_role(user, [ { 'type' => 'teacher' } ])
+      }.not_to change(Enrollment, :count)
+    end
+
+    it 'is a no-op when no Canvas enrollment maps to a known role' do
+      expect {
+        course.enroll_user_with_highest_role(user, [ { 'type' => 'observer' } ])
+      }.not_to change(Enrollment, :count)
     end
   end
 end

@@ -180,14 +180,44 @@ RSpec.describe SyncUsersFromCanvasJob, type: :job do
         allow(canvas_facade_double).to receive(:get_all_course_users).and_return({ 'error' => 'unauthorized' })
       end
 
-      it 'returns zeroed counts without raising' do
-        result = nil
+      it 'raises so the failure reaches the error reporter, and records it for the UI' do
         expect {
-          result = described_class.perform_now(course.id, sync_user.id, 'student')
-        }.not_to raise_error
+          described_class.perform_now(course.id, sync_user.id, 'student')
+        }.to raise_error(CanvasFacade::CanvasAPIError, /Unexpected response from Canvas API/)
 
-        # The job keys results with string role names
-        expect(result['student']).to eq(added: 0, removed: 0, updated: 0)
+        recorded = course.course_to_lms(1).reload.recent_roster_sync
+        expect(recorded['error']).to include('Unexpected response from Canvas API')
+        expect(recorded['failed_at']).to be_present
+      end
+
+      it 'preserves the last successful sync data when recording the failure' do
+        course_to_lms = course.course_to_lms(1)
+        course_to_lms.update!(recent_roster_sync: { 'synced_at' => '2026-08-24T12:00:00Z' })
+
+        expect {
+          described_class.perform_now(course.id, sync_user.id, 'student')
+        }.to raise_error(CanvasFacade::CanvasAPIError)
+
+        expect(course_to_lms.reload.recent_roster_sync['synced_at']).to eq('2026-08-24T12:00:00Z')
+      end
+    end
+
+    context 'when enrollment insertion fails' do
+      let(:student) { create(:user) }
+
+      before do
+        allow(canvas_facade_double).to receive(:get_all_course_users)
+          .and_return([ { 'id' => student.canvas_uid, 'name' => student.name,
+                         'email' => student.email, 'sis_user_id' => student.student_id } ])
+        allow(Enrollment).to receive(:insert_all).and_raise(ActiveRecord::StatementInvalid, 'boom')
+      end
+
+      it 'raises instead of swallowing the error, and records it for the UI' do
+        expect {
+          described_class.perform_now(course.id, sync_user.id, 'student')
+        }.to raise_error(ActiveRecord::StatementInvalid)
+
+        expect(course.course_to_lms(1).reload.recent_roster_sync['error']).to include('boom')
       end
     end
   end

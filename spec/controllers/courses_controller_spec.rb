@@ -328,6 +328,44 @@ RSpec.describe CoursesController, type: :controller do
 
       expect(Course).to have_received(:create_or_update_from_canvas).with(lead_ta_course, 'fake_token', user)
     end
+
+    context 'when an import fails' do
+      let(:failing_course) do
+        { 'id' => '456', 'name' => 'New Canvas Course', 'course_code' => 'C101', 'enrollments' => [ { 'type' => 'teacher' } ] }
+      end
+      let(:working_course) do
+        { 'id' => '457', 'name' => 'Working Course', 'course_code' => 'C102', 'enrollments' => [ { 'type' => 'teacher' } ] }
+      end
+
+      before do
+        allow(Rails.error).to receive(:report)
+      end
+
+      it 'reports the error and tells the user which course failed' do
+        allow(Course).to receive(:fetch_courses).and_return([ failing_course ])
+        allow(Course).to receive(:create_or_update_from_canvas)
+          .and_raise(CanvasFacade::CanvasAPIError, 'Canvas is down')
+
+        post :create, params: { courses: [ '456' ] }
+
+        expect(Rails.error).to have_received(:report)
+          .with(an_instance_of(CanvasFacade::CanvasAPIError), hash_including(source: 'courses#create'))
+        expect(flash[:alert]).to include('New Canvas Course')
+        expect(flash[:notice]).to be_nil
+      end
+
+      it 'still confirms the courses that did import' do
+        allow(Course).to receive(:fetch_courses).and_return([ failing_course, working_course ])
+        allow(Course).to receive(:create_or_update_from_canvas) do |course_api, _token, _user|
+          raise CanvasFacade::CanvasAPIError, 'Canvas is down' if course_api['id'] == '456'
+        end
+
+        post :create, params: { courses: %w[456 457] }
+
+        expect(flash[:alert]).to include('New Canvas Course')
+        expect(flash[:notice]).to be_present
+      end
+    end
   end
 
   describe 'POST #sync_assignments' do
@@ -425,6 +463,35 @@ RSpec.describe CoursesController, type: :controller do
         expect(response).to have_http_status(:forbidden)
         expect(response.parsed_body).to eq({ 'error' => 'You do not have permission.' })
       end
+    end
+  end
+
+  describe 'GET #sync_status' do
+    before do
+      Enrollment.create!(user: user, course: course, role: 'teacher')
+    end
+
+    it 'returns sync timestamps and any recorded sync errors' do
+      course_to_lms.update!(
+        recent_roster_sync: {
+          'synced_at' => '2026-08-24T12:00:00Z',
+          'error' => 'Unexpected response from Canvas API',
+          'failed_at' => '2026-08-25T01:00:00Z'
+        },
+        recent_assignment_sync: { 'synced_at' => '2026-08-24T12:00:00Z' }
+      )
+
+      get :sync_status, params: { id: course.id }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include(
+        'roster_synced_at' => '2026-08-24T12:00:00Z',
+        'roster_sync_error' => 'Unexpected response from Canvas API',
+        'roster_sync_failed_at' => '2026-08-25T01:00:00Z',
+        'assignments_synced_at' => '2026-08-24T12:00:00Z',
+        'assignments_sync_error' => nil,
+        'assignments_sync_failed_at' => nil
+      )
     end
   end
 

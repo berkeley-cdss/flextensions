@@ -151,6 +151,23 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
         }.not_to raise_error
       end
     end
+
+    context 'when the LMS request fails' do
+      before do
+        allow(canvas_facade_double).to receive(:get_all_assignments)
+          .and_raise(CanvasFacade::CanvasAPIError, 'Canvas is down')
+      end
+
+      it 'raises so the failure reaches the error reporter, and records it for the UI' do
+        expect {
+          described_class.perform_now(course_to_lms.id, sync_user.id)
+        }.to raise_error(CanvasFacade::CanvasAPIError, 'Canvas is down')
+
+        recorded = course_to_lms.reload.recent_assignment_sync
+        expect(recorded['error']).to include('Canvas is down')
+        expect(recorded['failed_at']).to be_present
+      end
+    end
   end
 
   describe '#sync_assignment' do
