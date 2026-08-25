@@ -52,6 +52,11 @@ module Flextensions
     # Each occurrence is enqueued at most once even if several processes are
     # running: GoodJob has a unique index on (cron_key, cron_at).
     config.good_job.cron = {
+      daily_enrollment_sync: {
+        cron: '0 3 * * * America/Los_Angeles',
+        class: 'DailyEnrollmentSyncJob',
+        description: 'Daily Canvas enrollment sync sweep for recently imported courses'
+      },
       pending_digests_hourly: {
         cron: '0 * * * * America/Los_Angeles',
         class: 'PendingRequestsNotificationJob',
