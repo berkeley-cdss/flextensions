@@ -24,12 +24,13 @@ cd flextensions
 
 Install `mise`, such as `brew install mise` or any other ruby language manager.
 
-Either Ruby 3.3 or 3.4 will work. CI runs 3.4, but the deployed Elastic
-Beanstalk platform runs Ruby 3.3, so the app must remain compatible with
-both (the Gemfile allows `>= 3.3, < 3.5`):
+Either Ruby 3.4 or 4.0 will work. CI tests both, and the deployed Elastic
+Beanstalk platform runs Ruby 3.4 while we roll forward to 4.0, so the app
+must remain compatible with both (the Gemfile allows `>= 3.4, < 4.1`).
+Prefer 4.0 locally:
 
 ```
-mise use ruby@3.4
+mise use ruby@4.0
 ```
 
 ### Install dependencies:
@@ -146,7 +147,9 @@ recurring jobs — for example when moving them to a dedicated worker started wi
 
 ## Deployment (Elastic Beanstalk)
 
-Staging and production run on the *Ruby 3.3 on Amazon Linux 2023* platform, built
+Staging and production run on the *Ruby 3.4 on Amazon Linux 2023* platform
+(next stop: *Ruby 4.0 on Amazon Linux 2023* — bump `buildspec.yml` together
+with the platform), built
 by CodeBuild (`buildspec.yml`) and deployed by CodePipeline.
 
 ### There is deliberately no `Procfile`

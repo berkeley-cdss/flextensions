@@ -48,12 +48,9 @@ Rails.application.configure do
   # ActionMailer::Base.deliveries array.
   # config.action_mailer.delivery_method = :test
 
-  # Print deprecation notices to the stderr.
+  # Print deprecation notices to the stderr. (Ruby-level deprecation warnings
+  # are enabled globally in config/boot.rb.)
   config.active_support.deprecation = :stderr
-
-  # Surface Ruby-level deprecation warnings (off by default since Ruby 3.0) so
-  # deprecated language/stdlib usage is caught in CI and local test runs.
-  Warning[:deprecated] = true
 
   # Raise exceptions for disallowed deprecations.
   config.active_support.disallowed_deprecation = :raise
