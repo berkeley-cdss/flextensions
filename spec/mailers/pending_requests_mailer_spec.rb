@@ -21,8 +21,6 @@ RSpec.describe PendingRequestsMailer do
     course_settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof@example.com')
     allow(ENV).to receive(:fetch).and_call_original
     allow(ENV).to receive(:fetch).with('DEFAULT_FROM_EMAIL').and_return('flextensions@berkeley.edu')
-    allow(ENV).to receive(:[]).and_call_original
-    allow(ENV).to receive(:[]).with('APP_HOST').and_return('flextensions.example.com')
   end
 
   def create_pending_request(name:, uid:)
@@ -40,8 +38,8 @@ RSpec.describe PendingRequestsMailer do
     )
   end
 
-  describe '#pending_requests_email' do
-    it 'uses the reply email when set and defaults the host scheme to https' do
+  describe '#pending_requests_email', app_origin: 'https://flextensions.example.com' do
+    it 'uses the reply email when set and links to the request' do
       course_settings.update!(reply_email: 'staff@example.com')
       request = create_pending_request(name: 'Alice', uid: 'mailer_stu_1')
 

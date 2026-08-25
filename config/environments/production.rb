@@ -152,8 +152,6 @@ Rails.application.configure do
     config.action_mailer.delivery_method = :sendmail
   end
 
-  config.action_mailer.default_url_options = {
-    host: ENV.fetch("APP_HOST", "localhost"),
-    port: ENV.fetch("APP_PORT", "3000")
-  }
+  # The host that links are built against comes from APP_HOST in every
+  # environment -- see config/initializers/default_url_options.rb.
 end

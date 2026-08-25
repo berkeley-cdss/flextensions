@@ -1142,4 +1142,11 @@ RSpec.describe Request, type: :model do
       expect(result[user.id]).to eq(0)
     end
   end
+
+  describe '#request_link', app_origin: 'https://flextensions.example.com' do
+    it 'is an absolute URL to the request, for email and Slack notifications' do
+      expect(request.request_link)
+        .to eq("https://flextensions.example.com/courses/#{course.id}/requests/#{request.id}")
+    end
+  end
 end
