@@ -83,7 +83,7 @@ DB_PASSWORD (default: password)
 DB_NAME (default: postgres)
 CANVAS_URL (No default, but if you are using instructure sandbox then it should be set as "https://www.instructure.com/canvas?domain=canvas")
 CANVAS_CLIENT_ID (Ask the instructor for this. Used for authentication token request)
-APP_HOST (URL to the app itself. If you are standing up the app locally then it should be "http://localhost:3000")
+APP_HOST (The full domain of the app itself, e.g. "flextensions.eecs.cloud". If you are standing up the app locally then it should be "http://localhost:3000". Links in notification emails and Slack messages are built from this, so it must be the domain users reach the app at.)
 ```
 
 In the root directory of Flextensions app, run

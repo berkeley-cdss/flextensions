@@ -503,4 +503,14 @@ end
       end.to change(described_class, :count).by(1).and change(FormSetting, :count).by(1)
     end
   end
+
+  describe '#course_link', app_origin: 'https://flextensions.example.com' do
+    let(:course) { create(:course, canvas_id: 'canvas_link', course_name: 'Linked', course_code: 'LNK101') }
+
+    # A bare path in an email renders as "http:///courses/19" in the mail client.
+    it 'is an absolute URL, as is the requests link derived from it' do
+      expect(course.course_link).to eq("https://flextensions.example.com/courses/#{course.id}")
+      expect(course.requests_link).to eq("https://flextensions.example.com/courses/#{course.id}/requests")
+    end
+  end
 end

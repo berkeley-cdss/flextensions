@@ -199,18 +199,16 @@ class Course < ApplicationRecord
   end
 
   # Absolute URL of the course page, for links embedded in outbound
-  # notifications (email, Slack). Falls back to a relative path when no host is
-  # configured so links still render in development.
+  # notifications (email, Slack). Absolute rather than a path because a mail
+  # client resolves a path against nothing, giving "http:///courses/19"; the
+  # host comes from config/initializers/default_url_options.rb.
   def course_link
-    base_host = ENV['APP_HOST'].presence || Rails.application.routes.default_url_options[:host].presence
-    return Rails.application.routes.url_helpers.course_path(self) if base_host.blank?
-
-    normalized_host = base_host.start_with?('http://', 'https://') ? base_host : "https://#{base_host}"
-    "#{normalized_host.chomp('/')}/courses/#{id}"
+    Rails.application.routes.url_helpers.course_url(self)
   end
 
+  # Absolute URL of the course's requests page. See #course_link.
   def requests_link
-    "#{course_link}/requests"
+    Rails.application.routes.url_helpers.course_requests_url(self)
   end
 
   # TODO: Add specs for these 3 simple methods

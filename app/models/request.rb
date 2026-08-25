@@ -324,9 +324,9 @@ class Request < ApplicationRecord
   end
 
   # Absolute URL for reviewing this request, used in Slack and email
-  # notifications.
+  # notifications. Absolute rather than a path -- see Course#course_link.
   def request_link
-    "#{course.requests_link}/#{id}"
+    Rails.application.routes.url_helpers.course_request_url(course, self)
   end
 
   private

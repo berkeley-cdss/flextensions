@@ -22,8 +22,6 @@ RSpec.describe PendingRequestsNotificationJob, type: :job do
     ActionMailer::Base.deliveries.clear
     allow(ENV).to receive(:fetch).and_call_original
     allow(ENV).to receive(:fetch).with('DEFAULT_FROM_EMAIL').and_return('flextensions@berkeley.edu')
-    allow(ENV).to receive(:[]).and_call_original
-    allow(ENV).to receive(:[]).with('APP_HOST').and_return('http://localhost:3000')
   end
 
   def mail_bodies
@@ -31,7 +29,7 @@ RSpec.describe PendingRequestsNotificationJob, type: :job do
     [ mail.html_part.body.decoded, mail.text_part.body.decoded ]
   end
 
-  describe '#perform' do
+  describe '#perform', app_origin: 'http://localhost:3000' do
     it 'sends email when course has matching frequency and pending requests' do
       course.course_settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof@example.com')
       request = Request.create!(course: course, assignment: assignment, user: student, status: 'pending',
