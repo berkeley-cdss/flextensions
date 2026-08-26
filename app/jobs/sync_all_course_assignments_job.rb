@@ -45,9 +45,53 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
     course_to_lms.recent_assignment_sync = results
     course_to_lms.save!
     results
+  rescue Lmss::Gradescope::AuthenticationError => e
+    # The Gradescope bot account can't access the course, which the instructor
+    # has to fix themselves — record an actionable message for the UI and
+    # report with course/user context. No re-raise: retrying can't succeed, and
+    # the unhandled-error path would file a second, context-free Faultline
+    # occurrence.
+    record_sync_failure(course_to_lms, :recent_assignment_sync, e,
+                        message: self.class.gradescope_auth_error_message)
+    report_gradescope_auth_error(e, course_to_lms, sync_user)
+    nil
   rescue StandardError => e
     record_sync_failure(course_to_lms, :recent_assignment_sync, e)
     raise
+  end
+
+  # User-facing explanation for a Gradescope authentication failure. The raw
+  # exception messages ("Login failed", "Authentication required") would give
+  # an instructor nothing to act on.
+  def self.gradescope_auth_error_message
+    bot_email = ENV.fetch('GRADESCOPE_EMAIL') { 'gradescope-bot@berkeley.edu' }
+    'Flextensions could not access this course in Gradescope. ' \
+      "Please add #{bot_email} as a TA in your Gradescope course, then sync again."
+  end
+
+  # Reports a Gradescope authentication failure to the Rails error reporter
+  # (and through it Faultline). Faultline has no message-only capture like
+  # Sentry's capture_message, so the exception itself is reported, with the
+  # course/user linked via the context hash (each key becomes a Faultline
+  # error-context row). Runs while handling that error, so it must not raise.
+  def report_gradescope_auth_error(error, course_to_lms, sync_user)
+    course = course_to_lms&.course
+    Rails.error.report(
+      error,
+      handled: true,
+      severity: :warning,
+      context: {
+        component: 'gradescope',
+        operation: 'sync_assignments',
+        user_id: sync_user&.id,
+        user_email: sync_user&.email,
+        course_id: course&.id,
+        course_name: course&.course_name,
+        gradescope_course_id: course_to_lms&.external_course_id
+      }
+    )
+  rescue StandardError => e
+    Rails.logger.error "Failed to report Gradescope auth error: #{e.message}"
   end
 
   # Sync a single assignment

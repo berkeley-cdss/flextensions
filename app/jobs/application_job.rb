@@ -11,12 +11,13 @@ class ApplicationJob < ActiveJob::Base
   # or :recent_assignment_sync) so the UI can tell the user what happened,
   # preserving the data from the last successful sync. Must never raise: it
   # runs while the original error is being re-raised, and that error is the
-  # one that has to reach the error reporter.
-  def record_sync_failure(course_to_lms, field, error)
+  # one that has to reach the error reporter. Pass `message:` when the raw
+  # exception message would be meaningless to the user.
+  def record_sync_failure(course_to_lms, field, error, message: nil)
     return unless course_to_lms
 
     record = (course_to_lms.public_send(field) || {}).merge(
-      'error' => error.message.to_s.truncate(300),
+      'error' => (message || error.message).to_s.truncate(300),
       'failed_at' => Time.current
     )
     course_to_lms.update!(field => record)

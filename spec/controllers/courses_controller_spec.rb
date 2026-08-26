@@ -493,6 +493,56 @@ RSpec.describe CoursesController, type: :controller do
         'assignments_sync_failed_at' => nil
       )
     end
+
+    context 'with a Gradescope link whose sync failed' do
+      before do
+        Lms.find_or_create_by(id: 2) { |l| l.lms_name = 'Gradescope'; l.use_auth_token = false }
+        course_to_lms.update!(recent_assignment_sync: { 'synced_at' => '2026-08-25T12:00:00Z' })
+      end
+
+      let!(:gradescope_link) do
+        CourseToLms.create!(
+          course: course, external_course_id: '9999', lms_id: 2,
+          recent_assignment_sync: {
+            'synced_at' => '2026-08-24T12:00:00Z',
+            'error' => 'Flextensions could not access this course in Gradescope.',
+            'failed_at' => '2026-08-25T12:00:05Z'
+          }
+        )
+      end
+
+      it 'surfaces the Gradescope failure and does not advance assignments_synced_at past it' do
+        get :sync_status, params: { id: course.id }
+
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to include(
+          'assignments_synced_at' => '2026-08-24T12:00:00Z',
+          'assignments_sync_error' => 'Flextensions could not access this course in Gradescope.',
+          'assignments_sync_failed_at' => '2026-08-25T12:00:05Z'
+        )
+      end
+
+      context 'when the Gradescope link has never synced successfully' do
+        before do
+          gradescope_link.update!(
+            recent_assignment_sync: {
+              'error' => 'Flextensions could not access this course in Gradescope.',
+              'failed_at' => '2026-08-25T12:00:05Z'
+            }
+          )
+        end
+
+        it 'reports no synced_at so the poller waits for the failure instead of declaring success' do
+          get :sync_status, params: { id: course.id }
+
+          expect(response.parsed_body).to include(
+            'assignments_synced_at' => nil,
+            'assignments_sync_error' => 'Flextensions could not access this course in Gradescope.',
+            'assignments_sync_failed_at' => '2026-08-25T12:00:05Z'
+          )
+        end
+      end
+    end
   end
 
   describe 'GET #new' do

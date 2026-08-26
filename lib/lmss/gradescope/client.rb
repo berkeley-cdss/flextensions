@@ -3,6 +3,9 @@ require 'faraday-cookie_jar'
 require 'nokogiri'
 
 require_relative 'error'
+require_relative 'authentication_error'
+require_relative 'not_found_error'
+require_relative 'request_error'
 
 module Lmss
   module Gradescope

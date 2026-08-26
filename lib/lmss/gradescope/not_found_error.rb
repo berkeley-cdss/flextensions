@@ -1,5 +1,5 @@
 module Lmss
   module Gradescope
-    class Error < StandardError; end
+    class NotFoundError < Error; end
   end
 end
