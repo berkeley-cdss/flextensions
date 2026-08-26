@@ -33,7 +33,14 @@ unless origin.include?("://")
 end
 
 Rails.application.routes.default_url_options = { host: origin }
-ActionMailer::Base.default_url_options = { host: origin }
+
+# Assign inside `on_load`: referencing ActionMailer::Base here loads Action
+# Mailer during initializers, running `register_interceptors` before Zeitwerk
+# can autoload app/. Staging sets StagingEmailInterceptor, so it died at boot
+# with `uninitialized constant StagingEmailInterceptor`.
+ActiveSupport.on_load(:action_mailer) do
+  self.default_url_options = { host: origin }
+end
 
 # Nobody notices the wrong host until a notification lands in an inbox pointing
 # somewhere unreachable, so say so at boot instead.
