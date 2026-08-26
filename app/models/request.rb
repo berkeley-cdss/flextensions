@@ -222,6 +222,9 @@ class Request < ApplicationRecord
       when GradescopeFacade
         course_id = course.gradescope_id
         user_id = user.email
+      when PensieveFacade
+        course_id = course.pensieve_id
+        user_id = user.email
       else
         raise "Unsupported LMS Facade: #{lms_facade.class.name}"
       end

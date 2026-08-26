@@ -5,6 +5,9 @@ Lms.find_or_create_by!(id: 1, lms_name: 'Canvas', use_auth_token: true)
 # Gradescope
 Lms.find_or_create_by!(id: 2, lms_name: 'Gradescope', use_auth_token: false)
 
+# Pensieve
+Lms.find_or_create_by!(id: 3, lms_name: 'Pensieve', use_auth_token: false)
+
 # A special user to track auto-approvals of requests.
 User.find_or_create_by!(
   email: SystemUserService::AUTO_APPROVAL_EMAIL,

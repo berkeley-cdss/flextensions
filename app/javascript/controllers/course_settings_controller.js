@@ -1,17 +1,23 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["emailField", "gradescopeField", "slackWebhookField", "pendingNotificationEmail"];
+  static targets = ["emailField", "gradescopeField", "pensieveField", "slackWebhookField", "pendingNotificationEmail"];
 
   connect() {
     this.toggleEmailFields();
     this.toggleSlackWebhookField();
     this.toggleGradescopeFields();
+    this.togglePensieveFields();
     this.togglePendingNotificationEmail();
 
     const gradescopeToggle = document.getElementById('enable-gradescope');
     if (gradescopeToggle) {
       gradescopeToggle.addEventListener('change', this.toggleGradescopeFields.bind(this));
+    }
+
+    const pensieveToggle = document.getElementById('enable-pensieve');
+    if (pensieveToggle) {
+      pensieveToggle.addEventListener('change', this.togglePensieveFields.bind(this));
     }
 
     const emailToggle = document.getElementById('enable-email');
@@ -32,6 +38,15 @@ export default class extends Controller {
     if (gradescopeToggle && gradescopeCourseUrlField) {
       const isEnabled = gradescopeToggle.checked;
       gradescopeCourseUrlField.disabled = !isEnabled;
+    }
+  }
+
+  togglePensieveFields() {
+    const pensieveToggle = document.getElementById('enable-pensieve');
+    const pensieveCourseUrlField = document.getElementById('pensieve-course-url');
+
+    if (pensieveToggle && pensieveCourseUrlField) {
+      pensieveCourseUrlField.disabled = !pensieveToggle.checked;
     }
   }
 
