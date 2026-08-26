@@ -3,30 +3,60 @@ title: Screenshots
 permalink: /screenshots/
 ---
 
-![1 - Home](/flextensions/img/1-home.png)
+# Screenshots
 
-![2 - OAuth](/flextensions/img/2-oauth.png)
+## Getting Started
 
-![3 - Logged In](/flextensions/img/3-logged-in.png)
+![Home Page](/flextensions/img/1-home.png)
 
-![4 - Add Course](/flextensions/img/4-add-course.png)
+![Canvas OAuth](/flextensions/img/2-oauth.png)
 
-![5 - Course Assignments](/flextensions/img/5-course-assignments.png)
+![Courses Dashboard](/flextensions/img/3-logged-in.png)
 
-![6 - Course Settings](/flextensions/img/6-course-settings.png)
+![Import Courses](/flextensions/img/4-add-course.png)
 
-![7 - Sample Settings](/flextensions/img/7-sample-settings.png)
+## Managing a Course
 
-![8 - Review Requests](/flextensions/img/8-review-requests.png)
+![Course Assignments](/flextensions/img/5-course-assignments.png)
 
-![9 - Email Settings](/flextensions/img/9-email-settings.png)
+![Pending Requests](/flextensions/img/8-review-requests.png)
 
-![10 - Customize Form](/flextensions/img/10-customize-form.png)
+![All Requests](/flextensions/img/22-all-requests.png)
 
-![11 - Common Error](/flextensions/img/11-common-error.png)
+![Extension Request Details](/flextensions/img/17-request-details.png)
 
-![12 - Add Gradescope Bot](/flextensions/img/12-add-gradescope-bot.png)
+![Enrollments](/flextensions/img/15-enrollments.png)
 
-![13 - Google Sheets - Allow Access 1](/flextensions/img/13-google-sheets-allow-access-1.png)
+![New Request for a Student](/flextensions/img/16-request-for-student.png)
 
-![14 - Google Sheets - Allow Access 2](/flextensions/img/14-google-sheets-allow-access-2.png)
+## Course Settings
+
+![Course Details](/flextensions/img/6-course-settings.png)
+
+![Automatic Approvals](/flextensions/img/7-sample-settings.png)
+
+![Email Templates](/flextensions/img/9-email-settings.png)
+
+![Request Form Settings](/flextensions/img/10-customize-form.png)
+
+## Student View
+
+![Student Courses Dashboard](/flextensions/img/18-student-dashboard.png)
+
+![Student Course Assignments](/flextensions/img/19-student-course.png)
+
+![Student Requests](/flextensions/img/20-student-requests.png)
+
+![New Extension Request](/flextensions/img/21-student-new-request.png)
+
+## Common Errors
+
+![Assignment Enable Error](/flextensions/img/11-common-error.png)
+
+## Integrations
+
+![Add Gradescope Bot](/flextensions/img/12-add-gradescope-bot.png)
+
+![Google Sheets - Allow Access 1](/flextensions/img/13-google-sheets-allow-access-1.png)
+
+![Google Sheets - Allow Access 2](/flextensions/img/14-google-sheets-allow-access-2.png)
