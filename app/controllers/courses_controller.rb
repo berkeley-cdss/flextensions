@@ -63,10 +63,22 @@ class CoursesController < ApplicationController
 
   def create
     token = current_user.lms_credentials.first.token
-    filter_courses(Course.fetch_courses(token), Enrollment.staff_roles)
-      .select { |c| params[:courses]&.include?(c['id'].to_s) }
-      .each { |course_api| Course.create_or_update_from_canvas(course_api, token, current_user) }
-    redirect_to courses_path, notice: 'Selected courses and their assignments have been imported successfully.'
+    selected_courses = filter_courses(Course.fetch_courses(token), Enrollment.staff_roles)
+                       .select { |c| params[:courses]&.include?(c['id'].to_s) }
+
+    failed_courses = []
+    selected_courses.each do |course_api|
+      Course.create_or_update_from_canvas(course_api, token, current_user)
+    rescue StandardError => e
+      Rails.error.report(e, source: 'courses#create', context: { canvas_course_id: course_api['id'] })
+      failed_courses << (course_api['name'].presence || course_api['id'].to_s)
+    end
+
+    flash[:alert] = "Failed to import: #{failed_courses.to_sentence}. Please try again." if failed_courses.any?
+    if (selected_courses.length - failed_courses.length).positive? || failed_courses.empty?
+      flash[:notice] = 'Selected courses and their assignments have been imported successfully.'
+    end
+    redirect_to courses_path
   end
 
   def update
@@ -122,7 +134,11 @@ class CoursesController < ApplicationController
 
     render json: {
       roster_synced_at: course_to_lms.recent_roster_sync&.dig('synced_at'),
-      assignments_synced_at: course_to_lms.recent_assignment_sync&.dig('synced_at')
+      roster_sync_error: course_to_lms.recent_roster_sync&.dig('error'),
+      roster_sync_failed_at: course_to_lms.recent_roster_sync&.dig('failed_at'),
+      assignments_synced_at: course_to_lms.recent_assignment_sync&.dig('synced_at'),
+      assignments_sync_error: course_to_lms.recent_assignment_sync&.dig('error'),
+      assignments_sync_failed_at: course_to_lms.recent_assignment_sync&.dig('failed_at')
     }, status: :ok
   end
 

@@ -273,6 +273,11 @@ class Course < ApplicationRecord
       form_setting.save!
     end
 
+    # Enroll the creator synchronously with their Canvas role: the rest of the
+    # roster syncs in the background, and a failure there must not leave the
+    # creator locked out of a course they just imported.
+    course.enroll_user_with_highest_role(user, course_data['enrollments'])
+
     # TODO: Consider disabling these if performance becomes an issue
     course.sync_assignments(user)
     course.sync_all_enrollments_from_canvas(user.id)
@@ -285,9 +290,8 @@ class Course < ApplicationRecord
     response = canvas_facade.get_course(course_data['id'])
 
     if response.nil? || !response.success?
-      Rails.logger.error "Failed to fetch course: #{response.status} - #{response.body}"
-      # TODO: Raise error to user?
-      return nil
+      raise CanvasFacade::CanvasAPIError,
+            "Failed to fetch course #{course_data['id']} from Canvas (HTTP #{response&.status || 'no response'})"
     end
 
     course = find_or_initialize_by(canvas_id: course_data['id'])
@@ -317,6 +321,18 @@ class Course < ApplicationRecord
     lms_links.each do |course_to_lms|
       SyncAllCourseAssignmentsJob.perform_later(course_to_lms.id, sync_user.id)
     end
+  end
+
+  # Creates an enrollment for the user's highest-ranked role among the given
+  # Canvas enrollment hashes (from the Canvas courses API). No-op when none of
+  # the Canvas enrollments map to a role we know.
+  def enroll_user_with_highest_role(user, canvas_enrollments)
+    role = Array(canvas_enrollments)
+           .filter_map { |enrollment| Enrollment.role_from_canvas_enrollment(enrollment) }
+           .max_by { |found_role| Enrollment::ROLE_PRIORITY.index(found_role) || -1 }
+    return unless role
+
+    enrollments.find_or_create_by!(user: user, role: role)
   end
 
   # Fetch users for a course and create/find their User and Enrollment records

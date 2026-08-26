@@ -20,6 +20,9 @@ class SyncUsersFromCanvasJob < ApplicationJob
     course_to_lms.recent_roster_sync = results_by_role
     course_to_lms.save!
     results_by_role
+  rescue StandardError => e
+    record_sync_failure(course&.course_to_lms(1), :recent_roster_sync, e)
+    raise
   end
 
   private
@@ -31,9 +34,9 @@ class SyncUsersFromCanvasJob < ApplicationJob
   def sync_users_for_role(course, user, role)
     token = user.ensure_fresh_canvas_token!
     canvas_users = CanvasFacade.new(token).get_all_course_users(course, role)
-    if !canvas_users.is_a?(Array)
-      Rails.logger.error "Unexpected response from Canvas API: #{canvas_users.inspect}"
-      return { added: 0, removed: 0, updated: 0 }
+    unless canvas_users.is_a?(Array)
+      raise CanvasFacade::CanvasAPIError,
+            "Unexpected response from Canvas API for #{role} users in course #{course.id}: #{canvas_users.inspect.truncate(200)}"
     end
     current_canvas_user_ids = canvas_users.pluck('id').map(&:to_s)
 
@@ -119,14 +122,9 @@ class SyncUsersFromCanvasJob < ApplicationJob
       }
     end
 
-    if enrollments_to_create.any?
-      begin
-        Enrollment.insert_all(enrollments_to_create)
-      rescue => e
-        Rails.logger.debug { "DEBUG: Insert failed: #{e.message}" }
-        Rails.logger.debug { "DEBUG: #{e.backtrace.first(3)}" }
-      end
-    end
+    # A failure here propagates: the job records it on recent_roster_sync and
+    # re-raises so it reaches the error reporter instead of being swallowed.
+    Enrollment.insert_all(enrollments_to_create) if enrollments_to_create.any?
 
     {
       added: users_added,

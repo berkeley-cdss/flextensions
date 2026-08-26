@@ -45,6 +45,9 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
     course_to_lms.recent_assignment_sync = results
     course_to_lms.save!
     results
+  rescue StandardError => e
+    record_sync_failure(course_to_lms, :recent_assignment_sync, e)
+    raise
   end
 
   # Sync a single assignment

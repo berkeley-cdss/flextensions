@@ -112,9 +112,9 @@ export default class extends Controller {
 		spinner.classList.remove("d-none");
 
 		try {
-			// Capture timestamp before sync so we can detect when job finishes
+			// Capture sync status before starting so we can detect when the job
+			// finishes (or newly fails).
 			const statusBefore = await fetch(`/courses/${courseId}/sync_status`).then(r => r.json());
-			const beforeTs = statusBefore.roster_synced_at;
 
 			const response = await fetch(`/courses/${courseId}/sync_enrollments`, {
 				method: "POST",
@@ -123,7 +123,7 @@ export default class extends Controller {
 
 			if (!response.ok) throw new Error(`Failed to sync enrollments. ${response.status}`);
 
-			await pollUntilDone(courseId, "roster_synced_at", beforeTs);
+			await pollUntilDone(courseId, "roster", statusBefore);
 
 			flash("notice", "Enrollments synced successfully.");
 			location.reload();

@@ -42,6 +42,13 @@ module Flextensions
     config.generators.system_tests = nil
     config.active_job.queue_adapter = :good_job
 
+    # Report unhandled job exceptions (and GoodJob's own thread errors) to the
+    # Rails error reporter. GoodJob only records these on the job row in its
+    # dashboard; without this hook they never reach subscribers like Faultline.
+    config.good_job.on_thread_error = ->(exception) do
+      Rails.error.report(exception, handled: false, source: 'good_job')
+    end
+
     # Recurring jobs, run by GoodJob's built-in cron. The schedule is defined
     # for every environment so it is visible in one place, but GoodJob only acts
     # on it where `enable_cron` is true (production/staging — see
