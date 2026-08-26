@@ -74,12 +74,13 @@ RSpec.describe 'Course Details settings', type: :feature do
     end
 
     it 'pre-selects a stored semester and keeps the placeholders unselectable' do
-      course.update!(semester: 'Spring 2026')
+      year = Course.semester_year_options.last
+      course.update!(semester: "Spring #{year}")
 
       visit edit_course_path(course)
 
       expect(page).to have_select('course[semester_season]', selected: 'Spring', disabled_options: [ 'Season' ])
-      expect(page).to have_select('course[semester_year]', selected: '2026', disabled_options: [ 'Year' ])
+      expect(page).to have_select('course[semester_year]', selected: year.to_s, disabled_options: [ 'Year' ])
     end
   end
 
