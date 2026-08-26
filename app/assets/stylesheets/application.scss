@@ -80,6 +80,9 @@ $colors: (
 $primary: $berkeley-blue;
 // TODO: This may be a little too bright for some elements, consider using a medium or dark shade instead
 $secondary: $california-gold;
+// Bootstrap's default green (#198754) is off-palette; use the Berkeley
+// secondary green, which still clears 4.5:1 against white button text.
+$success: $green-medium;
 
 // Inline <code>: a dark red in light mode; a lighter tint in dark mode so it
 // stays readable on the dark surface. (Light surfaces that persist in dark
