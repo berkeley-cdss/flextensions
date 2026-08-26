@@ -129,16 +129,21 @@ class CoursesController < ApplicationController
   def sync_status
     return render json: { error: 'You do not have permission.' }, status: :forbidden unless @course.staff_user?(current_user)
 
-    course_to_lms = @course.course_to_lms
-    return render json: { error: 'LMS connection not found.' }, status: :not_found unless course_to_lms
+    lms_links = @course.all_linked_lmss.to_a
+    return render json: { error: 'LMS connection not found.' }, status: :not_found if lms_links.empty?
+
+    # Rosters only sync from Canvas; assignments sync one job per linked LMS
+    # (Canvas, Gradescope, ...), so their status is aggregated across links.
+    roster_sync = @course.course_to_lms&.recent_roster_sync
+    assignment_failure = latest_assignment_sync_failure(lms_links)
 
     render json: {
-      roster_synced_at: course_to_lms.recent_roster_sync&.dig('synced_at'),
-      roster_sync_error: course_to_lms.recent_roster_sync&.dig('error'),
-      roster_sync_failed_at: course_to_lms.recent_roster_sync&.dig('failed_at'),
-      assignments_synced_at: course_to_lms.recent_assignment_sync&.dig('synced_at'),
-      assignments_sync_error: course_to_lms.recent_assignment_sync&.dig('error'),
-      assignments_sync_failed_at: course_to_lms.recent_assignment_sync&.dig('failed_at')
+      roster_synced_at: roster_sync&.dig('synced_at'),
+      roster_sync_error: roster_sync&.dig('error'),
+      roster_sync_failed_at: roster_sync&.dig('failed_at'),
+      assignments_synced_at: oldest_assignment_synced_at(lms_links),
+      assignments_sync_error: assignment_failure&.dig('error'),
+      assignments_sync_failed_at: assignment_failure&.dig('failed_at')
     }, status: :ok
   end
 
@@ -158,6 +163,23 @@ class CoursesController < ApplicationController
   end
 
   private
+
+  # The sync poller treats a change in assignments_synced_at as "sync done",
+  # checking it before any failure. Reporting the oldest link keeps it from
+  # advancing while another link (e.g. Gradescope) failed and still has an
+  # error to surface; a link that has never synced reports as not synced.
+  def oldest_assignment_synced_at(lms_links)
+    synced_ats = lms_links.map { |link| link.recent_assignment_sync&.dig('synced_at') }
+    return nil unless synced_ats.all?(&:present?)
+
+    synced_ats.min_by { |timestamp| Time.zone.parse(timestamp.to_s) }
+  end
+
+  def latest_assignment_sync_failure(lms_links)
+    lms_links.filter_map(&:recent_assignment_sync)
+             .select { |sync| sync['failed_at'].present? }
+             .max_by { |sync| Time.zone.parse(sync['failed_at'].to_s) }
+  end
 
   def course_params
     params.expect(course: [ :course_name, :course_code, :demo_course ])

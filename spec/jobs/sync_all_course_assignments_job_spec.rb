@@ -152,6 +152,64 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
       end
     end
 
+    context 'when Gradescope authentication fails' do
+      let(:gradescope_lms) { Lms.find_by(id: 2) || create(:lms, :gradescope) }
+      let(:gradescope_link) do
+        create(:course_to_lms, course: course, lms: gradescope_lms, external_course_id: '9999')
+      end
+      let(:gradescope_facade_double) { instance_double(GradescopeFacade) }
+      let(:auth_error) { Lmss::Gradescope::AuthenticationError.new('Authentication required') }
+
+      before do
+        allow(GradescopeFacade).to receive(:from_user).and_return(gradescope_facade_double)
+        allow(gradescope_facade_double).to receive(:get_all_assignments).and_raise(auth_error)
+        allow(Rails.error).to receive(:report)
+      end
+
+      it 'records an actionable message for the UI instead of the raw error, without raising' do
+        expect {
+          described_class.perform_now(gradescope_link.id, sync_user.id)
+        }.not_to raise_error
+
+        recorded = gradescope_link.reload.recent_assignment_sync
+        expect(recorded['error']).to eq(described_class.gradescope_auth_error_message)
+        expect(recorded['error']).to match(/add \S+@\S+ as a TA/)
+        expect(recorded['error']).not_to include('Authentication required')
+        expect(recorded['failed_at']).to be_present
+      end
+
+      it 'reports the error with user, course, and Gradescope course context' do
+        described_class.perform_now(gradescope_link.id, sync_user.id)
+
+        expect(Rails.error).to have_received(:report).with(
+          auth_error,
+          hash_including(
+            handled: true,
+            severity: :warning,
+            context: hash_including(
+              component: 'gradescope',
+              operation: 'sync_assignments',
+              user_id: sync_user.id,
+              user_email: sync_user.email,
+              course_id: course.id,
+              course_name: course.course_name,
+              gradescope_course_id: '9999'
+            )
+          )
+        )
+      end
+
+      it 'preserves the data from the last successful sync' do
+        gradescope_link.update!(recent_assignment_sync: { 'synced_at' => '2026-08-24T12:00:00Z' })
+
+        described_class.perform_now(gradescope_link.id, sync_user.id)
+
+        recorded = gradescope_link.reload.recent_assignment_sync
+        expect(recorded['synced_at']).to eq('2026-08-24T12:00:00Z')
+        expect(recorded['error']).to be_present
+      end
+    end
+
     context 'when the LMS request fails' do
       before do
         allow(canvas_facade_double).to receive(:get_all_assignments)
