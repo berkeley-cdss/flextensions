@@ -63,17 +63,23 @@
                         <div class="mb-3 row">
                             <label for="semester-season" class="col-sm-4 col-form-label">Semester</label>
                             <div class="col-sm-8">
+                                <%# The "Season"/"Year" placeholders label an unset dropdown, so they are
+                                    disabled: they show when nothing valid is stored, but cannot be chosen. They
+                                    stay explicitly selected because a browser skips past a disabled first option
+                                    when no option is selected. %>
                                 <div class="row g-2">
                                     <div class="col-6">
                                         <%= select_tag 'course[semester_season]',
-                                                       options_for_select([ [ 'Season', '' ] ] + Course::SEMESTER_SEASONS.map { |s| [ s, s ] }, selected_season),
+                                                       options_for_select([ [ 'Season', '' ] ] + Course::SEMESTER_SEASONS.map { |s| [ s, s ] },
+                                                                          selected: selected_season || '', disabled: ''),
                                                        class: 'form-select',
                                                        id: 'semester-season',
                                                        'aria-label': 'Semester season' %>
                                     </div>
                                     <div class="col-6">
                                         <%= select_tag 'course[semester_year]',
-                                                       options_for_select([ [ 'Year', '' ] ] + Course.semester_year_options.reverse.map { |y| [ y, y ] }, selected_year),
+                                                       options_for_select([ [ 'Year', '' ] ] + Course.semester_year_options.reverse.map { |y| [ y, y ] },
+                                                                          selected: selected_year || '', disabled: ''),
                                                        class: 'form-select',
                                                        id: 'semester-year',
                                                        'aria-label': 'Semester year' %>
