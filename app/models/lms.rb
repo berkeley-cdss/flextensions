@@ -38,10 +38,21 @@ class Lms < ApplicationRecord
     end
   end
 
+  def self.PENSIVE_LMS
+    @pensive_lms ||= find_by(id: PENSIVE_LMS_ID) || find_or_create_by!(
+      id: PENSIVE_LMS_ID,
+      lms_name: 'Pensive'
+    ) do |lms|
+      lms.lms_base_url = 'https://www.pensieve.co'
+      lms.use_auth_token = false
+    end
+  end
+
   # Asserts that the Canvas LMS row exists (creating it if necessary) and
   # caches the table's rows in memory. Called once at boot, not per request.
   def self.preload!
     @gradescope_lms = find_by(id: GRADESCOPE_LMS_ID) if @gradescope_lms.nil?
+    @pensive_lms = find_by(id: PENSIVE_LMS_ID) if @pensive_lms.nil?
     @canvas_lms = find_or_create_by!(id: CANVAS_LMS_ID) do |lms|
       lms.lms_name = 'Canvas'
       lms.lms_base_url = ENV.fetch('CANVAS_URL', '')
@@ -58,6 +69,8 @@ class Lms < ApplicationRecord
       CanvasFacade
     when GRADESCOPE_LMS_ID
       GradescopeFacade
+    when PENSIVE_LMS_ID
+      PensiveFacade
     else
       raise "Unsupported LMS ID: #{id}"
     end

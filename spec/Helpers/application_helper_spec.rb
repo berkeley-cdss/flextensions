@@ -80,6 +80,31 @@ RSpec.describe ApplicationHelper, type: :helper do
     end
   end
 
+  describe '#assignment_link_for' do
+    it 'links Pensive assignments using their stored assignment URL' do
+      course = create(:course)
+      course_to_lms = create(
+        :course_to_lms,
+        course: course,
+        lms: Lms.PENSIVE_LMS,
+        external_course_id: 'class-123'
+      )
+      assignment_url =
+        'https://www.pensieve.co/teacher/classes/class-123/my-assignments/online/assignment-456/extensions'
+      assignment = create(
+        :assignment,
+        course_to_lms: course_to_lms,
+        external_assignment_id: assignment_url
+      )
+
+      link = helper.assignment_link_for(assignment, course)
+
+      expect(link).to include(%(href="#{assignment_url}"))
+      expect(link).to include('Pensive')
+      expect(link).to include('target="_blank"')
+    end
+  end
+
   describe '#deployment_note' do
     let(:deployed_at) { Time.zone.local(2026, 8, 5, 10, 30) }
     let(:sha) { 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2' }

@@ -222,18 +222,26 @@ class Request < ApplicationRecord
       when GradescopeFacade
         course_id = course.gradescope_id
         user_id = user.email
+      when PensiveFacade
+        course_id = course.pensive_id
+        user_id = user.email
       else
         raise "Unsupported LMS Facade: #{lms_facade.class.name}"
       end
 
       dates = date_calculator.calculate
-      override = lms_facade.provision_extension(
+      provision_args = [
         course_id,
         user_id,
         assignment.external_assignment_id,
         dates[:due_date].iso8601,
         dates[:late_due_date]&.iso8601
-      )
+      ]
+      if lms_facade.is_a?(PensiveFacade)
+        override = lms_facade.provision_extension(*provision_args, extension_days: calculate_days_difference)
+      else
+        override = lms_facade.provision_extension(*provision_args)
+      end
     rescue => e
       Rails.logger.error "Error during LMS extension provisioning for request #{id}: #{e.message}"
       Rails.error.report(e, handled: true,

@@ -5,6 +5,11 @@ Lms.find_or_create_by!(id: 1, lms_name: 'Canvas', use_auth_token: true)
 # Gradescope
 Lms.find_or_create_by!(id: 2, lms_name: 'Gradescope', use_auth_token: false)
 
+# Pensive (the API retains the legacy pensieve.co domain and environment names)
+Lms.find_or_create_by!(id: 3, lms_name: 'Pensive', use_auth_token: false) do |lms|
+  lms.lms_base_url = 'https://www.pensieve.co'
+end
+
 # A special user to track auto-approvals of requests.
 User.find_or_create_by!(
   email: SystemUserService::AUTO_APPROVAL_EMAIL,

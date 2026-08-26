@@ -151,6 +151,52 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
         }.not_to raise_error
       end
     end
+
+    context 'with a Pensive course link' do
+      let(:pensive_course_to_lms) do
+        create(
+          :course_to_lms,
+          course: course,
+          lms: Lms.PENSIVE_LMS,
+          external_course_id: 'pensive-class'
+        )
+      end
+      let(:pensive_facade) { instance_double(PensiveFacade) }
+      let(:assignment_url) do
+        'https://www.pensieve.co/teacher/classes/pensive-class/my-assignments/online/assignment-id/extensions'
+      end
+      let(:pensive_assignments) do
+        [
+          Lmss::Pensive::Assignment.new(
+            'assignment_url' => assignment_url,
+            'name' => 'Pensive Homework',
+            'release_date' => '2026-08-01T00:00:00Z',
+            'due_date' => '2026-08-08T07:00:00Z',
+            'hard_due_date' => '2026-08-10T07:00:00Z'
+          )
+        ]
+      end
+
+      before do
+        allow(PensiveFacade).to receive(:from_user).with(sync_user).and_return(pensive_facade)
+        allow(pensive_facade).to receive(:get_all_assignments)
+          .with('pensive-class')
+          .and_return(pensive_assignments)
+      end
+
+      it 'syncs Pensive assignment URLs and dates through the shared job' do
+        described_class.perform_now(pensive_course_to_lms.id, sync_user.id)
+
+        assignment = Assignment.find_by(
+          course_to_lms: pensive_course_to_lms,
+          external_assignment_id: assignment_url
+        )
+        expect(assignment.name).to eq('Pensive Homework')
+        expect(assignment.release_date).to eq(Time.zone.parse('2026-08-01T00:00:00Z'))
+        expect(assignment.due_date).to eq(Time.zone.parse('2026-08-08T07:00:00Z'))
+        expect(assignment.late_due_date).to eq(Time.zone.parse('2026-08-10T07:00:00Z'))
+      end
+    end
   end
 
   describe '#sync_assignment' do

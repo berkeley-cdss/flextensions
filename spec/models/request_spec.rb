@@ -830,6 +830,51 @@ RSpec.describe Request, type: :model do
         expect(request.status).to eq('approved')
       end
     end
+
+    context 'with Pensive facade' do
+      let(:pensive_facade) { PensiveFacade.new('pensive-token') }
+      let(:pensive_override) { instance_double(Lmss::Pensive::Override, id: nil) }
+      let(:pensive_assignment_url) do
+        'https://www.pensieve.co/teacher/classes/pensive-class/my-assignments/online/assignment-id/extensions'
+      end
+
+      before do
+        allow(ENV).to receive(:[]).and_call_original
+        allow(ENV).to receive(:[]).with('PENSIEVE_EMAIL').and_return('integration@example.edu')
+        pensive_link = CourseToLms.create!(
+          course: course,
+          lms: Lms.PENSIVE_LMS,
+          external_course_id: 'pensive-class'
+        )
+        assignment.update!(
+          course_to_lms: pensive_link,
+          external_assignment_id: pensive_assignment_url
+        )
+        allow(pensive_facade).to receive(:provision_extension).and_return(pensive_override)
+      end
+
+      it 'provisions an extension by student email and whole-day count' do
+        due_date = assignment.due_date
+        requested_due_date = due_date + 3.days
+        request.update!(requested_due_date: requested_due_date)
+        allow(mock_date_calculator).to receive(:calculate).and_return({
+          release_date: nil,
+          due_date: requested_due_date,
+          late_due_date: nil
+        })
+        allow(request).to receive(:date_calculator).and_return(mock_date_calculator)
+
+        expect(request.approve(pensive_facade, instructor)).to be(true)
+        expect(pensive_facade).to have_received(:provision_extension).with(
+          'pensive-class',
+          user.email,
+          pensive_assignment_url,
+          requested_due_date.iso8601,
+          nil,
+          extension_days: 3
+        )
+      end
+    end
   end
 
   describe '#reject' do

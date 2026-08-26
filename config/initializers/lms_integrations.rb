@@ -1,6 +1,7 @@
 # Well-known LMS row ids (see db/seeds.rb and Lms.preload!).
 CANVAS_LMS_ID = 1
 GRADESCOPE_LMS_ID = 2
+PENSIVE_LMS_ID = 3
 
 # When the app boots, assert that the Canvas LMS row (id 1) exists — creating
 # it if necessary — and preload the lms table into memory so requests never

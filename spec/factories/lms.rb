@@ -14,5 +14,12 @@ FactoryBot.define do
       lms_name { 'Gradescope' }
       use_auth_token { false }
     end
+
+    trait :pensive do
+      id { 3 }
+      lms_name { 'Pensive' }
+      lms_base_url { 'https://www.pensieve.co' }
+      use_auth_token { false }
+    end
   end
 end

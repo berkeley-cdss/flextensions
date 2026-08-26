@@ -189,6 +189,10 @@ class Course < ApplicationRecord
     external_course_id_for(GRADESCOPE_LMS_ID)
   end
 
+  def pensive_id
+    external_course_id_for(PENSIVE_LMS_ID)
+  end
+
   # Returns the external course id for the given LMS. A course should have at
   # most one link per LMS, but when several exist we deterministically prefer a
   # link that actually carries an external id (ordered by id) so callers never

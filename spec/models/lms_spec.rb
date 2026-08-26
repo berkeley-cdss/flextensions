@@ -18,9 +18,11 @@ RSpec.describe Lms, type: :model do
   around do |example|
     described_class.instance_variable_set(:@canvas_lms, nil)
     described_class.instance_variable_set(:@gradescope_lms, nil)
+    described_class.instance_variable_set(:@pensive_lms, nil)
     example.run
     described_class.instance_variable_set(:@canvas_lms, nil)
     described_class.instance_variable_set(:@gradescope_lms, nil)
+    described_class.instance_variable_set(:@pensive_lms, nil)
   end
 
   describe '.preload!' do
@@ -58,6 +60,23 @@ RSpec.describe Lms, type: :model do
 
     it 'falls back to loading the row when nothing is preloaded' do
       expect(described_class.CANVAS_LMS.id).to eq(CANVAS_LMS_ID)
+    end
+  end
+
+  describe '.PENSIVE_LMS' do
+    it 'loads the Pensive integration row' do
+      pensive = described_class.PENSIVE_LMS
+
+      expect(pensive.id).to eq(PENSIVE_LMS_ID)
+      expect(pensive.lms_name).to eq('Pensive')
+      expect(pensive.lms_base_url).to eq('https://www.pensieve.co')
+      expect(pensive.use_auth_token).to be(false)
+    end
+  end
+
+  describe '.facade_class' do
+    it 'maps the Pensive LMS id to its facade' do
+      expect(described_class.facade_class(PENSIVE_LMS_ID)).to eq(PensiveFacade)
     end
   end
 end
