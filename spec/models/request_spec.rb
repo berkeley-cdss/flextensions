@@ -830,6 +830,49 @@ RSpec.describe Request, type: :model do
         expect(request.status).to eq('approved')
       end
     end
+
+    context 'with Pensieve facade' do
+      let(:pensieve_facade) { PensieveFacade.new }
+      let(:pensieve_override) { instance_double(Lmss::Pensieve::Override, id: 'pensieve-override-1') }
+
+      before do
+        # Link the course to Pensieve so course.pensieve_id is present
+        CourseToLms.create!(course: course, lms_id: PENSIEVE_LMS_ID, external_course_id: 'https://www.pensieve.co/courses/123')
+        allow(pensieve_facade).to receive(:provision_extension).and_return(pensieve_override)
+      end
+
+      it 'provisions an extension through Pensieve with email identifier' do
+        allow(mock_date_calculator).to receive(:calculate).and_return({
+          release_date: nil,
+          due_date: request.requested_due_date,
+          late_due_date: nil
+        })
+        allow(request).to receive(:date_calculator).and_return(mock_date_calculator)
+        request.approve(pensieve_facade, instructor)
+
+        expect(pensieve_facade).to have_received(:provision_extension).with(
+          course.pensieve_id,
+          user.email,
+          assignment.external_assignment_id,
+          request.requested_due_date.iso8601,
+          nil
+        )
+      end
+
+      it 'marks the request as approved and records Pensieve metadata' do
+        allow(mock_date_calculator).to receive(:calculate).and_return({
+          release_date: nil,
+          due_date: request.requested_due_date,
+          late_due_date: nil
+        })
+        allow(request).to receive(:date_calculator).and_return(mock_date_calculator)
+        expect(request.approve(pensieve_facade, instructor)).to be(true)
+
+        expect(request.status).to eq('approved')
+        expect(request.last_processed_by_user_id).to eq(instructor.id)
+        expect(request.external_extension_id).to eq('pensieve-override-1')
+      end
+    end
   end
 
   describe '#reject' do

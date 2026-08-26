@@ -11,6 +11,7 @@
 #  enable_extensions                  :boolean          default(FALSE)
 #  enable_gradescope                  :boolean          default(FALSE)
 #  enable_min_hours_before_deadline   :boolean          default(TRUE), not null
+#  enable_pensieve                    :boolean          default(FALSE), not null
 #  enable_slack_webhook_url           :boolean
 #  extend_late_due_date               :boolean          default(TRUE), not null
 #  gradescope_course_url              :string
@@ -18,6 +19,7 @@
 #  min_hours_before_deadline          :integer          default(0), not null
 #  pending_notification_email         :string
 #  pending_notification_frequency     :string
+#  pensieve_course_url                :string
 #  reply_email                        :string
 #  slack_webhook_url                  :string
 #  created_at                         :datetime         not null
@@ -126,6 +128,42 @@ RSpec.describe CourseSettings, type: :model do
         expect(course_settings).to be_valid
       end
     end
+
+    context 'when enable_pensieve is true' do
+      it 'validates pensieve_course_url format' do
+        course_settings.enable_pensieve = true
+        course_settings.pensieve_course_url = 'https://www.pensieve.co/courses/123456'
+        expect(course_settings).to be_valid
+      end
+
+      it 'accepts pensieve.co without www' do
+        course_settings.enable_pensieve = true
+        course_settings.pensieve_course_url = 'https://pensieve.co/courses/123456'
+        expect(course_settings).to be_valid
+      end
+
+      it 'rejects invalid pensieve_course_url' do
+        course_settings.enable_pensieve = true
+        course_settings.pensieve_course_url = 'https://example.com/invalid'
+        expect(course_settings).not_to be_valid
+        expect(course_settings.errors[:pensieve_course_url]).to include('must be a valid Pensieve course URL like https://www.pensieve.co/courses/123456')
+      end
+
+      it 'rejects a blank pensieve_course_url' do
+        course_settings.enable_pensieve = true
+        course_settings.pensieve_course_url = nil
+        expect(course_settings).not_to be_valid
+        expect(course_settings.errors[:pensieve_course_url]).to include('must be a valid Pensieve course URL like https://www.pensieve.co/courses/123456')
+      end
+    end
+
+    context 'when enable_pensieve is false' do
+      it 'does not validate pensieve_course_url' do
+        course_settings.enable_pensieve = false
+        course_settings.pensieve_course_url = 'invalid_url'
+        expect(course_settings).to be_valid
+      end
+    end
   end
 
   describe '#create_or_update_gradescope_link' do
@@ -212,6 +250,48 @@ RSpec.describe CourseSettings, type: :model do
 
         course_to_lms = CourseToLms.find_by(course_id: course.id, lms_id: GRADESCOPE_LMS_ID)
         expect(course_to_lms.external_course_id).to eq('999999')
+      end
+    end
+  end
+
+  describe '#create_or_update_pensieve_link' do
+    let(:pensieve_url) { 'https://www.pensieve.co/courses/123456' }
+
+    context 'when enable_pensieve is true' do
+      before do
+        course_settings.enable_pensieve = true
+        course_settings.pensieve_course_url = pensieve_url
+      end
+
+      it 'creates a CourseToLms record storing the course URL as the external id' do
+        expect do
+          course_settings.save!
+        end.to change(CourseToLms, :count).by(1)
+
+        course_to_lms = CourseToLms.find_by(course_id: course.id, lms_id: PENSIEVE_LMS_ID)
+        expect(course_to_lms).to be_present
+        expect(course_to_lms.external_course_id).to eq(pensieve_url)
+      end
+
+      it 'updates existing CourseToLms record if it already exists' do
+        CourseToLms.create!(course_id: course.id, lms_id: PENSIEVE_LMS_ID, external_course_id: 'https://www.pensieve.co/courses/999999')
+
+        expect do
+          course_settings.save!
+        end.not_to change(CourseToLms, :count)
+
+        course_to_lms = CourseToLms.find_by(course_id: course.id, lms_id: PENSIEVE_LMS_ID)
+        expect(course_to_lms.external_course_id).to eq(pensieve_url)
+      end
+    end
+
+    context 'when enable_pensieve is false' do
+      it 'does not create a CourseToLms record' do
+        course_settings.enable_pensieve = false
+
+        expect do
+          course_settings.save!
+        end.not_to change(CourseToLms, :count)
       end
     end
   end

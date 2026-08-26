@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_06_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_25_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -100,6 +100,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_06_120000) do
     t.boolean "enable_extensions", default: false
     t.boolean "enable_gradescope", default: false
     t.boolean "enable_min_hours_before_deadline", default: true, null: false
+    t.boolean "enable_pensieve", default: false, null: false
     t.boolean "enable_slack_webhook_url"
     t.boolean "extend_late_due_date", default: true, null: false
     t.string "gradescope_course_url"
@@ -107,6 +108,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_06_120000) do
     t.integer "min_hours_before_deadline", default: 0, null: false
     t.string "pending_notification_email"
     t.string "pending_notification_frequency"
+    t.string "pensieve_course_url"
     t.string "reply_email"
     t.string "slack_webhook_url"
     t.datetime "updated_at", null: false

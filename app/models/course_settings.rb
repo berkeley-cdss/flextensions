@@ -11,6 +11,7 @@
 #  enable_extensions                  :boolean          default(FALSE)
 #  enable_gradescope                  :boolean          default(FALSE)
 #  enable_min_hours_before_deadline   :boolean          default(TRUE), not null
+#  enable_pensieve                    :boolean          default(FALSE), not null
 #  enable_slack_webhook_url           :boolean
 #  extend_late_due_date               :boolean          default(TRUE), not null
 #  gradescope_course_url              :string
@@ -18,6 +19,7 @@
 #  min_hours_before_deadline          :integer          default(0), not null
 #  pending_notification_email         :string
 #  pending_notification_frequency     :string
+#  pensieve_course_url                :string
 #  reply_email                        :string
 #  slack_webhook_url                  :string
 #  created_at                         :datetime         not null
@@ -72,10 +74,12 @@ class CourseSettings < ApplicationRecord
   before_create :apply_default_email_templates
 
   validate :gradescope_url_is_valid, if: :enable_gradescope?
+  validate :pensieve_url_is_valid, if: :enable_pensieve?
   validates :pending_notification_frequency, inclusion: { in: VALID_NOTIFICATION_FREQUENCIES }, allow_nil: true
   validates :pending_notification_email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP },
                                          if: -> { pending_notification_frequency.present? }
   after_save :create_or_update_gradescope_link
+  after_save :create_or_update_pensieve_link
 
   scope :with_pending_notifications, ->(frequency) {
     where(pending_notification_frequency: frequency)
@@ -133,5 +137,25 @@ class CourseSettings < ApplicationRecord
   def extract_gradescope_course_id(gradescope_course_url)
     match = gradescope_course_url&.match(%r{gradescope\.com/courses/(\d+)})
     match && match[1]
+  end
+
+  VALID_PENSIEVE_URL = %r{\Ahttps://(www\.)?pensieve\.co/\S+\z}
+
+  # Pensieve's API identifies courses (and assignments) by URL rather than by a
+  # numeric id, so the whole URL is stored as the external course id.
+  # TODO: if disabled should unsync Pensieve assignments
+  def create_or_update_pensieve_link
+    return unless enable_pensieve
+
+    CourseToLms.find_or_initialize_by(course_id: course.id, lms_id: PENSIEVE_LMS_ID).tap do |course_to_lms|
+      course_to_lms.external_course_id = pensieve_course_url
+      course_to_lms.save!
+    end
+  end
+
+  def pensieve_url_is_valid
+    return if pensieve_course_url&.match?(VALID_PENSIEVE_URL)
+
+    errors.add(:pensieve_course_url, 'must be a valid Pensieve course URL like https://www.pensieve.co/courses/123456')
   end
 end
