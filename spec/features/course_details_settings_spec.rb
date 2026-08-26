@@ -59,6 +59,31 @@ RSpec.describe 'Course Details settings', type: :feature do
     end
   end
 
+  describe 'semester picker' do
+    around { |example| Capybara.using_driver(:rack_test) { example.run } }
+
+    before { page.set_rack_session(user_id: teacher.canvas_uid) }
+
+    it 'shows the Season/Year placeholders but does not offer them as choices' do
+      course.update!(semester: 'not-a-semester')
+
+      visit edit_course_path(course)
+
+      expect(page).to have_select('course[semester_season]', selected: 'Season', disabled_options: [ 'Season' ])
+      expect(page).to have_select('course[semester_year]', selected: 'Year', disabled_options: [ 'Year' ])
+    end
+
+    it 'pre-selects a stored semester and keeps the placeholders unselectable' do
+      year = Course.semester_year_options.last
+      course.update!(semester: "Spring #{year}")
+
+      visit edit_course_path(course)
+
+      expect(page).to have_select('course[semester_season]', selected: 'Spring', disabled_options: [ 'Season' ])
+      expect(page).to have_select('course[semester_year]', selected: year.to_s, disabled_options: [ 'Year' ])
+    end
+  end
+
   describe 'notification settings placement' do
     around { |example| Capybara.using_driver(:rack_test) { example.run } }
 
