@@ -1,0 +1,40 @@
+name: Boot
+
+# The suite only runs under RAILS_ENV=test, so a boot failure in production or
+# staging reaches a deployment unnoticed. Boots each and exits; no database
+# needed, since load-order faults surface without one.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  boot:
+    name: ${{ matrix.rails_env }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        rails_env: [ production, staging ]
+
+    env:
+      RAILS_ENV: ${{ matrix.rails_env }}
+      SECRET_KEY_BASE: ci-boot-check-not-a-real-secret
+      ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: ci000000000000000000000000000000
+      ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: ci000000000000000000000000000001
+      ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: ci000000000000000000000000000002
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .tool-versions
+          bundler-cache: true
+
+      - name: Boot the application
+        run: |
+          bin/rails runner 'Rails.application.eager_load!; puts "boot ok: #{Rails.env}"'
