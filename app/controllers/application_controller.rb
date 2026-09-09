@@ -81,7 +81,10 @@ class ApplicationController < ActionController::Base
   end
 
   def handle_authentication_failure(message)
+    return_to = request.fullpath if request.get? && request.format.html?
+
     reset_session
+    session[:return_to] = return_to if return_to.present?
     flash[:alert] = message
     redirect_to root_path
     false

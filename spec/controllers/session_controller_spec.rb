@@ -46,7 +46,24 @@ RSpec.describe SessionController, type: :controller do
 
         expect(session[:user_id]).to eq('12345')
         expect(response).to redirect_to(courses_path)
-        expect(flash[:notice]).to include('Logged in!')
+        expect(flash[:notice]).to eq('Welcome, Test User!')
+      end
+
+      it 'redirects to the protected page requested before login' do
+        session[:return_to] = '/courses/42?view=requests'
+
+        get :omniauth_callback, params: { provider: 'canvas' }
+
+        expect(response).to redirect_to('/courses/42?view=requests')
+        expect(session[:return_to]).to be_nil
+      end
+
+      it 'does not redirect to a destination on another host' do
+        session[:return_to] = 'https://example.com/phishing'
+
+        get :omniauth_callback, params: { provider: 'canvas' }
+
+        expect(response).to redirect_to(courses_path)
       end
     end
 
