@@ -3,6 +3,8 @@ title: Developing Flextensions
 permalink: /developers/
 ---
 
+# Developing Flextensions
+
 ## Standing Up the Application
 
 This guide walks you through setting up the Flextensions app on your local machine and on your Heroku server and preparing it for development and deployment.
@@ -197,32 +199,32 @@ the single platform-managed `web` process is all this app needs.
 
 1. Setup the following ENV variables in heroku, with the same values in your local .env file.
 
-```bash
-APP_HOST
-CANVAS_CLIENT_ID
-CANVAS_URL
-# Active Record Encryption Values
-# SMTP Email Settings
-```
+   ```bash
+   APP_HOST
+   CANVAS_CLIENT_ID
+   CANVAS_URL
+   # Active Record Encryption Values
+   # SMTP Email Settings
+   ```
 
-2. Pushing branch [Iter4](https://github.com/cs169/flextensions/tree/iter4-end-2025-04-21) to flextensions heroku
+2. Push branch [Iter4](https://github.com/cs169/flextensions/tree/iter4-end-2025-04-21) to the flextensions heroku app.
 
-```
-heroku login
-git remote add golden https://git.heroku.com/flextensions.git
-git push golden main
-```
+   ```bash
+   heroku login
+   git remote add golden https://git.heroku.com/flextensions.git
+   git push golden main
+   ```
 
-3. https://sp25-02-flextensions-4f5b4fbccd7f.herokuapp.com
-
-
+3. The app is then available at <https://sp25-02-flextensions-4f5b4fbccd7f.herokuapp.com>.
 
 
 
 
 
-# Testing
-## Test Commands
+
+
+## Testing
+### Test Commands
 
 | Test Type | Command |
 |-----------|---------|
@@ -236,7 +238,7 @@ git push golden main
 | Auto-fix Lint Issues | `bundle exec rubocop -A` |
 | Validate Swagger API | `npx @redocly/cli lint app/assets/swagger/swagger.json --extends=minimal` |
 
-## Test Tags
+### Test Tags
 
 | Tag | Description |
 |-----|-------------|
@@ -246,7 +248,7 @@ git push golden main
 | `@wip` | Work In Progress tests still under development |
 
 
-## Accessibility (a11y) after-hooks
+### Accessibility (a11y) after-hooks
 
 Accessibility auditing is wired up as an **after-hook** in both test frameworks,
 so any test opted in with the `a11y`/`@a11y` tag has its final rendered page
@@ -260,34 +262,37 @@ axe matcher themselves.
   is audited after it runs. Because axe-core needs a real browser, `@a11y`
   scenarios run under the JavaScript driver.
 
-## Tips
+### Tips
 
 - Use `~` (RSpec) or `not` (Cucumber) to exclude tags
 - Combine tags in Cucumber with `and`/`or`: `--tags '@javascript and not @skip'`
 - Run accessibility tests separately (slower)
 
 
-## Conventions
+### Conventions
 
-1. Testing convention css selector -
-```<a class="nav-link testid-username" href="#"> Tashrique </a>```
+1. Testing convention css selector:
 
-Notice the ```testid-username```We will be using this style in **class** to grab elements from DOM to test.
+   ```html
+   <a class="nav-link testid-username" href="#"> Tashrique </a>
+   ```
 
-Please don't remove any class that starts with ```testid-```
+Notice the `testid-username` class. We will be using this style in **class** to grab elements from DOM to test.
 
-# Notes
+Please don't remove any class that starts with `testid-`.
+
+## Notes
 
 For how Flextensions reads Canvas assignment due dates and reads/writes
 assignment overrides (and the gotchas around `override_assignment_dates`, the
 25-date `all_dates` limit, and `/date_details`), see
-[Canvas Dates API notes](/flextensions/canvas-dates-api/) (`docs/Canvas_Dates_API.md`).
+[Canvas Dates API notes](/canvas-dates-api/) (`docs/Canvas_Dates_API.md`).
 
 There are now two separate instances of Canvas, each with it's own triad of prod/test/beta environments:
-1. [bcourses.berkeley.edu](bcourses.berkeley.edu)
-2. [ucberkeleysandbox.instructure.com](ucberkeleysandbox.instructure.com)
+1. [bcourses.berkeley.edu](https://bcourses.berkeley.edu)
+2. [ucberkeleysandbox.instructure.com](https://ucberkeleysandbox.instructure.com)
 
 We recommend developing in this order:
-1. [ucberkeleysandbox.instructure.com](ucberkeleysandbox.instructure.com) (no risk) - this is the one for which this repo currently has oauth2 keys (secrets)
-2. [bcourses.test.instructure.com](bcourses.test.instructure.com) (no risk of impacting courses, but contains real data)
-3. [bcourses.berkeley.edu](bcourses.berkeley.edu)
+1. [ucberkeleysandbox.instructure.com](https://ucberkeleysandbox.instructure.com) (no risk) - this is the one for which this repo currently has oauth2 keys (secrets)
+2. [bcourses.test.instructure.com](https://bcourses.test.instructure.com) (no risk of impacting courses, but contains real data)
+3. [bcourses.berkeley.edu](https://bcourses.berkeley.edu)
