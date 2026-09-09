@@ -3,7 +3,9 @@ title: Flextensions - Assignment Extension Management for Canvas
 permalink: /
 ---
 
-<!-- NOTE to Authors: all absolute URLs should start with /flextensions/
+<!-- NOTE to Authors: the site is served from the root of
+docs.flextensions.berkeley.edu, so internal links are absolute paths without a
+prefix, e.g. /students/ (see README.md).
 -->
 
 # Welcome to Flextensions 👋 [→][flextensions]
@@ -18,14 +20,14 @@ _* Well, all of your courses which use bCourses or Gradescope and enable assignm
 
 ## 🚀 What Does Flextensions Do?
 
-### [🧑‍🏫 For Course Staff](/flextensions/instructors/):
+### [🧑‍🏫 For Course Staff](/instructors/):
 - View and manage extensions requests for all assignments in your course.
 - Grant extensions to students with a few clicks.
 - Monitor extension usage across your course.
 - Automate approving extension requests and email sending
-- Use as an [API](/docs/api/index.html) to integrate with your own tools and systems.
+- Use as an [API](/api/) to integrate with your own tools and systems.
 
-### [🎓 For Students](/flextensions/students/):
+### [🎓 For Students](/students/):
 - View all your granted extensions in one place.
 - See how long your extension lasts and when the new due date is.
 - Stay informed and organized without checking multiple systems.
@@ -38,13 +40,13 @@ Flextensions connects directly with bCourses (Canvas) and imports your assignmen
 
 ---
 
-Want a quick tour? Browse the [Screenshots page](/flextensions/screenshots/) to see Flextensions in action.
+Want a quick tour? Browse the [Screenshots page](/screenshots/) to see Flextensions in action.
 
-Are you a developer? Check out the [Developer Documentation](/flextensions/developers/) documention to contribute to Flextensions and the [API Reference](/flextensions/api/) to learn how to integrate Flextensions with your own applications.
+Are you a developer? Check out the [Developer Documentation](/developers/) documention to contribute to Flextensions and the [API Reference](/api/) to learn how to integrate Flextensions with your own applications.
 
-Want to know what's new? See the [Updates page](/flextensions/updates/) for recent changes or visit the [GitHub Releases](https://github.com/berkeley-cdss/flextensions/releases) for a full changelog.
+Want to know what's new? See the [Updates page](/updates/) for recent changes or visit the [GitHub Releases](https://github.com/berkeley-cdss/flextensions/releases) for a full changelog.
 
-Interested in the research behind Flextensions? Check out the [Research page](/flextensions/research/).
+Interested in the research behind Flextensions? Check out the [Research page](/research/).
 
 ---
 
