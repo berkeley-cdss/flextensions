@@ -118,22 +118,33 @@
                     <div class="card-body">
                         <h2 class="card-title h5"><%= t('.variables.title') %></h2>
                         <p class="text-muted mb-2"><%= t('.variables.description') %></p>
-                        <div class="row">
-                            <% {
-                                 student: %w[student_name student_email student_id],
+                        <% {
+                             student: %w[student_name student_email student_id],
                                  course: %w[course_name course_code assignment_name request_url],
-                                 extension: %w[original_due_date new_due_date requested_due_date extension_days status request_details_table]
-                               }.each do |group, variables| %>
-                                <div class="col-md-4">
-                                    <p class="mb-1 fw-bold"><%= t(".variables.groups.#{group}") %></p>
-                                    <ul class="list-unstyled">
-                                        <% variables.each do |variable| %>
-                                            <li><code>{{<%= variable %>}}</code> - <%= t(".variables.#{variable}") %></li>
-                                        <% end %>
-                                    </ul>
-                                </div>
-                            <% end %>
-                        </div>
+                                 request: %w[request_details_table original_due_date new_due_date requested_due_date extension_days status]
+                           }.each do |group, variables| %>
+                            <p class="mb-1 fw-bold" id="email-variables-<%= group %>"><%= t(".variables.groups.#{group}") %></p>
+                            <table class="table table-sm table-borderless w-auto mb-3 email-variables-table" style="--bs-table-bg: transparent;"
+                                   aria-labelledby="email-variables-<%= group %>">
+                                <thead class="visually-hidden">
+                                    <tr>
+                                        <th scope="col"><%= t('.variables.columns.variable') %></th>
+                                        <th scope="col"><%= t('.variables.columns.description') %></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% variables.each do |variable| %>
+                                        <% placeholder = "{{#{variable}}}" %>
+                                        <tr>
+                                            <td class="text-nowrap ps-0 pe-4">
+                                                <code><%= placeholder %></code><%= copy_to_clipboard_button(placeholder, label: t('.variables.copy', variable: placeholder)) %>
+                                            </td>
+                                            <td><%= t(".variables.#{variable}") %></td>
+                                        </tr>
+                                    <% end %>
+                                </tbody>
+                            </table>
+                        <% end %>
                     </div>
                 </div>
 

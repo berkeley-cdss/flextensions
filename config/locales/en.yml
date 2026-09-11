@@ -80,12 +80,16 @@ en:
         body_label: Body
         body_hint: "Use {{variable_name}} to insert dynamic values. Line breaks are preserved."
       variables:
-        title: Available Variables
+        title: Email Variables
         description: These can be used in the subject and body of both templates.
+        copy: "Copy %{variable} to clipboard"
+        columns:
+          variable: Variable
+          description: Description
         groups:
           student: "Student Information:"
           course: "Course Information:"
-          extension: "Extension Information:"
+          request: "Request Information:"
         student_name: Full name
         student_email: Email
         student_id: ID number
@@ -98,7 +102,7 @@ en:
         requested_due_date: Requested due date (denials)
         extension_days: Days requested
         status: Status (Approved/Denied)
-        request_details_table: Formatted table of the request details
+        request_details_table: "A formatted table containing the following fields:"
 
   request_mailer:
     submission_confirmation:

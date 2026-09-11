@@ -196,12 +196,13 @@ links back to the request.
 - **Course Information**
   `{{course_name}}, {{course_code}}, {{assignment_name}}, {{request_url}}`
 
-- **Extension Information**
+- **Request Information**
+  `{{request_details_table}}` inserts a formatted table containing the
+  assignment, status, due dates, days requested, and the student's reason.
+  The individual fields are also available:
   `{{original_due_date}}, {{new_due_date}}, {{requested_due_date}}, {{extension_days}}, {{status}}`
 
-- **Formatted Details**
-  `{{request_details_table}}` inserts a formatted table listing the
-  assignment, status, due dates, days requested, and the student's reason.
+Each variable on the page has a copy button next to it.
 
 Click **Reset to Default** on a template to restore that template's system
 default. A template saved blank is also reset to the default.

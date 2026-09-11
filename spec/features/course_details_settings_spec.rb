@@ -129,6 +129,21 @@ RSpec.describe 'Course Details settings', type: :feature do
       expect(page).to have_button('Reset to Default', count: 2)
     end
 
+    it 'lists email variables in compact tables with screen-reader headers and copy buttons' do
+      visit emails_course_settings_path(course)
+
+      expect(page).to have_selector('h2', text: 'Email Variables')
+      expect(page).to have_text('Request Information:')
+      expect(page).to have_no_text('Extension Information')
+      expect(page).to have_selector('table.email-variables-table', count: 3)
+      expect(page).to have_selector('table.email-variables-table thead.visually-hidden th', text: 'Variable', visible: :all)
+      expect(page).to have_button('Copy {{student_name}} to clipboard')
+
+      request_rows = page.all('table[aria-labelledby="email-variables-request"] tbody tr').map(&:text)
+      expect(request_rows.first).to start_with('{{request_details_table}}')
+      expect(request_rows.first).to include('A formatted table containing the following fields:')
+    end
+
     it 'offers staff copies of student notifications in its own section, off by default' do
       visit emails_course_settings_path(course)
 
