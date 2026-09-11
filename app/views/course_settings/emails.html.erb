@@ -137,7 +137,10 @@
                                         <% placeholder = "{{#{variable}}}" %>
                                         <tr>
                                             <td class="text-nowrap ps-0 pe-4">
-                                                <code><%= placeholder %></code><%= copy_to_clipboard_button(placeholder, label: t('.variables.copy', variable: placeholder)) %>
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <code><%= placeholder %></code>
+                                                    <%= copy_to_clipboard_button(placeholder, label: t('.variables.copy', variable: placeholder)) %>
+                                                </div>
                                             </td>
                                             <td><%= t(".variables.#{variable}") %></td>
                                         </tr>
