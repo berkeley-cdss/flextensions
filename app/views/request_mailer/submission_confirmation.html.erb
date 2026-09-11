@@ -10,21 +10,7 @@
   <% end %>
 </p>
 
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
-       style="margin:0 0 20px; border-collapse:collapse; font-size:15px;">
-  <% [
-       [ 'Status', @request.status == 'approved' ? 'Approved' : 'Pending review' ],
-       [ 'Original Due Date', @assignment.due_date&.strftime(Request::EMAIL_DATE_FORMAT) ],
-       [ 'Requested Due Date', @request.requested_due_date.strftime(Request::EMAIL_DATE_FORMAT) ],
-       [ 'Days Requested', @request.calculate_days_difference ],
-       [ 'Reason', @request.reason ]
-     ].each do |label, value| %>
-    <tr>
-      <td style="padding:8px 12px; border:1px solid #dee2e6; background-color:#f8f9fa; font-weight:bold; width:40%; vertical-align:top;"><%= label %></td>
-      <td style="padding:8px 12px; border:1px solid #dee2e6; vertical-align:top;"><%= value %></td>
-    </tr>
-  <% end %>
-</table>
+<%= render 'request_mailer/details_table', rows: @request.email_details_rows %>
 
 <% if @request.status == 'pending' %>
   <p style="margin:0 0 16px;">

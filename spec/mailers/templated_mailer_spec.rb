@@ -34,6 +34,23 @@ RSpec.describe TemplatedMailer do
     expect(text).not_to include('<b>')
   end
 
+  it 'does not insert line breaks inside a multi-line table' do
+    table = "<table width=\"100%\"\n       style=\"font-size:15px;\">\n  <tr>\n    <td>Status</td>\n    <td>Approved</td>\n  </tr>\n</table>"
+    mail = build_mail(body: "Hello,\n#{table}\nThanks")
+
+    html = mail.html_part.body.decoded
+    expect(html).to include("Hello,<br>\n#{table}<br>\nThanks")
+    expect(html.scan('<br>').size).to eq(2)
+  end
+
+  it 'turns a details table into label/value lines in the text part' do
+    table = '<table><tr><td style="x">Status</td><td>Approved</td></tr>' \
+            "<tr>\n  <td>Reason</td>\n  <td>Sick &amp; tired</td>\n</tr></table>"
+    mail = build_mail(body: "Hello,\n#{table}\nThanks")
+
+    expect(mail.text_part.body.decoded).to include("Hello,\nStatus: Approved\nReason: Sick & tired\nThanks")
+  end
+
   it 'omits the course line and button when not given' do
     html = build_mail.html_part.body.decoded
 

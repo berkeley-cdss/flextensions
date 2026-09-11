@@ -7,11 +7,9 @@ It was approved automatically and the new due date has been applied to the assig
 Course staff will review it, and you will receive another email once a decision has been made.
 <% end -%>
 
-Status: <%= @request.status == 'approved' ? 'Approved' : 'Pending review' %>
-Original Due Date: <%= @assignment.due_date&.strftime(Request::EMAIL_DATE_FORMAT) %>
-Requested Due Date: <%= @request.requested_due_date.strftime(Request::EMAIL_DATE_FORMAT) %>
-Days Requested: <%= @request.calculate_days_difference %>
-Reason: <%= @request.reason %>
+<% @request.email_details_rows.each do |label, value| -%>
+<%= label %>: <%= value %>
+<% end -%>
 
 <% if @request.status == 'pending' -%>
 You can edit or cancel this request in Flextensions while it is still pending.

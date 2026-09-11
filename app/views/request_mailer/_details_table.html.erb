@@ -1,0 +1,10 @@
+<%# Two-column summary of a request. `rows` is an array of [label, value]. %>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+       style="margin:16px 0; border-collapse:collapse; font-size:15px;">
+  <% rows.each do |label, value| %>
+    <tr>
+      <td style="padding:8px 12px; border:1px solid #dee2e6; background-color:#f8f9fa; font-weight:bold; width:40%; vertical-align:top;"><%= label %></td>
+      <td style="padding:8px 12px; border:1px solid #dee2e6; vertical-align:top;"><%= value %></td>
+    </tr>
+  <% end %>
+</table>

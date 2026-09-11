@@ -12,10 +12,34 @@ class TemplatedMailer < ApplicationMailer
     @cta_url = cta_url
     # rubocop:disable Rails/OutputSafety -- values were escaped in EmailService; any
     # remaining markup was written by course staff in their own template.
-    @body_html = body.gsub("\n", "<br>\n").html_safe
+    @body_html = self.class.html_with_line_breaks(body).html_safe
     # rubocop:enable Rails/OutputSafety
-    @body_text = CGI.unescapeHTML(ActionController::Base.helpers.strip_tags(body))
+    @body_text = self.class.html_to_text(body)
 
     mail(to: to, from: from, reply_to: reply_to, subject: subject)
+  end
+
+  # Turns the template's newlines into <br> tags, leaving <table> blocks (such
+  # as {{request_details_table}}) untouched so a line break never lands inside
+  # their markup.
+  def self.html_with_line_breaks(html)
+    html.split(%r{(<table\b.*?</table>)}mi).each_with_index.map do |segment, index|
+      index.odd? ? segment : segment.gsub("\n", "<br>\n")
+    end.join
+  end
+
+  # Plain-text rendering of a template body for the text part. Table rows
+  # become "Label: value" lines (see {{request_details_table}}), other markup
+  # is stripped and entities are decoded.
+  def self.html_to_text(html)
+    text = html
+      .gsub(%r{</t[dh]>\s*<t[dh][^>]*>}i, ': ')
+      .gsub(%r{\s*<tr[^>]*>\s*}i, '')
+      .gsub(%r{\s*</table>\s*}i, '')
+      .gsub(%r{\s*<table[^>]*>\s*}i, "\n")
+      .gsub(%r{\s*</tr>\s*}i, "\n")
+      .gsub(%r{<br\s*/?>\s*\n?}i, "\n")
+    text = CGI.unescapeHTML(ActionController::Base.helpers.strip_tags(text))
+    text.lines.map(&:strip).join("\n").gsub(/\n{3,}/, "\n\n").strip
   end
 end

@@ -1079,7 +1079,8 @@ RSpec.describe Request, type: :model do
           'new_due_date' => request.requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
           'requested_due_date' => request.requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
           'extension_days' => request.calculate_days_difference.to_s,
-          'request_url' => request.request_link
+          'request_url' => request.request_link,
+          'request_details_table' => a_string_including('<table')
         },
         course: course,
         cta_label: 'View Request',
@@ -1116,6 +1117,43 @@ RSpec.describe Request, type: :model do
       course_settings.update(enable_emails: false)
       expect(EmailService).not_to receive(:send_email)
       request.send_email_response
+    end
+  end
+
+  describe '#email_details_rows' do
+    it 'labels the requested date as the new due date once approved' do
+      request.update!(status: 'approved')
+
+      rows = request.email_details_rows.to_h
+      expect(rows['Status']).to eq('Approved')
+      expect(rows['New Due Date']).to eq(request.requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'))
+      expect(rows['Extension Days']).to eq(request.calculate_days_difference)
+      expect(rows).not_to have_key('Requested Due Date')
+    end
+
+    it 'shows the requested date and pending status for a pending request' do
+      rows = request.email_details_rows.to_h
+      expect(rows['Status']).to eq('Pending review')
+      expect(rows['Requested Due Date']).to be_present
+      expect(rows['Days Requested']).to eq(request.calculate_days_difference)
+      expect(rows['Reason']).to eq(request.reason)
+    end
+  end
+
+  describe '#email_details_table_html' do
+    it 'renders an html_safe table with escaped values' do
+      request.update!(reason: 'Sick & <tired>')
+
+      html = request.email_details_table_html
+      expect(html).to be_html_safe
+      expect(html).to include('<table')
+      expect(html).to include('Sick &amp; &lt;tired&gt;')
+    end
+
+    it 'is inserted into templates as markup rather than escaped' do
+      rendered = EmailService.render_templates('s', 'Details:\n{{request_details_table}}', request.email_template_mapping)
+      expect(rendered[:body]).to include('<table')
+      expect(rendered[:body]).not_to include('&lt;table')
     end
   end
 

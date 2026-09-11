@@ -336,8 +336,31 @@ class Request < ApplicationRecord
       'new_due_date' => requested,
       'requested_due_date' => requested,
       'extension_days' => calculate_days_difference.to_s,
-      'request_url' => request_link
+      'request_url' => request_link,
+      'request_details_table' => email_details_table_html
     }
+  end
+
+  # [label, value] pairs summarizing this request for emails. The due-date
+  # label reflects the outcome: an approved request has a new due date, any
+  # other request only has the date that was asked for.
+  def email_details_rows
+    approved = status == 'approved'
+    [
+      [ 'Assignment', assignment.name ],
+      [ 'Status', approved || status == 'denied' ? status.capitalize : 'Pending review' ],
+      [ 'Original Due Date', assignment.due_date&.strftime(EMAIL_DATE_FORMAT) ],
+      [ approved ? 'New Due Date' : 'Requested Due Date', requested_due_date.strftime(EMAIL_DATE_FORMAT) ],
+      [ approved ? 'Extension Days' : 'Days Requested', calculate_days_difference ],
+      [ 'Reason', reason ]
+    ]
+  end
+
+  # The details rows as an HTML table for the {{request_details_table}}
+  # template variable. Marked html_safe so EmailService inserts it as markup;
+  # the partial escapes every value itself.
+  def email_details_table_html
+    ApplicationController.render(partial: 'request_mailer/details_table', locals: { rows: email_details_rows }).html_safe # rubocop:disable Rails/OutputSafety
   end
 
   # Every student gets a receipt when a request is submitted, whether by them

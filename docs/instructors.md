@@ -199,6 +199,10 @@ links back to the request.
 - **Extension Information**
   `{{original_due_date}}, {{new_due_date}}, {{requested_due_date}}, {{extension_days}}, {{status}}`
 
+- **Formatted Details**
+  `{{request_details_table}}` inserts a formatted table listing the
+  assignment, status, due dates, days requested, and the student's reason.
+
 Click **Reset to Default** on a template to restore that template's system
 default. A template saved blank is also reset to the default.
 
