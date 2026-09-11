@@ -11,9 +11,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Test every Ruby the app supports: the Elastic Beanstalk platform's
-        # 3.4 and the 4.0 we are rolling forward to (see docs/developers.md).
-        ruby: ['3.4', '4.0']
+        # Test both ends of the supported range: the Elastic Beanstalk
+        # platform's 3.3 and the 4.0 we are rolling forward to (skipping 3.4;
+        # see docs/developers.md).
+        ruby: ['3.3', '4.0']
     services:
       postgres:
         image: postgres:17
