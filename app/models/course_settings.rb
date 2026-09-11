@@ -43,42 +43,15 @@
 # rubocop:enable Layout/LineLength
 
 class CourseSettings < ApplicationRecord
+  # Default email text lives in config/locales/en.yml (course_settings.email_defaults)
+  # alongside the rest of the copy for the Email Templates page.
   # Sent when a request is approved (by staff or automatically).
-  DEFAULT_APPROVAL_EMAIL_SUBJECT = 'Extension Request Status: {{status}} - {{course_code}}'.freeze
-  DEFAULT_APPROVAL_EMAIL_TEMPLATE = <<~TEMPLATE.freeze
-    Hello {{student_name}},
-
-    Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
-
-    Extension Details:
-    - Original Due Date: {{original_due_date}}
-    - New Due Date: {{new_due_date}}
-    - Extension Days: {{extension_days}}
-
-    The new due date has been applied to the assignment. If you have any questions, please contact your course staff.
-
-    Thanks,
-    The {{course_name}} Team
-  TEMPLATE
-
+  DEFAULT_APPROVAL_EMAIL_SUBJECT = I18n.t('course_settings.email_defaults.approval.subject').freeze
+  DEFAULT_APPROVAL_EMAIL_TEMPLATE = I18n.t('course_settings.email_defaults.approval.body').freeze
   # Sent when course staff deny a request. (A student who cancels their own
   # request is not emailed.)
-  DEFAULT_DENIAL_EMAIL_SUBJECT = 'Extension Request Status: {{status}} - {{course_code}}'.freeze
-  DEFAULT_DENIAL_EMAIL_TEMPLATE = <<~TEMPLATE.freeze
-    Hello {{student_name}},
-
-    Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
-
-    Request Details:
-    - Original Due Date: {{original_due_date}}
-    - Requested Due Date: {{requested_due_date}}
-    - Days Requested: {{extension_days}}
-
-    The original due date still applies. If you have any questions or would like to provide more information, please contact your course staff.
-
-    Thanks,
-    The {{course_name}} Team
-  TEMPLATE
+  DEFAULT_DENIAL_EMAIL_SUBJECT = I18n.t('course_settings.email_defaults.denial.subject').freeze
+  DEFAULT_DENIAL_EMAIL_TEMPLATE = I18n.t('course_settings.email_defaults.denial.body').freeze
 
   # Column names for each outcome's subject/body pair, keyed by the request
   # status the email is sent for.

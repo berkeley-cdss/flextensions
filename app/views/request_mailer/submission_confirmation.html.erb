@@ -1,27 +1,14 @@
-<p style="margin:0 0 16px;">Hello <%= @student.name.presence || 'there' %>,</p>
+<p style="margin:0 0 16px;"><%= t('.greeting', name: @student.name.presence || t('.fallback_name')) %></p>
 
 <p style="margin:0 0 16px;">
-  We received your extension request for <strong><%= @assignment.name %></strong>
-  in <%= @course.course_name %> (<%= @course.course_code %>).
-  <% if @request.status == 'approved' %>
-    It was approved automatically and the new due date has been applied to the assignment.
-  <% else %>
-    Course staff will review it, and you will receive another email once a decision has been made.
-  <% end %>
+  <%= t('.received_html', assignment: @assignment.name, course_name: @course.course_name, course_code: @course.course_code) %>
+  <%= @request.status == 'approved' ? t('.auto_approved') : t('.pending_review') %>
 </p>
 
 <%= render 'request_mailer/details_table', rows: @request.email_details_rows %>
 
 <% if @request.status == 'pending' %>
-  <p style="margin:0 0 16px;">
-    You can edit or cancel this request in Flextensions while it is still pending.
-  </p>
+  <p style="margin:0 0 16px;"><%= t('.edit_hint') %></p>
 <% end %>
 
-<p style="margin:0;">
-  <% if @reply_email %>
-    Questions? Reply to this email to reach your course staff.
-  <% else %>
-    If you have any questions, please contact your course staff.
-  <% end %>
-</p>
+<p style="margin:0;"><%= @reply_email ? t('.questions_reply') : t('.questions_contact') %></p>

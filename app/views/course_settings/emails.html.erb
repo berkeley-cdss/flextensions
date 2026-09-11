@@ -1,10 +1,12 @@
-<%# Each template card carries its own email-template Stimulus controller so
+<%# All copy on this page comes from config/locales/en.yml under
+    course_settings.emails; `t('.key')` is scoped to that path automatically.
+    Each template card carries its own email-template Stimulus controller so
     "Reset to Default" only touches the subject and body inside that card. %>
 <div class="container-fluid mb-5">
     <div class="row">
         <div class="col-12">
             <%= render "courses/course_title" %>
-            <h1 class="sr-only">Email Templates</h1>
+            <h1 class="sr-only"><%= t('.title') %></h1>
             <%= form_with url: course_settings_path(@course), method: :patch,
                           data: {
                             controller: 'course-settings unsaved-changes',
@@ -14,18 +16,10 @@
 
                 <div class="card rounded-0 mb-4">
                     <div class="card-header bg-light">
-                        <h2 class="card-title mb-0 h5">Email Notifications</h2>
+                        <h2 class="card-title mb-0 h5"><%= t('.notifications.title') %></h2>
                     </div>
                     <div class="card-body">
-                        <div class="alert alert-info" role="note">
-                            Every student receives a confirmation email when a request is submitted.
-                            The notifications below are sent when each request is approved or denied,
-                            using the matching template. We strongly recommend keeping these enabled and
-                            setting a reply-to address for an account which is monitored by multiple course staff.
-                            <br><br>
-                            If you will not monitor replies from students, we recommend you use an invalid email
-                            address like <code>noreply@berkeley.edu</code> <em>and</em> add a note to the templates.
-                        </div>
+                        <div class="alert alert-info" role="note"><%= t('.notifications.note_html') %></div>
 
                         <div class="mb-3">
                             <div class="form-check form-switch">
@@ -35,21 +29,21 @@
                                                  @course_settings.enable_emails,
                                                  class: 'form-check-input',
                                                  id: 'enable-email' %>
-                                <label class="form-check-label" for="enable-email">Enable approval and denial email notifications</label>
+                                <label class="form-check-label" for="enable-email"><%= t('.notifications.enable_label') %></label>
                             </div>
                         </div>
 
                         <div class="mb-0 row">
-                            <label for="reply-email" class="col-sm-4 col-form-label">Course Reply Email Address</label>
+                            <label for="reply-email" class="col-sm-4 col-form-label"><%= t('.notifications.reply_email_label') %></label>
                             <div class="col-sm-8">
                                 <%= email_field_tag 'course_settings[reply_email]',
                                                   @course_settings.reply_email,
                                                   class: 'form-control',
                                                   id: 'reply-email',
-                                                  placeholder: 'example@example.com',
+                                                  placeholder: t('.notifications.reply_email_placeholder'),
                                                   data: { course_settings_target: "emailField" },
                                                   disabled: !@course_settings.enable_emails %>
-                                <small class="text-muted">Also used as the reply-to address on confirmation emails.</small>
+                                <small class="text-muted"><%= t('.notifications.reply_email_hint') %></small>
                             </div>
                         </div>
                     </div>
@@ -57,7 +51,7 @@
 
                 <div class="card rounded-0 mb-4">
                     <div class="card-header bg-light">
-                        <h2 class="card-title mb-0 h5">Staff Copies of Student Notifications</h2>
+                        <h2 class="card-title mb-0 h5"><%= t('.staff_copies.title') %></h2>
                     </div>
                     <div class="card-body">
                         <div class="mb-2">
@@ -68,42 +62,37 @@
                                                  @course_settings.cc_course_staff,
                                                  class: 'form-check-input',
                                                  id: 'cc-course-staff' %>
-                                <label class="form-check-label" for="cc-course-staff">CC Course Staff on Student Notifications</label>
+                                <label class="form-check-label" for="cc-course-staff"><%= t('.staff_copies.toggle_label') %></label>
                             </div>
                         </div>
-                        <p class="text-muted mb-0">
-                            When enabled, every email sent to a student (submission confirmations, approvals, and denials)
-                            is also sent to the Course Reply Email Address above, so course staff receive a copy for every request.
-                            A Course Reply Email Address is required.
-                        </p>
+                        <p class="text-muted mb-0"><%= t('.staff_copies.description') %></p>
                     </div>
                 </div>
 
                 <% [
-                     { key: 'approval', title: 'Approval Email', description: 'Sent to the student when a request is approved by course staff or automatically.',
-                       subject_field: 'email_subject', body_field: 'email_template',
+                     { key: 'approval', subject_field: 'email_subject', body_field: 'email_template',
                        default_subject: CourseSettings::DEFAULT_APPROVAL_EMAIL_SUBJECT, default_body: CourseSettings::DEFAULT_APPROVAL_EMAIL_TEMPLATE },
-                     { key: 'denial', title: 'Denial Email', description: 'Sent to the student when a request is denied by course staff. Students who cancel their own request are not emailed.',
-                       subject_field: 'denial_email_subject', body_field: 'denial_email_template',
+                     { key: 'denial', subject_field: 'denial_email_subject', body_field: 'denial_email_template',
                        default_subject: CourseSettings::DEFAULT_DENIAL_EMAIL_SUBJECT, default_body: CourseSettings::DEFAULT_DENIAL_EMAIL_TEMPLATE }
                    ].each do |template| %>
+                    <% title = t(".templates.#{template[:key]}.title") %>
                     <div class="card rounded-0 mb-4"
                          data-controller="email-template"
                          data-email-template-default-subject-value="<%= template[:default_subject] %>"
                          data-email-template-default-body-value="<%= template[:default_body] %>">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                            <h2 class="card-title mb-0 h5"><%= template[:title] %></h2>
-                            <%= button_tag "Reset to Default",
+                            <h2 class="card-title mb-0 h5"><%= title %></h2>
+                            <%= button_tag t('.templates.reset'),
                                           type: "button",
                                           class: "btn btn-secondary btn-sm",
-                                          aria: { label: "Reset #{template[:title].downcase} to default" },
+                                          aria: { label: t('.templates.reset_aria', template: title.downcase) },
                                           data: { action: 'email-template#reset unsaved-changes#markDirty' } %>
                         </div>
                         <div class="card-body">
-                            <p class="text-muted"><%= template[:description] %></p>
+                            <p class="text-muted"><%= t(".templates.#{template[:key]}.description") %></p>
 
                             <div class="mb-3">
-                                <label for="<%= template[:key] %>-email-subject" class="form-label">Subject</label>
+                                <label for="<%= template[:key] %>-email-subject" class="form-label"><%= t('.templates.subject_label') %></label>
                                 <%= text_field_tag "course_settings[#{template[:subject_field]}]",
                                                  @course_settings.public_send(template[:subject_field]).presence || template[:default_subject],
                                                  class: 'form-control',
@@ -112,14 +101,14 @@
                             </div>
 
                             <div class="mb-0">
-                                <label for="<%= template[:key] %>-email-template" class="form-label">Body</label>
+                                <label for="<%= template[:key] %>-email-template" class="form-label"><%= t('.templates.body_label') %></label>
                                 <%= text_area_tag "course_settings[#{template[:body_field]}]",
                                                 @course_settings.public_send(template[:body_field]).presence || template[:default_body],
                                                 class: 'form-control',
                                                 id: "#{template[:key]}-email-template",
                                                 rows: 10,
                                                 data: { 'email-template-target': 'body' } %>
-                                <small class="text-muted">Use {{variable_name}} to insert dynamic values. Line breaks are preserved.</small>
+                                <small class="text-muted"><%= t('.templates.body_hint') %></small>
                             </div>
                         </div>
                     </div>
@@ -127,43 +116,29 @@
 
                 <div class="card bg-light rounded-0 mb-4">
                     <div class="card-body">
-                        <h2 class="card-title h5">Available Variables</h2>
-                        <p class="text-muted mb-2">These can be used in the subject and body of both templates.</p>
+                        <h2 class="card-title h5"><%= t('.variables.title') %></h2>
+                        <p class="text-muted mb-2"><%= t('.variables.description') %></p>
                         <div class="row">
-                            <div class="col-md-4">
-                                <p class="mb-1 fw-bold">Student Information:</p>
-                                <ul class="list-unstyled">
-                                    <li><code>{{student_name}}</code> - Full name</li>
-                                    <li><code>{{student_email}}</code> - Email</li>
-                                    <li><code>{{student_id}}</code> - ID number</li>
-                                </ul>
-                            </div>
-                            <div class="col-md-4">
-                                <p class="mb-1 fw-bold">Course Information:</p>
-                                <ul class="list-unstyled">
-                                    <li><code>{{course_name}}</code> - Course name</li>
-                                    <li><code>{{course_code}}</code> - Course code</li>
-                                    <li><code>{{assignment_name}}</code> - Assignment</li>
-                                    <li><code>{{request_url}}</code> - Link to the request</li>
-                                </ul>
-                            </div>
-                            <div class="col-md-4">
-                                <p class="mb-1 fw-bold">Extension Information:</p>
-                                <ul class="list-unstyled">
-                                    <li><code>{{original_due_date}}</code> - Original due date</li>
-                                    <li><code>{{new_due_date}}</code> - New due date (approvals)</li>
-                                    <li><code>{{requested_due_date}}</code> - Requested due date (denials)</li>
-                                    <li><code>{{extension_days}}</code> - Days requested</li>
-                                    <li><code>{{status}}</code> - Status (Approved/Denied)</li>
-                                    <li><code>{{request_details_table}}</code> - Formatted table of the request details</li>
-                                </ul>
-                            </div>
+                            <% {
+                                 student: %w[student_name student_email student_id],
+                                 course: %w[course_name course_code assignment_name request_url],
+                                 extension: %w[original_due_date new_due_date requested_due_date extension_days status request_details_table]
+                               }.each do |group, variables| %>
+                                <div class="col-md-4">
+                                    <p class="mb-1 fw-bold"><%= t(".variables.groups.#{group}") %></p>
+                                    <ul class="list-unstyled">
+                                        <% variables.each do |variable| %>
+                                            <li><code>{{<%= variable %>}}</code> - <%= t(".variables.#{variable}") %></li>
+                                        <% end %>
+                                    </ul>
+                                </div>
+                            <% end %>
                         </div>
                     </div>
                 </div>
 
                 <div class="text-start mb-4">
-                    <%= form.submit 'Save Email Templates', class: 'btn btn-success px-4' %>
+                    <%= form.submit t('.save'), class: 'btn btn-success px-4' %>
                 </div>
             <% end %>
         </div>

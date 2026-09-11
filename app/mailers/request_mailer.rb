@@ -12,7 +12,7 @@ class RequestMailer < ApplicationMailer
     @student = request.user
     @assignment = request.assignment
     @reply_email = @course.course_settings.reply_email.presence
-    @cta_label = 'View Your Request'
+    @cta_label = t('.cta')
     @cta_url = request.request_link
 
     default_from = ENV.fetch('DEFAULT_FROM_EMAIL')
@@ -21,7 +21,7 @@ class RequestMailer < ApplicationMailer
       cc: @course.course_settings.staff_cc_email,
       from: default_from,
       reply_to: @reply_email || default_from,
-      subject: "Extension Request Received: #{@assignment.name} - #{@course.course_code}"
+      subject: t('.subject', assignment: @assignment.name, course_code: @course.course_code)
     )
   end
 end
