@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_09_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_11_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -92,6 +92,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_120000) do
   create_table "course_settings", force: :cascade do |t|
     t.integer "auto_approve_days", default: 0
     t.integer "auto_approve_extended_request_days", default: 0
+    t.boolean "cc_course_staff", default: false, null: false
     t.bigint "course_id", null: false
     t.datetime "created_at", null: false
     t.string "denial_email_subject"

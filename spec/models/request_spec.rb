@@ -1063,6 +1063,7 @@ RSpec.describe Request, type: :model do
 
       expect(EmailService).to receive(:send_email).with(
         to: user.email,
+        cc: nil,
         from: ENV.fetch('DEFAULT_FROM_EMAIL', nil),
         reply_to: course_settings.reply_email,
         subject_template: course_settings.email_subject,
@@ -1181,6 +1182,14 @@ RSpec.describe Request, type: :model do
 
       expect(ActionMailer::Base.deliveries).to be_empty
     end
+
+    it 'copies the course reply address when staff copies are enabled' do
+      course.course_settings.update!(reply_email: 'staff@example.com', cc_course_staff: true)
+
+      request.reject(instructor)
+
+      expect(ActionMailer::Base.deliveries.last.cc).to eq([ 'staff@example.com' ])
+    end
   end
 
   describe '#send_submission_confirmation' do
@@ -1199,6 +1208,14 @@ RSpec.describe Request, type: :model do
       expect(mail.to).to eq([ user.email ])
       expect(mail.subject).to eq('Extension Request Received: Assignment 1 - TST101')
       expect(mail.html_part.body.decoded).to include('Pending review')
+    end
+
+    it 'copies the course reply address when staff copies are enabled' do
+      course.course_settings.update!(reply_email: 'staff@example.com', cc_course_staff: true)
+
+      request.send_submission_confirmation
+
+      expect(ActionMailer::Base.deliveries.last.cc).to eq([ 'staff@example.com' ])
     end
 
     it 'still sends a receipt for an auto-approved request when approval emails are disabled' do

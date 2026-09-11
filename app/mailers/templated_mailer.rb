@@ -6,7 +6,7 @@
 # shared mailer layout with newlines turned into line breaks, plus a text part
 # for clients that do not render HTML.
 class TemplatedMailer < ApplicationMailer
-  def templated_email(to:, from:, reply_to:, subject:, body:, course: nil, cta_label: nil, cta_url: nil)
+  def templated_email(to:, from:, reply_to:, subject:, body:, cc: nil, course: nil, cta_label: nil, cta_url: nil)
     @course = course
     @cta_label = cta_label
     @cta_url = cta_url
@@ -16,7 +16,7 @@ class TemplatedMailer < ApplicationMailer
     # rubocop:enable Rails/OutputSafety
     @body_text = self.class.html_to_text(body)
 
-    mail(to: to, from: from, reply_to: reply_to, subject: subject)
+    mail(to: to, cc: cc, from: from, reply_to: reply_to, subject: subject)
   end
 
   # Turns the template's newlines into <br> tags, leaving <table> blocks (such

@@ -18,6 +18,7 @@ class RequestMailer < ApplicationMailer
     default_from = ENV.fetch('DEFAULT_FROM_EMAIL')
     mail(
       to: @student.email,
+      cc: @course.course_settings.staff_cc_email,
       from: default_from,
       reply_to: @reply_email || default_from,
       subject: "Extension Request Received: #{@assignment.name} - #{@course.course_code}"

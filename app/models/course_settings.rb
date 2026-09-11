@@ -5,6 +5,7 @@
 #  id                                 :bigint           not null, primary key
 #  auto_approve_days                  :integer          default(0)
 #  auto_approve_extended_request_days :integer          default(0)
+#  cc_course_staff                    :boolean          default(FALSE), not null
 #  denial_email_subject               :string
 #  denial_email_template              :text
 #  email_subject                      :string
@@ -120,6 +121,7 @@ class CourseSettings < ApplicationRecord
   before_save :apply_default_email_templates
 
   validate :gradescope_url_is_valid, if: :enable_gradescope?
+  validate :cc_course_staff_requires_reply_email, if: :cc_course_staff?
   validates :pending_notification_frequency, inclusion: { in: VALID_NOTIFICATION_FREQUENCIES }, allow_nil: true
   validates :pending_notification_email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP },
                                          if: -> { pending_notification_frequency.present? }
@@ -159,6 +161,12 @@ class CourseSettings < ApplicationRecord
     }
   end
 
+  # Address that copies of student notifications go to, or nil when staff
+  # copies are turned off.
+  def staff_cc_email
+    reply_email.presence if cc_course_staff?
+  end
+
   def automatic_approval_enabled?
     return false unless enable_extensions?
 
@@ -194,6 +202,12 @@ class CourseSettings < ApplicationRecord
       course_to_lms.external_course_id = gradescope_course_id
       course_to_lms.save!
     end
+  end
+
+  def cc_course_staff_requires_reply_email
+    return if reply_email.present?
+
+    errors.add(:cc_course_staff, 'requires a Course Reply Email Address to send copies to')
   end
 
   def gradescope_url_is_valid

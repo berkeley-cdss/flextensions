@@ -55,6 +55,30 @@
                     </div>
                 </div>
 
+                <div class="card rounded-0 mb-4">
+                    <div class="card-header bg-light">
+                        <h2 class="card-title mb-0 h5">Staff Copies of Student Notifications</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <div class="form-check form-switch">
+                                <%= hidden_field_tag 'course_settings[cc_course_staff]', false %>
+                                <%= check_box_tag 'course_settings[cc_course_staff]',
+                                                 true,
+                                                 @course_settings.cc_course_staff,
+                                                 class: 'form-check-input',
+                                                 id: 'cc-course-staff' %>
+                                <label class="form-check-label" for="cc-course-staff">CC Course Staff on Student Notifications</label>
+                            </div>
+                        </div>
+                        <p class="text-muted mb-0">
+                            When enabled, every email sent to a student (submission confirmations, approvals, and denials)
+                            is also sent to the Course Reply Email Address above, so course staff receive a copy for every request.
+                            A Course Reply Email Address is required.
+                        </p>
+                    </div>
+                </div>
+
                 <% [
                      { key: 'approval', title: 'Approval Email', description: 'Sent to the student when a request is approved by course staff or automatically.',
                        subject_field: 'email_subject', body_field: 'email_template',

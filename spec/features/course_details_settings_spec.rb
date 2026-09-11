@@ -128,6 +128,13 @@ RSpec.describe 'Course Details settings', type: :feature do
       expect(page).to have_field('course_settings[denial_email_template]', with: CourseSettings::DEFAULT_DENIAL_EMAIL_TEMPLATE)
       expect(page).to have_button('Reset to Default', count: 2)
     end
+
+    it 'offers staff copies of student notifications in its own section, off by default' do
+      visit emails_course_settings_path(course)
+
+      expect(page).to have_selector('h2', text: 'Staff Copies of Student Notifications')
+      expect(page).to have_unchecked_field('course_settings[cc_course_staff]', visible: :all)
+    end
   end
 
   describe 'unsaved-changes wiring across the settings pages' do

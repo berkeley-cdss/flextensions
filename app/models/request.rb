@@ -308,6 +308,7 @@ class Request < ApplicationRecord
 
     EmailService.send_email(
       to: user.email,
+      cc: cs.staff_cc_email,
       from: default_from,
       reply_to: cs.reply_email.presence || default_from,
       subject_template: templates[:subject],

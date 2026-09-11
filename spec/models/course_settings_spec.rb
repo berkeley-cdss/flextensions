@@ -108,6 +108,27 @@ RSpec.describe CourseSettings, type: :model do
     end
   end
 
+  describe 'staff copies of student notifications' do
+    it 'is off by default with no CC address' do
+      expect(course_settings.cc_course_staff).to be false
+      expect(course_settings.staff_cc_email).to be_nil
+    end
+
+    it 'requires a reply email when enabled' do
+      course_settings.reply_email = nil
+      course_settings.cc_course_staff = true
+
+      expect(course_settings).not_to be_valid
+      expect(course_settings.errors[:cc_course_staff]).to include('requires a Course Reply Email Address to send copies to')
+    end
+
+    it 'uses the reply email as the CC address when enabled' do
+      course_settings.update!(reply_email: 'staff@example.com', cc_course_staff: true)
+
+      expect(course_settings.staff_cc_email).to eq('staff@example.com')
+    end
+  end
+
   describe '#email_templates_for' do
     it 'returns the approval subject and body for an approved request' do
       course_settings.update!(email_subject: 'Yay {{student_name}}', email_template: 'Approved body')

@@ -206,6 +206,13 @@ links back to the request.
 Click **Reset to Default** on a template to restore that template's system
 default. A template saved blank is also reset to the default.
 
+### Staff Copies of Student Notifications
+
+Turn on **CC Course Staff on Student Notifications** to have every email sent
+to a student (submission confirmations, approvals, and denials) also sent to
+the Course Reply Email Address. This is off by default and requires a reply
+address to be set.
+
 ## Course Extension Request Form
 
 Use the **Form** tab to customize the student request form.

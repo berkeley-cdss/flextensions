@@ -102,6 +102,16 @@ RSpec.describe CourseSettingsController, type: :controller do
         expect(settings.reply_email).to eq('staff@example.com')
       end
 
+      it 'saves the staff copy option from the Email Templates page' do
+        patch :update, params: {
+          course_id: course.id,
+          course_settings: { reply_email: 'staff@example.com', cc_course_staff: 'true' },
+          page: 'emails'
+        }
+
+        expect(course.reload.course_settings.cc_course_staff).to be true
+      end
+
       it 'saves the approval and denial templates separately' do
         patch :update, params: {
           course_id: course.id,

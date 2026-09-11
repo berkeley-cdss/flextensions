@@ -39,7 +39,8 @@ class CourseSettingsController < ApplicationController
         :denial_email_subject,
         :denial_email_template,
         :enable_emails,
-        :reply_email
+        :reply_email,
+        :cc_course_staff
       ]
     )
   end
