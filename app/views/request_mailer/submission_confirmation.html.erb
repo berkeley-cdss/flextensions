@@ -1,0 +1,41 @@
+<p style="margin:0 0 16px;">Hello <%= @student.name.presence || 'there' %>,</p>
+
+<p style="margin:0 0 16px;">
+  We received your extension request for <strong><%= @assignment.name %></strong>
+  in <%= @course.course_name %> (<%= @course.course_code %>).
+  <% if @request.status == 'approved' %>
+    It was approved automatically and the new due date has been applied to the assignment.
+  <% else %>
+    Course staff will review it, and you will receive another email once a decision has been made.
+  <% end %>
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+       style="margin:0 0 20px; border-collapse:collapse; font-size:15px;">
+  <% [
+       [ 'Status', @request.status == 'approved' ? 'Approved' : 'Pending review' ],
+       [ 'Original Due Date', @assignment.due_date&.strftime(Request::EMAIL_DATE_FORMAT) ],
+       [ 'Requested Due Date', @request.requested_due_date.strftime(Request::EMAIL_DATE_FORMAT) ],
+       [ 'Days Requested', @request.calculate_days_difference ],
+       [ 'Reason', @request.reason ]
+     ].each do |label, value| %>
+    <tr>
+      <td style="padding:8px 12px; border:1px solid #dee2e6; background-color:#f8f9fa; font-weight:bold; width:40%; vertical-align:top;"><%= label %></td>
+      <td style="padding:8px 12px; border:1px solid #dee2e6; vertical-align:top;"><%= value %></td>
+    </tr>
+  <% end %>
+</table>
+
+<% if @request.status == 'pending' %>
+  <p style="margin:0 0 16px;">
+    You can edit or cancel this request in Flextensions while it is still pending.
+  </p>
+<% end %>
+
+<p style="margin:0;">
+  <% if @reply_email %>
+    Questions? Reply to this email to reach your course staff.
+  <% else %>
+    If you have any questions, please contact your course staff.
+  <% end %>
+</p>

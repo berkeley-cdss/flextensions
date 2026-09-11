@@ -101,6 +101,23 @@ RSpec.describe CourseSettingsController, type: :controller do
         expect(settings.enable_emails).to be true
         expect(settings.reply_email).to eq('staff@example.com')
       end
+
+      it 'saves the approval and denial templates separately' do
+        patch :update, params: {
+          course_id: course.id,
+          course_settings: {
+            email_subject: 'Approved: {{assignment_name}}', email_template: 'Approval body',
+            denial_email_subject: 'Denied: {{assignment_name}}', denial_email_template: 'Denial body'
+          },
+          page: 'emails'
+        }
+
+        settings = course.reload.course_settings
+        expect(settings.email_subject).to eq('Approved: {{assignment_name}}')
+        expect(settings.email_template).to eq('Approval body')
+        expect(settings.denial_email_subject).to eq('Denied: {{assignment_name}}')
+        expect(settings.denial_email_template).to eq('Denial body')
+      end
     end
 
     describe 'GET #approvals' do

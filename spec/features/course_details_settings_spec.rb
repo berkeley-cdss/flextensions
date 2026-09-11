@@ -106,15 +106,27 @@ RSpec.describe 'Course Details settings', type: :feature do
 
       expect(page).to have_field('course_settings[enable_emails]', visible: :all)
       expect(page).to have_field('course_settings[reply_email]', disabled: :all)
-      expect(page).to have_text('These notifications are sent to students when each request is approved or denied.')
+      expect(page).to have_text('The notifications below are sent when each request is approved or denied')
     end
 
-    it 'places the notification toggle and reply-to above the email template' do
+    it 'places the notification toggle and reply-to above the email templates' do
       visit emails_course_settings_path(course)
 
       body = page.body
-      expect(body.index('id="enable-email"')).to be < body.index('id="email-subject"')
-      expect(body.index('id="reply-email"')).to be < body.index('id="email-subject"')
+      expect(body.index('id="enable-email"')).to be < body.index('id="approval-email-subject"')
+      expect(body.index('id="reply-email"')).to be < body.index('id="approval-email-subject"')
+    end
+
+    it 'shows separate approval and denial templates, each seeded with its default' do
+      visit emails_course_settings_path(course)
+
+      expect(page).to have_selector('h2', text: 'Approval Email')
+      expect(page).to have_selector('h2', text: 'Denial Email')
+      expect(page).to have_field('course_settings[email_subject]', with: CourseSettings::DEFAULT_APPROVAL_EMAIL_SUBJECT)
+      expect(page).to have_field('course_settings[email_template]', with: CourseSettings::DEFAULT_APPROVAL_EMAIL_TEMPLATE)
+      expect(page).to have_field('course_settings[denial_email_subject]', with: CourseSettings::DEFAULT_DENIAL_EMAIL_SUBJECT)
+      expect(page).to have_field('course_settings[denial_email_template]', with: CourseSettings::DEFAULT_DENIAL_EMAIL_TEMPLATE)
+      expect(page).to have_button('Reset to Default', count: 2)
     end
   end
 

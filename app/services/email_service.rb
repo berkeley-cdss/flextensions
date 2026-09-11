@@ -29,7 +29,10 @@ class EmailService
     # subject_template: e.g. "Extension for {{student_name}}"
     # body_template:    e.g.  course_settings.email_template
     # mapping:          { "student_name" => "Yaman", ... }
-    def send_email(to:, from:, reply_to:, subject_template:, body_template:, mapping:, deliver_later: false)
+    # course:           optional; named in the header and footer of the email
+    # cta_label/cta_url: optional call-to-action button rendered under the body
+    def send_email(to:, from:, reply_to:, subject_template:, body_template:, mapping:,
+                   course: nil, cta_label: nil, cta_url: nil, deliver_later: false)
       rendered = render_templates(subject_template, body_template, mapping)
 
       mail = TemplatedMailer.templated_email(
@@ -37,7 +40,10 @@ class EmailService
         from: from,
         reply_to: reply_to,
         subject: rendered[:subject],
-        body: rendered[:body].gsub("\n", "<br>\n")
+        body: rendered[:body],
+        course: course,
+        cta_label: cta_label,
+        cta_url: cta_url
       )
 
       deliver_later ? mail.deliver_later : mail.deliver_now

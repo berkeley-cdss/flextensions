@@ -1,0 +1,24 @@
+Hello <%= @student.name.presence || 'there' %>,
+
+We received your extension request for <%= @assignment.name %> in <%= @course.course_name %> (<%= @course.course_code %>).
+<% if @request.status == 'approved' -%>
+It was approved automatically and the new due date has been applied to the assignment.
+<% else -%>
+Course staff will review it, and you will receive another email once a decision has been made.
+<% end -%>
+
+Status: <%= @request.status == 'approved' ? 'Approved' : 'Pending review' %>
+Original Due Date: <%= @assignment.due_date&.strftime(Request::EMAIL_DATE_FORMAT) %>
+Requested Due Date: <%= @request.requested_due_date.strftime(Request::EMAIL_DATE_FORMAT) %>
+Days Requested: <%= @request.calculate_days_difference %>
+Reason: <%= @request.reason %>
+
+<% if @request.status == 'pending' -%>
+You can edit or cancel this request in Flextensions while it is still pending.
+
+<% end -%>
+<% if @reply_email -%>
+Questions? Reply to this email to reach your course staff.
+<% else -%>
+If you have any questions, please contact your course staff.
+<% end -%>

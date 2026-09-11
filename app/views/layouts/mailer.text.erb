@@ -1,1 +1,8 @@
 <%= yield %>
+<% if @cta_url.present? -%>
+
+<%= @cta_label.presence || 'Open Flextensions' %>: <%= @cta_url %>
+<% end -%>
+
+--
+Sent by Flextensions (<%= root_url %>)
