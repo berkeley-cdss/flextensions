@@ -6,7 +6,7 @@
 #  auto_approve_days                  :integer          default(0)
 #  auto_approve_extended_request_days :integer          default(0)
 #  denial_email_subject               :string
-#  denial_email_template              :text             default("")
+#  denial_email_template              :text
 #  email_subject                      :string
 #  email_template                     :text             default("")
 #  enable_emails                      :boolean          default(FALSE)
@@ -28,7 +28,8 @@
 #
 #  email_subject / email_template hold the *approval* email; the denial_*
 #  columns hold the *denial* email. The approval columns keep their original
-#  names because renaming a column in use is not a safe migration.
+#  names because renaming a column in use is not a safe migration. The denial
+#  columns are NULL unless staff customized them (see normalizes below).
 #
 # Indexes
 #
@@ -98,11 +99,21 @@ class CourseSettings < ApplicationRecord
   # `allow_nil` behaves as expected and unset rows compare equal.
   normalizes :pending_notification_frequency, :pending_notification_email, with: ->(v) { v.presence }
 
+  # Browsers submit textarea content with CRLF line endings; store LF so a
+  # template round-tripped through the form compares equal to what was saved.
+  normalizes :email_template, :denial_email_template, with: ->(v) { v&.gsub("\r\n", "\n") }
+  # The denial template is only stored when it differs from the default, so a
+  # course that has not customized it always sends the current default text.
+  normalizes :denial_email_subject,
+             with: ->(v) { CourseSettings.customized_template(v, DEFAULT_DENIAL_EMAIL_SUBJECT) }
+  normalizes :denial_email_template,
+             with: ->(v) { CourseSettings.customized_template(v, DEFAULT_DENIAL_EMAIL_TEMPLATE) }
+
   before_save :ensure_system_user_for_auto_approval
   # Clear a stored email when notifications are turned off, so re-enabling
   # doesn't silently reuse a stale address.
   before_save -> { self.pending_notification_email = nil if pending_notification_frequency.nil? }
-  # Seed the email templates on the row itself so the stored value is the
+  # Seed the approval templates on the row itself so the stored value is the
   # source of truth (the columns no longer carry a meaningful DB default).
   # Runs on every save so a template that is cleared out in the settings form
   # falls back to the default instead of sending an empty email.
@@ -119,16 +130,24 @@ class CourseSettings < ApplicationRecord
     .where.not(pending_notification_email: nil)
   }
 
+  # Returns nil when the submitted value is blank or matches the default
+  # (ignoring line-ending and surrounding-whitespace differences), otherwise
+  # the value itself.
+  def self.customized_template(value, default)
+    return nil if value.blank?
+
+    normalized = value.gsub("\r\n", "\n")
+    normalized.strip == default.strip ? nil : normalized
+  end
+
   def apply_default_email_templates
-    EMAIL_TEMPLATE_COLUMNS.each_value do |columns|
-      self[columns[:subject]] = columns[:default_subject] if self[columns[:subject]].blank?
-      self[columns[:body]] = columns[:default_body] if self[columns[:body]].blank?
-    end
+    self.email_subject = DEFAULT_APPROVAL_EMAIL_SUBJECT if email_subject.blank?
+    self.email_template = DEFAULT_APPROVAL_EMAIL_TEMPLATE if email_template.blank?
   end
 
   # The subject and body templates to send for a request that reached the
-  # given status ('approved' or 'denied'). Falls back to the defaults for rows
-  # that predate the denial template columns.
+  # given status ('approved' or 'denied'), falling back to the defaults for
+  # anything not customized.
   def email_templates_for(status)
     columns = EMAIL_TEMPLATE_COLUMNS.fetch(status.to_s) do
       raise ArgumentError, "No email template for request status #{status.inspect}"

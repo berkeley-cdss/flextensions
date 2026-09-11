@@ -58,11 +58,14 @@ RSpec.describe CourseSettings, type: :model do
   end
 
   describe 'default email templates' do
-    it 'seeds the approval and denial subject and body from the constants when a row is created' do
+    it 'seeds the approval subject and body from the constants when a row is created' do
       expect(course_settings.email_subject).to eq(described_class::DEFAULT_APPROVAL_EMAIL_SUBJECT)
       expect(course_settings.email_template).to eq(described_class::DEFAULT_APPROVAL_EMAIL_TEMPLATE)
-      expect(course_settings.denial_email_subject).to eq(described_class::DEFAULT_DENIAL_EMAIL_SUBJECT)
-      expect(course_settings.denial_email_template).to eq(described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE)
+    end
+
+    it 'leaves the denial subject and body NULL so the default is not stored' do
+      expect(course_settings.denial_email_subject).to be_nil
+      expect(course_settings.denial_email_template).to be_nil
     end
 
     it 'keeps explicitly provided values' do
@@ -76,11 +79,32 @@ RSpec.describe CourseSettings, type: :model do
       expect(other.course_settings.reload.denial_email_template).to eq('Denied body')
     end
 
-    it 'restores the default when a template is saved blank' do
-      course_settings.update!(email_subject: '', denial_email_template: '   ')
+    it 'restores the approval default when a template is saved blank' do
+      course_settings.update!(email_subject: '')
 
       expect(course_settings.reload.email_subject).to eq(described_class::DEFAULT_APPROVAL_EMAIL_SUBJECT)
-      expect(course_settings.reload.denial_email_template).to eq(described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE)
+    end
+
+    it 'stores NULL when the denial template is saved blank or equal to the default' do
+      course_settings.update!(denial_email_subject: 'Custom', denial_email_template: 'Custom body')
+      course_settings.update!(denial_email_subject: '   ',
+                              denial_email_template: described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE)
+
+      expect(course_settings.reload.denial_email_subject).to be_nil
+      expect(course_settings.reload.denial_email_template).to be_nil
+    end
+
+    it 'treats the default submitted with CRLF line endings from the form as not customized' do
+      course_settings.update!(denial_email_template: described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE.gsub("\n", "\r\n"))
+
+      expect(course_settings.reload.denial_email_template).to be_nil
+    end
+
+    it 'normalizes CRLF line endings in customized templates' do
+      course_settings.update!(email_template: "Line one\r\nLine two", denial_email_template: "Sorry\r\nNo")
+
+      expect(course_settings.reload.email_template).to eq("Line one\nLine two")
+      expect(course_settings.reload.denial_email_template).to eq("Sorry\nNo")
     end
   end
 
@@ -97,9 +121,7 @@ RSpec.describe CourseSettings, type: :model do
       expect(course_settings.email_templates_for(:denied)).to eq(subject: 'Sorry', body: 'Denied body')
     end
 
-    it 'falls back to the defaults for rows that predate the denial columns' do
-      course_settings.update_columns(denial_email_subject: nil, denial_email_template: '') # rubocop:disable Rails/SkipsModelValidations
-
+    it 'falls back to the defaults when the denial template is not customized' do
       expect(course_settings.email_templates_for('denied')).to eq(
         subject: described_class::DEFAULT_DENIAL_EMAIL_SUBJECT,
         body: described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE

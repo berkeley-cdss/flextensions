@@ -95,7 +95,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_120000) do
     t.bigint "course_id", null: false
     t.datetime "created_at", null: false
     t.string "denial_email_subject"
-    t.text "denial_email_template", default: ""
+    t.text "denial_email_template"
     t.string "email_subject"
     t.text "email_template", default: ""
     t.boolean "enable_emails", default: false
