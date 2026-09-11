@@ -71,4 +71,56 @@ if Rails.env.development?
       a.enabled = true
     end
   end
+
+  # A course where ball@berkeley.edu is the instructor, with a 20-student
+  # roster, for exercising staff-facing pages (roster, mass actions, emails)
+  # via developer login.
+  instructor = User.find_or_create_by!(email: 'ball@berkeley.edu') do |u|
+    u.name = 'Michael Ball'
+    u.admin = false
+    u.canvas_uid = 'ball@berkeley.edu'
+  end
+
+  instructor_course = Course.find_or_create_by!(course_code: 'DEV169') do |c|
+    c.course_name = 'Instructor Test Course'
+    c.canvas_id = 'dev-course-169'
+    c.demo_course = true
+  end
+
+  instructor_course_lms = CourseToLms.find_or_create_by!(course_id: instructor_course.id, lms_id: 1) do |ctl|
+    ctl.external_course_id = 'dev-course-169'
+  end
+
+  Enrollment.find_or_create_by!(user_id: instructor.id, course_id: instructor_course.id) do |enrollment|
+    enrollment.role = Enrollment::TEACHER_ROLE
+  end
+
+  (1..20).each do |i|
+    student = User.find_or_create_by!(email: format('dev-student-%02d@example.com', i)) do |u|
+      u.name = "Dev Student #{i}"
+      u.admin = false
+      u.canvas_uid = "dev-student-#{i}"
+      u.student_id = format('3035%06d', i)
+    end
+    Enrollment.find_or_create_by!(user_id: student.id, course_id: instructor_course.id) do |enrollment|
+      enrollment.role = Enrollment::STUDENT_ROLE
+    end
+  end
+
+  instructor_course.course_settings.update!(enable_extensions: true, auto_approve_days: 2)
+
+  FormSetting.find_or_create_by!(course_id: instructor_course.id) do |fs|
+    fs.documentation_disp = 'optional'
+    fs.custom_q1_disp = 'optional'
+    fs.custom_q2_disp = 'optional'
+  end
+
+  [ [ 'dev169-hw-1', 'Homework 1', 3 ], [ 'dev169-proj-1', 'Project 1', 7 ] ].each do |external_id, name, days|
+    Assignment.find_or_create_by!(course_to_lms_id: instructor_course_lms.id, external_assignment_id: external_id) do |a|
+      a.name = name
+      a.due_date = days.days.from_now
+      a.late_due_date = (days + 3).days.from_now
+      a.enabled = true
+    end
+  end
 end
