@@ -127,6 +127,12 @@ RSpec.describe ApplicationController, type: :controller do
         expect(response).to redirect_to(root_path)
         expect(flash[:alert]).to eq('You must be logged in to access that page.')
       end
+
+      it 'stores the requested path so login can return to it' do
+        get :index, params: { filter: 'pending' }
+
+        expect(session[:return_to]).to eq('/index?filter=pending')
+      end
     end
 
     context 'when user token has expired' do
