@@ -56,9 +56,13 @@
 
 			<div class="card rounded-0 mb-4">
 				<div class="card-header">
-					<h2 class="card-title mb-0 h5">Why do you need this extension?</h2>
+					<h2 class="card-title mb-0 h5">Reason for Extension <span class="fw-normal">(always required)</span></h2>
 				</div>
 				<div class="card-body">
+					<label for="form_setting_reason_title" class="form-label">Question text</label>
+					<%= f.text_field :reason_title, class: "form-control", id: "form_setting_reason_title",
+						placeholder: FormSetting::DEFAULT_REASON_TITLE, aria: { describedby: "form_setting_reason_title_help" } %>
+					<div id="form_setting_reason_title_help" class="form-text mb-2">Leave blank to use the default question, "<%= FormSetting::DEFAULT_REASON_TITLE %>".</div>
 					<label for="form_setting_reason_desc" class="form-label">Custom Description</label>
 					<%= f.text_area :reason_desc, class: "form-control", id: "form_setting_reason_desc" %>
 				</div>

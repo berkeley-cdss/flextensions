@@ -109,12 +109,12 @@
 
 					<div class="mb-4">
 						<p class="h6 mb-2">
-							Reason for Extension<span class="text-danger ms-1" aria-hidden="true"><strong>*</strong></span><span class="visually-hidden"> (required)</span>
+							<%= @form_settings.reason_title_or_default %><span class="text-danger ms-1" aria-hidden="true"><strong>*</strong></span><span class="visually-hidden"> (required)</span>
 						</p>
 						<% if @form_settings.reason_desc.presence %>
 							<p class="text-muted small mb-2"><%= @form_settings.reason_desc %></p>
 						<% end %>
-						<label class="visually-hidden" for="reason">Reason for Extension</label>
+						<label class="visually-hidden" for="reason"><%= @form_settings.reason_title_or_default %></label>
 						<%= f.text_area :reason, class: "form-control", id: "reason", rows: 3, required: true %>
 					</div>
 

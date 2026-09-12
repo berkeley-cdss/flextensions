@@ -49,7 +49,7 @@ To request an extension:
    - Only assignments that do not already have a submitted request will appear.
 3. The assignment’s **Original Due Date** and **Late Due Date** will display automatically.
 4. Enter your **Requested Due Date**.
-5. Fill out the **Reason for Extension** field.
+5. Fill out the **Why do you need this extension?** field (your course may word this question differently).
 6. Fill out additional fields as needed.
 7. Click **Submit Request** to finalize your request.
 
