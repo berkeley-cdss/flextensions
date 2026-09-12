@@ -6,7 +6,7 @@ permalink: /instructors/
 # Setting Up Flextensions for Instructors
 
 This guide will get you started with using Flextensions as an instructor.
-When you're ready, view the [integration guide](/flextensions/integrations).
+When you're ready, view the [integration guide](/integrations/).
 
 ## Importing a Course
 
@@ -228,7 +228,7 @@ Once configured, click **Update** at the bottom of the page to save your setting
 
 ---
 
-## [Integration Guide](/flextensions/integrations/)
+## [Integration Guide](/integrations/)
 
 Flextensions supports integrations with:
 

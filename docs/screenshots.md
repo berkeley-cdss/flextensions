@@ -7,56 +7,56 @@ permalink: /screenshots/
 
 ## Getting Started
 
-![Home Page](/flextensions/img/1-home.png)
+![Home Page](/img/1-home.png)
 
-![Canvas OAuth](/flextensions/img/2-oauth.png)
+![Canvas OAuth](/img/2-oauth.png)
 
-![Courses Dashboard](/flextensions/img/3-logged-in.png)
+![Courses Dashboard](/img/3-logged-in.png)
 
-![Import Courses](/flextensions/img/4-add-course.png)
+![Import Courses](/img/4-add-course.png)
 
 ## Managing a Course
 
-![Course Assignments](/flextensions/img/5-course-assignments.png)
+![Course Assignments](/img/5-course-assignments.png)
 
-![Pending Requests](/flextensions/img/8-review-requests.png)
+![Pending Requests](/img/8-review-requests.png)
 
-![All Requests](/flextensions/img/22-all-requests.png)
+![All Requests](/img/22-all-requests.png)
 
-![Extension Request Details](/flextensions/img/17-request-details.png)
+![Extension Request Details](/img/17-request-details.png)
 
-![Enrollments](/flextensions/img/15-enrollments.png)
+![Enrollments](/img/15-enrollments.png)
 
-![New Request for a Student](/flextensions/img/16-request-for-student.png)
+![New Request for a Student](/img/16-request-for-student.png)
 
 ## Course Settings
 
-![Course Details](/flextensions/img/6-course-settings.png)
+![Course Details](/img/6-course-settings.png)
 
-![Automatic Approvals](/flextensions/img/7-sample-settings.png)
+![Automatic Approvals](/img/7-sample-settings.png)
 
-![Email Templates](/flextensions/img/9-email-settings.png)
+![Email Templates](/img/9-email-settings.png)
 
-![Request Form Settings](/flextensions/img/10-customize-form.png)
+![Request Form Settings](/img/10-customize-form.png)
 
 ## Student View
 
-![Student Courses Dashboard](/flextensions/img/18-student-dashboard.png)
+![Student Courses Dashboard](/img/18-student-dashboard.png)
 
-![Student Course Assignments](/flextensions/img/19-student-course.png)
+![Student Course Assignments](/img/19-student-course.png)
 
-![Student Requests](/flextensions/img/20-student-requests.png)
+![Student Requests](/img/20-student-requests.png)
 
-![New Extension Request](/flextensions/img/21-student-new-request.png)
+![New Extension Request](/img/21-student-new-request.png)
 
 ## Common Errors
 
-![Assignment Enable Error](/flextensions/img/11-common-error.png)
+![Assignment Enable Error](/img/11-common-error.png)
 
 ## Integrations
 
-![Add Gradescope Bot](/flextensions/img/12-add-gradescope-bot.png)
+![Add Gradescope Bot](/img/12-add-gradescope-bot.png)
 
-![Google Sheets - Allow Access 1](/flextensions/img/13-google-sheets-allow-access-1.png)
+![Google Sheets - Allow Access 1](/img/13-google-sheets-allow-access-1.png)
 
-![Google Sheets - Allow Access 2](/flextensions/img/14-google-sheets-allow-access-2.png)
+![Google Sheets - Allow Access 2](/img/14-google-sheets-allow-access-2.png)
