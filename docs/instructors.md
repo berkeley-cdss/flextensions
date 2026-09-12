@@ -197,8 +197,9 @@ links back to the request.
   `{{course_name}}, {{course_code}}, {{assignment_name}}, {{request_url}}`
 
 - **Request Information**
-  `{{request_details_table}}` inserts a formatted table containing the
-  assignment, status, due dates, days requested, and the student's reason.
+  `{{request_details_table}}` inserts a formatted summary (one line per
+  field) of the assignment, status, due dates, days requested, and the
+  student's reason.
   The individual fields are also available:
   `{{original_due_date}}, {{new_due_date}}, {{requested_due_date}}, {{extension_days}}, {{status}}`
 

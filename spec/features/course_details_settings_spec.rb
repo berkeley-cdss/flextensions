@@ -141,7 +141,7 @@ RSpec.describe 'Course Details settings', type: :feature do
 
       request_rows = page.all('table[aria-labelledby="email-variables-request"] tbody tr').map(&:text)
       expect(request_rows.first).to start_with('{{request_details_table}}')
-      expect(request_rows.first).to include('A formatted table containing the following fields:')
+      expect(request_rows.first).to include('A formatted summary containing the following fields:')
     end
 
     it 'offers staff copies of student notifications in its own section, off by default' do

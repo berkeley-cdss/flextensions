@@ -1081,7 +1081,7 @@ RSpec.describe Request, type: :model do
           'requested_due_date' => request.requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
           'extension_days' => request.calculate_days_difference.to_s,
           'request_url' => request.request_link,
-          'request_details_table' => a_string_including('<table')
+          'request_details_table' => a_string_including('<strong>Status:</strong>')
         },
         course: course,
         cta_label: 'View Request',
@@ -1141,20 +1141,21 @@ RSpec.describe Request, type: :model do
     end
   end
 
-  describe '#email_details_table_html' do
-    it 'renders an html_safe table with escaped values' do
+  describe '#email_details_html' do
+    it 'renders html_safe label/value lines with escaped values' do
       request.update!(reason: 'Sick & <tired>')
 
-      html = request.email_details_table_html
+      html = request.email_details_html
       expect(html).to be_html_safe
-      expect(html).to include('<table')
-      expect(html).to include('Sick &amp; &lt;tired&gt;')
+      expect(html).to include("<strong>Status:</strong> Pending review\n")
+      expect(html).to include('<strong>Reason:</strong> Sick &amp; &lt;tired&gt;')
+      expect(html).not_to include('<table')
     end
 
     it 'is inserted into templates as markup rather than escaped' do
-      rendered = EmailService.render_templates('s', 'Details:\n{{request_details_table}}', request.email_template_mapping)
-      expect(rendered[:body]).to include('<table')
-      expect(rendered[:body]).not_to include('&lt;table')
+      rendered = EmailService.render_templates('s', "Details:\n{{request_details_table}}", request.email_template_mapping)
+      expect(rendered[:body]).to include('<strong>Status:</strong>')
+      expect(rendered[:body]).not_to include('&lt;strong')
     end
   end
 

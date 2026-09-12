@@ -338,7 +338,7 @@ class Request < ApplicationRecord
       'requested_due_date' => requested,
       'extension_days' => calculate_days_difference.to_s,
       'request_url' => request_link,
-      'request_details_table' => email_details_table_html
+      'request_details_table' => email_details_html
     }
   end
 
@@ -357,11 +357,14 @@ class Request < ApplicationRecord
     ]
   end
 
-  # The details rows as an HTML table for the {{request_details_table}}
-  # template variable. Marked html_safe so EmailService inserts it as markup;
-  # the partial escapes every value itself.
-  def email_details_table_html
-    ApplicationController.render(partial: 'request_mailer/details_table', locals: { rows: email_details_rows }).html_safe # rubocop:disable Rails/OutputSafety
+  # The details rows as "Label: value" lines for the {{request_details_table}}
+  # template variable. Lines are separated by newlines so TemplatedMailer turns
+  # them into line breaks like the rest of the body. Marked html_safe so
+  # EmailService inserts the bold labels as markup; the values are escaped here.
+  def email_details_html
+    email_details_rows.map do |label, value|
+      "<strong>#{ERB::Util.html_escape(label)}:</strong> #{ERB::Util.html_escape(value)}"
+    end.join("\n").html_safe # rubocop:disable Rails/OutputSafety
   end
 
   # Every student gets a receipt when a request is submitted, whether by them

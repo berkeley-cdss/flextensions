@@ -47,8 +47,10 @@ RSpec.describe RequestMailer do
     it 'wraps the message in the shared layout with the course and a button' do
       html = described_class.submission_confirmation(request).html_part.body.decoded
 
-      expect(html).to include('CS169 &middot; Software Engineering')
+      expect(html).to include('CS169 | Flextensions')
       expect(html).to include('View Your Request')
+      expect(html).to include('<strong>Status:</strong> Pending review')
+      expect(html).not_to include('<table')
     end
 
     it 'renders a plain-text part with the same details' do

@@ -1,6 +1,6 @@
 <%# Shared layout for every email Flextensions sends. Styles are inline because
     most mail clients ignore <style> blocks. Mailers may set:
-      @course              - named in the header and footer
+      @course              - its course code is shown in the header
       @cta_label/@cta_url  - a button rendered under the message body %>
 <!DOCTYPE html>
 <html lang="en">
@@ -11,48 +11,25 @@
   </head>
 
   <body style="margin:0; padding:0; background-color:#f4f5f7; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color:#212529;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f5f7;">
-      <tr>
-        <td align="center" style="padding:24px 12px;">
-          <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; width:100%;">
-            <tr>
-              <td style="background-color:#003262; color:#ffffff; padding:20px 28px; border-radius:6px 6px 0 0;">
-                <div style="font-size:20px; font-weight:bold; line-height:1.2;">Flextensions</div>
-                <% if @course %>
-                  <div style="font-size:14px; color:#fdb515; margin-top:4px;">
-                    <%= [ @course.course_code, @course.course_name ].compact_blank.join(' &middot; ').html_safe %>
-                  </div>
-                <% end %>
-              </td>
-            </tr>
-            <tr>
-              <td style="background-color:#ffffff; padding:28px; font-size:16px; line-height:1.5; border:1px solid #dee2e6; border-top:0; border-radius:0 0 6px 6px;">
-                <%= yield %>
-                <% if @cta_url.present? %>
-                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
-                    <tr>
-                      <td style="background-color:#003262; border-radius:4px;">
-                        <a href="<%= @cta_url %>" style="display:inline-block; padding:12px 20px; color:#ffffff; font-size:15px; font-weight:bold; text-decoration:none;">
-                          <%= @cta_label.presence || 'Open Flextensions' %>
-                        </a>
-                      </td>
-                    </tr>
-                  </table>
-                <% end %>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:16px 28px; font-size:12px; line-height:1.5; color:#6c757d; text-align:center;">
-                <% if @course %>
-                  You are receiving this email because of an extension request in <%= @course.course_code %>.<br>
-                <% end %>
-                Sent by <a href="<%= root_url %>" style="color:#6c757d;">Flextensions</a>,
-                UC Berkeley's assignment extension manager.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    <div style="max-width:600px; margin:0 auto; padding:24px 12px;">
+      <div style="background-color:#003262; color:#ffffff; padding:16px 24px; border-bottom:4px solid #fdb515; font-size:18px; font-weight:bold; line-height:1.3;">
+        <%= [ @course&.course_code, 'Flextensions' ].compact_blank.join(' | ') %>
+      </div>
+      <div style="background-color:#ffffff; padding:24px; font-size:16px; line-height:1.5;">
+        <%= yield %>
+        <% if @cta_url.present? %>
+          <p style="margin:24px 0 0;">
+            <a href="<%= @cta_url %>" style="display:inline-block; background-color:#003262; color:#ffffff; padding:12px 20px; border-radius:4px; font-size:15px; font-weight:bold; text-decoration:none;">
+              <%= @cta_label.presence || 'Open Flextensions' %>
+            </a>
+          </p>
+        <% end %>
+      </div>
+      <div style="padding:16px 24px; font-size:13px; line-height:28px; color:#6c757d;">
+        <%= image_tag 'uc-berkeley-logo.png', alt: 'UC Berkeley', height: 28, style: 'height:28px; vertical-align:middle; margin-right:8px;' %>
+        Sent by <a href="<%= root_url %>" style="color:#6c757d;"><%= root_url.chomp('/') %></a>
+        | <a href="https://docs.flextensions.berkeley.edu" style="color:#6c757d;">Get Help</a>
+      </div>
+    </div>
   </body>
 </html>
