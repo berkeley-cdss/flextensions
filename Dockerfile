@@ -1,7 +1,7 @@
 # syntax = docker/dockerfile:1
 
 # Make sure RUBY_VERSION matches .tool-versions and satisfies the Gemfile's ruby constraint
-ARG RUBY_VERSION=3.4.10
+ARG RUBY_VERSION=4.0.6
 FROM registry.docker.com/library/ruby:$RUBY_VERSION-slim as base
 
 # Rails app lives here
