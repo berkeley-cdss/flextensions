@@ -12,6 +12,7 @@
 #  documentation_desc :text
 #  documentation_disp :enum
 #  reason_desc        :text
+#  reason_title       :string
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
 #  course_id          :bigint           not null
@@ -25,8 +26,14 @@
 #  fk_rails_...  (course_id => courses.id)
 #
 class FormSetting < ApplicationRecord
+  DEFAULT_REASON_TITLE = 'Reason for Extension'.freeze
+
   belongs_to :course
 
   # model-level validations for display enums
   validates :documentation_disp, :custom_q1_disp, :custom_q2_disp, inclusion: { in: %w[required optional hidden] }
+
+  def effective_reason_title
+    reason_title.presence || DEFAULT_REASON_TITLE
+  end
 end

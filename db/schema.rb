@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_06_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_09_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -249,6 +249,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_06_120000) do
     t.text "documentation_desc"
     t.enum "documentation_disp", enum_type: "form_display_status"
     t.text "reason_desc"
+    t.string "reason_title"
     t.datetime "updated_at", null: false
     t.index ["course_id"], name: "index_form_settings_on_course_id"
   end

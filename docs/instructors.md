@@ -196,11 +196,13 @@ Use the **Form** tab to customize the student request form.
 > The following options are required fields and cannot be removed:
 > Assignment Name, Requested Due Date, Reason for Extension.
 
+Under **Initial Question**, edit **Title** to change the question for this course. Leave it blank to use the default, **Reason for Extension**. The question remains required, and its title appears on request forms and request details for students and staff.
+
 ### Writing Custom Descriptions
 
 You can provide custom description text for:
 
-- **Why do you need this extension?**
+- **Initial Question**
 - **Additional Documentation**
 
 These appear directly on the form and help guide student responses.

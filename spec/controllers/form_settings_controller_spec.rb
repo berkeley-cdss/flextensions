@@ -8,6 +8,7 @@ RSpec.describe FormSettingsController, type: :controller do
     {
       course_id: course.id,
       form_setting: {
+        reason_title: 'What would more time help you accomplish?',
         reason_desc: 'Updated reason',
         documentation_desc: 'Provide docs',
         documentation_disp: 'required',
@@ -67,6 +68,16 @@ RSpec.describe FormSettingsController, type: :controller do
         expect(response).to redirect_to(edit_course_form_setting_path(course))
         expect(flash[:notice]).to eq('Form settings updated successfully.')
         expect(course.form_setting.reload.reason_desc).to eq('Updated reason')
+        expect(course.form_setting.reason_title).to eq('What would more time help you accomplish?')
+      end
+
+      it 'preserves the custom title when it is omitted from an update' do
+        course.form_setting.update!(reason_title: 'Existing question?')
+        valid_params[:form_setting].delete(:reason_title)
+
+        patch :update, params: valid_params
+
+        expect(course.form_setting.reload.reason_title).to eq('Existing question?')
       end
     end
 
@@ -122,6 +133,7 @@ RSpec.describe FormSettingsController, type: :controller do
         patch :update, params: valid_params
         expect(response).to redirect_to(courses_path)
         expect(flash[:alert]).to eq('You do not have access to this page.')
+        expect(course.form_setting.reload.reason_title).to be_nil
       end
     end
   end
