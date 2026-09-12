@@ -46,6 +46,11 @@ class SessionController < ApplicationController
       return
     end
 
+    # Capture this before persist_login! rotates the session. The path was
+    # recorded by ApplicationController when the visitor first requested a
+    # protected page.
+    return_to = url_from(session[:return_to]) || courses_path
+
     user_data = {
       'id' => auth.uid,
       'name' => auth.info.name,
@@ -59,7 +64,7 @@ class SessionController < ApplicationController
 
     access_token = OAuth2::AccessToken.new(
       OAuth2::Client.new('', ''), # client never used – stub
-      creds.token,
+      creds.token.presence || 'developer-stub-token', # oauth2 >= 2.0 rejects a blank token
       refresh_token: creds.refresh_token,
       expires_at: expires_at
     )
@@ -83,11 +88,16 @@ class SessionController < ApplicationController
     # Auto-enroll developer login users in test courses
     ensure_developer_test_enrollments(user) if developer
 
-    redirect_to courses_path, notice: "Logged in! Welcome, #{user_data['name']}!"
+    redirect_to return_to, notice: "Welcome, #{user_data['name']}!"
   rescue StandardError => e
-    Rails.logger.error("OmniAuth callback error: #{e.message}")
-    Rails.error.report(e, handled: true, context: { component: 'omniauth_callback' })
-    redirect_to root_path, alert: 'Authentication failed. Invalid credentials.'
+    report_auth_error(e, 'omniauth_callback')
+    # Do not blame the user's credentials here. Anything reaching this rescue
+    # happened *after* the provider authenticated them successfully, so the
+    # cause is on our side (a bug, an outage, schema drift) -- saying "invalid
+    # credentials" sends whoever reports it looking at Canvas instead of at us.
+    redirect_to root_path,
+                alert: 'Authentication failed due to an error on our end. Please try again, and ' \
+                       'contact flextension@berkeley.edu if the problem continues.'
   end
 
   def omniauth_failure

@@ -112,7 +112,11 @@ table.flextensions-table.dataTable {
    ========================================================================= */
 
 #sidebar {
-  min-width: 250px;
+  // Pin the width so it never reflows when the collapsible submenu opens or
+  // closes -- a content-sized flex item would otherwise grow to fit the
+  // longest visible item and shrink again.
+  flex: 0 0 250px;
+  width: 250px;
 }
 
 #sidebar .nav-link:not(.active):hover {

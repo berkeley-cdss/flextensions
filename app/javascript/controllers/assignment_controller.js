@@ -119,7 +119,6 @@ export default class extends Controller {
 
     try {
       const statusBefore = await fetch(`/courses/${courseId}/sync_status`).then(r => r.json());
-      const beforeTs = statusBefore.assignments_synced_at;
 
       const response = await fetch(`/courses/${courseId}/sync_assignments`, {
         method: "POST",
@@ -128,7 +127,7 @@ export default class extends Controller {
 
       if (!response.ok) throw new Error(`Failed to sync assignments. ${response.status}`);
 
-      await pollUntilDone(courseId, "assignments_synced_at", beforeTs);
+      await pollUntilDone(courseId, "assignments", statusBefore);
 
       flash("notice", "Assignments synced successfully.");
       location.reload();

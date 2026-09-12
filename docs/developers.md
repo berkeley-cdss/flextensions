@@ -3,6 +3,8 @@ title: Developing Flextensions
 permalink: /developers/
 ---
 
+# Developing Flextensions
+
 ## Standing Up the Application
 
 This guide walks you through setting up the Flextensions app on your local machine and on your Heroku server and preparing it for development and deployment.
@@ -83,7 +85,7 @@ DB_PASSWORD (default: password)
 DB_NAME (default: postgres)
 CANVAS_URL (No default, but if you are using instructure sandbox then it should be set as "https://www.instructure.com/canvas?domain=canvas")
 CANVAS_CLIENT_ID (Ask the instructor for this. Used for authentication token request)
-APP_HOST (URL to the app itself. If you are standing up the app locally then it should be "http://localhost:3000")
+APP_HOST (The full domain of the app itself, e.g. "flextensions.eecs.cloud". If you are standing up the app locally then it should be "http://localhost:3000". Links in notification emails and Slack messages are built from this, so it must be the domain users reach the app at.)
 ```
 
 In the root directory of Flextensions app, run
@@ -124,12 +126,21 @@ occurrence is enqueued once even if several processes are running.
 
 | Cron key | Schedule | Job |
 |----------|----------|-----|
+| `daily_enrollment_sync` | 3:00 AM PT daily | `DailyEnrollmentSyncJob` |
 | `pending_digests_hourly` | Top of every hour | `PendingRequestsNotificationJob('hourly')` |
 | `pending_digests_daily` | 4:00 PM PT daily | `PendingRequestsNotificationJob('daily')` |
 | `pending_digests_weekly` | 4:00 PM PT Thursdays | `PendingRequestsNotificationJob('weekly')` |
 
-Each run emails the courses whose **Pending Request Notifications** setting matches
-that frequency and that currently have pending requests.
+Each notification run emails the courses whose **Pending Request Notifications**
+setting matches that frequency and that currently have pending requests.
+
+The daily enrollment sweep considers Canvas-linked courses imported within the
+past five weeks and skips any roster synced less than six hours ago. Eligible
+per-course jobs are spaced evenly across the hour after the 3:00 AM sweep to
+avoid a burst of Canvas API calls. Canvas applies a separate quota to each OAuth
+access token, so syncs performed with different instructors' tokens do not
+consume one shared quota; courses that share an instructor can still share that
+token's quota. See the [Canvas API throttling documentation](https://developerdocs.instructure.com/services/canvas/basics/file.throttling).
 
 Admins can inspect queues, schedules and past runs at `/admin/good_job`. To send a
 digest by hand (locally, or to backfill after downtime):
@@ -144,36 +155,76 @@ recurring jobs — for example when moving them to a dedicated worker started wi
 
 ---
 
+## Deployment (Elastic Beanstalk)
+
+Staging and production run on the *Ruby 3.3 on Amazon Linux 2023* platform, built
+by CodeBuild (`buildspec.yml`) and deployed by CodePipeline.
+
+### There is deliberately no `Procfile`
+
+The repository intentionally ships **no root `Procfile`**. When one is absent,
+Elastic Beanstalk [generates the default](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/ruby-platform-procfile.html)
+for the Ruby platform:
+
+```
+web: bundle exec puma -C /opt/elasticbeanstalk/config/private/pumaconf.rb
+```
+
+That platform-provided `pumaconf.rb` binds Puma to the Unix socket
+`/var/run/puma/my_app.sock`, which is what the platform's nginx config proxies
+to (`upstream my_app { server unix:///var/run/puma/my_app.sock; }`). Note that
+this is *not* the generic `PORT` / TCP-5000 convention used by the Go and Java SE
+platforms — the Ruby platform does **not** set a `PORT` environment variable, so
+a `Procfile` line like `web: bundle exec rails server -p $PORT` starts Rails with
+an empty `--port` argument and the web process dies at boot with
+`Thor::MalformattedArgumentError: No value provided for option '--port'`.
+
+If you ever do need a custom `Procfile`, two platform behaviours are worth
+knowing:
+
+- **Comments are not supported.** Every line must match
+  `^[A-Za-z0-9_-]+:\s*[^\s].*$`. A `#` comment makes the whole file invalid, and
+  Elastic Beanstalk silently falls back to its generated default — so a
+  `Procfile` with comments *appears* to work while none of its lines are
+  actually running. Document the process model here instead.
+- The `web` process must bind `unix:///var/run/puma/my_app.sock`, not a TCP port,
+  or nginx will return 502.
+
+Because GoodJob runs in-process (see [Background and Scheduled Jobs](#background-and-scheduled-jobs)),
+the single platform-managed `web` process is all this app needs.
+
+---
+
 ## Standing Up the Application on Heroku
 
 1. Setup the following ENV variables in heroku, with the same values in your local .env file.
 
-```bash
-APP_HOST
-CANVAS_CLIENT_ID
-CANVAS_URL
-# Active Record Encryption Values
-# SMTP Email Settings
-```
+   ```bash
+   APP_HOST
+   CANVAS_CLIENT_ID
+   CANVAS_URL
+   # Active Record Encryption Values
+   # SMTP Email Settings
+   ```
 
-2. Pushing branch [Iter4](https://github.com/cs169/flextensions/tree/iter4-end-2025-04-21) to flextensions heroku
+2. Push branch [Iter4](https://github.com/cs169/flextensions/tree/iter4-end-2025-04-21) to the flextensions heroku app.
 
-```
-heroku login
-git remote add golden https://git.heroku.com/flextensions.git
-git push golden main
-```
+   ```bash
+   heroku login
+   git remote add golden https://git.heroku.com/flextensions.git
+   git push golden main
+   ```
 
-3. https://sp25-02-flextensions-4f5b4fbccd7f.herokuapp.com
-
-
+3. The app is then available at <https://sp25-02-flextensions-4f5b4fbccd7f.herokuapp.com>.
 
 
 
 
 
-# Testing
-## Test Commands
+
+
+## Testing
+### Test Commands
 
 | Test Type | Command |
 |-----------|---------|
@@ -187,7 +238,7 @@ git push golden main
 | Auto-fix Lint Issues | `bundle exec rubocop -A` |
 | Validate Swagger API | `npx @redocly/cli lint app/assets/swagger/swagger.json --extends=minimal` |
 
-## Test Tags
+### Test Tags
 
 | Tag | Description |
 |-----|-------------|
@@ -197,7 +248,7 @@ git push golden main
 | `@wip` | Work In Progress tests still under development |
 
 
-## Accessibility (a11y) after-hooks
+### Accessibility (a11y) after-hooks
 
 Accessibility auditing is wired up as an **after-hook** in both test frameworks,
 so any test opted in with the `a11y`/`@a11y` tag has its final rendered page
@@ -211,34 +262,37 @@ axe matcher themselves.
   is audited after it runs. Because axe-core needs a real browser, `@a11y`
   scenarios run under the JavaScript driver.
 
-## Tips
+### Tips
 
 - Use `~` (RSpec) or `not` (Cucumber) to exclude tags
 - Combine tags in Cucumber with `and`/`or`: `--tags '@javascript and not @skip'`
 - Run accessibility tests separately (slower)
 
 
-## Conventions
+### Conventions
 
-1. Testing convention css selector -
-```<a class="nav-link testid-username" href="#"> Tashrique </a>```
+1. Testing convention css selector:
 
-Notice the ```testid-username```We will be using this style in **class** to grab elements from DOM to test.
+   ```html
+   <a class="nav-link testid-username" href="#"> Tashrique </a>
+   ```
 
-Please don't remove any class that starts with ```testid-```
+Notice the `testid-username` class. We will be using this style in **class** to grab elements from DOM to test.
 
-# Notes
+Please don't remove any class that starts with `testid-`.
+
+## Notes
 
 For how Flextensions reads Canvas assignment due dates and reads/writes
 assignment overrides (and the gotchas around `override_assignment_dates`, the
 25-date `all_dates` limit, and `/date_details`), see
-[Canvas Dates API notes](/flextensions/canvas-dates-api/) (`docs/Canvas_Dates_API.md`).
+[Canvas Dates API notes](/canvas-dates-api/) (`docs/Canvas_Dates_API.md`).
 
 There are now two separate instances of Canvas, each with it's own triad of prod/test/beta environments:
-1. [bcourses.berkeley.edu](bcourses.berkeley.edu)
-2. [ucberkeleysandbox.instructure.com](ucberkeleysandbox.instructure.com)
+1. [bcourses.berkeley.edu](https://bcourses.berkeley.edu)
+2. [ucberkeleysandbox.instructure.com](https://ucberkeleysandbox.instructure.com)
 
 We recommend developing in this order:
-1. [ucberkeleysandbox.instructure.com](ucberkeleysandbox.instructure.com) (no risk) - this is the one for which this repo currently has oauth2 keys (secrets)
-2. [bcourses.test.instructure.com](bcourses.test.instructure.com) (no risk of impacting courses, but contains real data)
-3. [bcourses.berkeley.edu](bcourses.berkeley.edu)
+1. [ucberkeleysandbox.instructure.com](https://ucberkeleysandbox.instructure.com) (no risk) - this is the one for which this repo currently has oauth2 keys (secrets)
+2. [bcourses.test.instructure.com](https://bcourses.test.instructure.com) (no risk of impacting courses, but contains real data)
+3. [bcourses.berkeley.edu](https://bcourses.berkeley.edu)

@@ -1,11 +1,17 @@
 title: Flextensions
 description: Assignment Extension Management for Canvas
-baseurl: /flextensions
-url: https://berkeley-cdss.github.io
+# The site is served from the custom domain in CNAME, so it lives at the domain
+# root and needs an empty baseurl. (github.io URLs redirect here.)
+baseurl: ""
+url: https://docs.flextensions.berkeley.edu
 
 # Build settings
 markdown: kramdown
 theme: jekyll-theme-primer
+
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
 
 # Exclude from processing
 exclude:

@@ -245,7 +245,7 @@ RSpec.describe 'Accessibility', :a11y, :js, type: :feature do
       end
 
       it 'Edit form settings page should be accessible for teacher', :a11y do
-        test_page_accessibility("/courses/#{course1.id}/form_setting/edit", :teacher, theme, "edit_form_settings_#{theme}_teacher.png")
+        test_page_accessibility("/courses/#{course1.id}/settings/form/edit", :teacher, theme, "edit_form_settings_#{theme}_teacher.png")
       end
 
       it 'Assignments page should be accessible for teacher', :a11y do

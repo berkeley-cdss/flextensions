@@ -116,7 +116,7 @@
 					<% end %>
 
 			<!-- Display Buttons Only if Status is Pending -->
-				<div class="d-flex justify-content-center mt-4">
+				<div class="d-flex justify-content-start mt-4">
 				  <% if @request.status == 'pending' %>
 					<%= link_to 'Edit Request', edit_course_request_path(@course, @request), class: "btn btn-primary me-3" %>
 					<%= button_to "Cancel Request",

@@ -160,15 +160,16 @@ Faultline.configure do |config|
   # end
 
   # --- Email Notifier (ActionMailer) ---
-  # Sends error notifications using your app's existing mail configuration.
-  # Uses ActionMailer with deliver_later (requires Active Job).
-  #
-  # config.add_notifier(
-  #   Faultline::Notifiers::Email.new(
-  #     to: ["team@example.com", "oncall@example.com"],
-  #     from: "errors@yourdomain.com"  # optional, defaults to ActionMailer default
-  #   )
-  # )
+  # Sends error notifications through the app's existing mail configuration
+  # (SMTP/sendmail in production) with deliver_later on GoodJob. Fires per the
+  # notification_rules above: only in the notify_in_environments list, for new
+  # error groups, reopened errors, and occurrence-count thresholds.
+  config.add_notifier(
+    Faultline::Notifiers::Email.new(
+      to: "flextensions@berkeley.edu",
+      from: ENV["DEFAULT_FROM_EMAIL"] # nil falls back to the ActionMailer default
+    )
+  )
 
   # Notification cooldown - prevent spam during error storms (nil to disable)
   config.notification_cooldown = 5.minutes

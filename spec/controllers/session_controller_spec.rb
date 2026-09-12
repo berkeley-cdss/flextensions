@@ -46,7 +46,24 @@ RSpec.describe SessionController, type: :controller do
 
         expect(session[:user_id]).to eq('12345')
         expect(response).to redirect_to(courses_path)
-        expect(flash[:notice]).to include('Logged in!')
+        expect(flash[:notice]).to eq('Welcome, Test User!')
+      end
+
+      it 'redirects to the protected page requested before login' do
+        session[:return_to] = '/courses/42?view=requests'
+
+        get :omniauth_callback, params: { provider: 'canvas' }
+
+        expect(response).to redirect_to('/courses/42?view=requests')
+        expect(session[:return_to]).to be_nil
+      end
+
+      it 'does not redirect to a destination on another host' do
+        session[:return_to] = 'https://example.com/phishing'
+
+        get :omniauth_callback, params: { provider: 'canvas' }
+
+        expect(response).to redirect_to(courses_path)
       end
     end
 
@@ -74,14 +91,27 @@ RSpec.describe SessionController, type: :controller do
     end
 
     context 'when something inside the callback raises' do
-      it 'rescues and redirects with “Invalid credentials”' do
+      before do
         # Force an exception inside the action (e.g., token save blows up)
-        allow_any_instance_of(User).to receive(:save!).and_raise(StandardError)
+        allow_any_instance_of(User).to receive(:save!).and_raise(ActiveModel::MissingAttributeError,
+                                                                 "missing attribute 'lms_name' for LmsCredential")
+      end
 
+      it 'rescues and redirects without blaming the user credentials' do
         get :omniauth_callback, params: { provider: 'canvas' } # <= add provider
 
         expect(response).to redirect_to(root_path)
-        expect(flash[:alert]).to eq('Authentication failed. Invalid credentials.')
+        expect(flash[:alert]).to include('error on our end')
+        expect(flash[:alert]).not_to include('Invalid credentials')
+      end
+
+      it 'logs the exception class so the real failure is identifiable' do
+        allow(Rails.logger).to receive(:error)
+
+        get :omniauth_callback, params: { provider: 'canvas' }
+
+        expect(Rails.logger).to have_received(:error)
+          .with(/omniauth_callback error: ActiveModel::MissingAttributeError: missing attribute 'lms_name'/)
       end
     end
   end

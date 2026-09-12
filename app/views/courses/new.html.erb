@@ -24,6 +24,9 @@
     <% end %>
     <% if @has_any_teacher_courses %>
       <%= form_with url: courses_path, method: :post, class: "mt-3" do %>
+        <div class="mb-3">
+          <%= submit_tag "Import Selected Courses", class: "btn btn-outline-primary px-4", id: "import-selected-courses-top" %>
+        </div>
         <table class="table table-bordered table-striped" id="import-course-table">
           <thead class="table-info">
             <tr>
@@ -54,7 +57,7 @@
             <% end %>
           </tbody>
         </table>
-        <%= submit_tag "Import Selected Courses", class: "btn btn-secondary" %>
+        <%= submit_tag "Import Selected Courses", class: "btn btn-outline-primary px-4", id: "import-selected-courses-bottom" %>
       <% end %>
     <% else %>
       <%# TODO: this could be improved when user has imported all relevant courses %>

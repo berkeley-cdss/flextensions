@@ -92,8 +92,8 @@ Rails.application.configure do
   config.good_job.poll_interval = ENV.fetch("GOOD_JOB_POLL_INTERVAL", 30).to_i
   config.good_job.shutdown_timeout = 25
   config.good_job.queues = ENV.fetch("GOOD_JOB_QUEUES", "*")
-  # Run the recurring jobs defined in config/application.rb (the pending request
-  # digests) from this process. No EC2 crontab or `leader_only` container
+  # Run the recurring jobs defined in config/application.rb from this process.
+  # No EC2 crontab or `leader_only` container
   # command is involved: GoodJob's cron thread lives in the same async capsule
   # as the workers, so it starts and stops with Puma. Set GOOD_JOB_ENABLE_CRON
   # to "false" to silence recurring jobs on an instance (e.g. when moving them
@@ -153,8 +153,6 @@ Rails.application.configure do
     config.action_mailer.delivery_method = :sendmail
   end
 
-  config.action_mailer.default_url_options = {
-    host: ENV.fetch("APP_HOST", "localhost"),
-    port: ENV.fetch("APP_PORT", "3000")
-  }
+  # The host that links are built against comes from APP_HOST in every
+  # environment -- see config/initializers/default_url_options.rb.
 end

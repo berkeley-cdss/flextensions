@@ -1,40 +1,38 @@
 # frozen_string_literal: true
 
-# Templates and delivery helper for the "you have N pending extension requests"
-# digest email that PendingRequestsNotificationJob sends. Wraps EmailService so
-# the job doesn't need to know the template strings or mapping shape.
-class PendingRequestsMailer
-  SUBJECT_TEMPLATE = '{{pending_count}} Pending Extension Request{{plural}} - {{course_code}}'
+# The "you have N pending extension requests" digest email that
+# PendingRequestsNotificationJob sends to course staff. Rendered from ERB views
+# in app/views/pending_requests_mailer/.
+class PendingRequestsMailer < ApplicationMailer
+  # How the digest describes the window auto-approvals are counted over
+  # ("In the past hour ..."), keyed by the course's notification frequency.
+  PERIOD_LABELS = {
+    'hourly' => 'hour',
+    'daily' => 'day',
+    'weekly' => 'week'
+  }.freeze
 
-  BODY_TEMPLATE = <<~BODY
-    Hello,
+  # Very large courses can accumulate hundreds of pending requests; cap the
+  # per-request list so the digest stays readable and link to the requests
+  # page for the rest.
+  MAX_LISTED_REQUESTS = 50
 
-    You have {{pending_count}} pending extension request{{plural}} in {{course_name}} ({{course_code}}).
+  def pending_requests_email(course_settings:, pending_requests:, auto_approved_count:, frequency:)
+    @course = course_settings.course
+    @pending_requests = pending_requests
+    @listed_requests = pending_requests.first(MAX_LISTED_REQUESTS)
+    @unlisted_count = pending_requests.size - @listed_requests.size
+    @auto_approved_count = auto_approved_count
+    @period_label = PERIOD_LABELS.fetch(frequency)
 
-    Please review them at: {{requests_url}}
-
-    Thank you,
-    Flextensions
-  BODY
-
-  def self.send_pending_request_notifications(course_settings, pending_count, requests_url)
-    course = course_settings.course
     default_from = ENV.fetch('DEFAULT_FROM_EMAIL')
+    count = pending_requests.size
 
-    EmailService.send_email(
+    mail(
       to: course_settings.pending_notification_email,
       from: default_from,
       reply_to: course_settings.reply_email.presence || default_from,
-      subject_template: SUBJECT_TEMPLATE,
-      body_template: BODY_TEMPLATE,
-      mapping: {
-        'pending_count' => pending_count.to_s,
-        'plural' => pending_count == 1 ? '' : 's',
-        'course_name' => course.course_name,
-        'course_code' => course.course_code,
-        'requests_url' => requests_url
-      },
-      deliver_later: false
+      subject: "#{count} Pending Extension Request#{'s' unless count == 1} - #{@course.course_code}"
     )
   end
 end

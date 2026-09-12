@@ -80,6 +80,9 @@ $colors: (
 $primary: $berkeley-blue;
 // TODO: This may be a little too bright for some elements, consider using a medium or dark shade instead
 $secondary: $california-gold;
+// Bootstrap's default green (#198754) is off-palette; use the Berkeley
+// secondary green, which still clears 4.5:1 against white button text.
+$success: $green-medium;
 
 // Inline <code>: a dark red in light mode; a lighter tint in dark mode so it
 // stays readable on the dark surface. (Light surfaces that persist in dark
@@ -151,4 +154,24 @@ $form-switch-color-dark: $white;
 table.table.dataTable.table-striped > tbody > tr.table-blue-light > * {
   --bs-table-bg-type: initial;
   --bs-table-color-type: initial;
+}
+
+// An enlarged form-switch (used for the primary "Enable Extensions" toggle).
+// Bootstrap sizes switches via the input's width/height and the row's
+// left padding + negative input margin; scale all three together.
+.form-switch.checkbox-xl {
+  min-height: 1.75rem;
+  padding-left: 3.5em;
+
+  .form-check-input {
+    width: 3em;
+    height: 1.5em;
+    margin-left: -3.5em;
+    margin-top: 0.05em;
+  }
+
+  .form-check-label {
+    font-size: 1.2rem;
+    padding-top: 0.1em;
+  }
 }

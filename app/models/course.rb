@@ -65,6 +65,28 @@ class Course < ApplicationRecord
     semesters.sort_by { |s| semester_sort_key(s) }.reverse
   end
 
+  # Seasons offered in the Course Details semester picker.
+  SEMESTER_SEASONS = %w[Winter Spring Summer Fall].freeze
+  # Earliest selectable academic year in the semester picker.
+  FIRST_SEMESTER_YEAR = 2012
+
+  # Years offered in the semester picker: FIRST_SEMESTER_YEAR through next year.
+  def self.semester_year_options(today = Date.current)
+    (FIRST_SEMESTER_YEAR..today.year + 1).to_a
+  end
+
+  # Splits a stored semester string (e.g. "Spring 2026") into [season, year]
+  # when it is a recognized season paired with an in-range year, otherwise
+  # [nil, nil]. This lets the Course Details form pre-select valid values and
+  # leave the dropdowns empty for anything stored in an unexpected format.
+  def self.parse_semester(semester)
+    season, year = semester.to_s.split
+    return [ nil, nil ] unless SEMESTER_SEASONS.include?(season)
+    return [ nil, nil ] unless year&.match?(/\A\d{4}\z/) && semester_year_options.include?(year.to_i)
+
+    [ season, year.to_i ]
+  end
+
   # Month a term starts in maps to its Berkeley season.
   # Spring starts in January, Summer in late May, Fall in late August.
   SEASON_BY_START_MONTH = {
@@ -176,6 +198,19 @@ class Course < ApplicationRecord
     (links.where.not(external_course_id: nil).first || links.first)&.external_course_id
   end
 
+  # Absolute URL of the course page, for links embedded in outbound
+  # notifications (email, Slack). Absolute rather than a path because a mail
+  # client resolves a path against nothing, giving "http:///courses/19"; the
+  # host comes from config/initializers/default_url_options.rb.
+  def course_link
+    Rails.application.routes.url_helpers.course_url(self)
+  end
+
+  # Absolute URL of the course's requests page. See #course_link.
+  def requests_link
+    Rails.application.routes.url_helpers.course_requests_url(self)
+  end
+
   # TODO: Add specs for these 3 simple methods
   def students
     enrollments.where(role: Enrollment::STUDENT_ROLE).map(&:user)
@@ -238,6 +273,11 @@ class Course < ApplicationRecord
       form_setting.save!
     end
 
+    # Enroll the creator synchronously with their Canvas role: the rest of the
+    # roster syncs in the background, and a failure there must not leave the
+    # creator locked out of a course they just imported.
+    course.enroll_user_with_highest_role(user, course_data['enrollments'])
+
     # TODO: Consider disabling these if performance becomes an issue
     course.sync_assignments(user)
     course.sync_all_enrollments_from_canvas(user.id)
@@ -250,9 +290,8 @@ class Course < ApplicationRecord
     response = canvas_facade.get_course(course_data['id'])
 
     if response.nil? || !response.success?
-      Rails.logger.error "Failed to fetch course: #{response.status} - #{response.body}"
-      # TODO: Raise error to user?
-      return nil
+      raise CanvasFacade::CanvasAPIError,
+            "Failed to fetch course #{course_data['id']} from Canvas (HTTP #{response&.status || 'no response'})"
     end
 
     course = find_or_initialize_by(canvas_id: course_data['id'])
@@ -282,6 +321,18 @@ class Course < ApplicationRecord
     lms_links.each do |course_to_lms|
       SyncAllCourseAssignmentsJob.perform_later(course_to_lms.id, sync_user.id)
     end
+  end
+
+  # Creates an enrollment for the user's highest-ranked role among the given
+  # Canvas enrollment hashes (from the Canvas courses API). No-op when none of
+  # the Canvas enrollments map to a role we know.
+  def enroll_user_with_highest_role(user, canvas_enrollments)
+    role = Array(canvas_enrollments)
+           .filter_map { |enrollment| Enrollment.role_from_canvas_enrollment(enrollment) }
+           .max_by { |found_role| Enrollment::ROLE_PRIORITY.index(found_role) || -1 }
+    return unless role
+
+    enrollments.find_or_create_by!(user: user, role: role)
   end
 
   # Fetch users for a course and create/find their User and Enrollment records

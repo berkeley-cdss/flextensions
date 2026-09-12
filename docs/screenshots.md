@@ -3,30 +3,60 @@ title: Screenshots
 permalink: /screenshots/
 ---
 
-![1 - Home](/flextensions/img/1-home.png)
+# Screenshots
 
-![2 - OAuth](/flextensions/img/2-oauth.png)
+## Getting Started
 
-![3 - Logged In](/flextensions/img/3-logged-in.png)
+![Home Page](/img/1-home.png)
 
-![4 - Add Course](/flextensions/img/4-add-course.png)
+![Canvas OAuth](/img/2-oauth.png)
 
-![5 - Course Assignments](/flextensions/img/5-course-assignments.png)
+![Courses Dashboard](/img/3-logged-in.png)
 
-![6 - Course Settings](/flextensions/img/6-course-settings.png)
+![Import Courses](/img/4-add-course.png)
 
-![7 - Sample Settings](/flextensions/img/7-sample-settings.png)
+## Managing a Course
 
-![8 - Review Requests](/flextensions/img/8-review-requests.png)
+![Course Assignments](/img/5-course-assignments.png)
 
-![9 - Email Settings](/flextensions/img/9-email-settings.png)
+![Pending Requests](/img/8-review-requests.png)
 
-![10 - Customize Form](/flextensions/img/10-customize-form.png)
+![All Requests](/img/22-all-requests.png)
 
-![11 - Common Error](/flextensions/img/11-common-error.png)
+![Extension Request Details](/img/17-request-details.png)
 
-![12 - Add Gradescope Bot](/flextensions/img/12-add-gradescope-bot.png)
+![Enrollments](/img/15-enrollments.png)
 
-![13 - Google Sheets - Allow Access 1](/flextensions/img/13-google-sheets-allow-access-1.png)
+![New Request for a Student](/img/16-request-for-student.png)
 
-![14 - Google Sheets - Allow Access 2](/flextensions/img/14-google-sheets-allow-access-2.png)
+## Course Settings
+
+![Course Details](/img/6-course-settings.png)
+
+![Automatic Approvals](/img/7-sample-settings.png)
+
+![Email Templates](/img/9-email-settings.png)
+
+![Request Form Settings](/img/10-customize-form.png)
+
+## Student View
+
+![Student Courses Dashboard](/img/18-student-dashboard.png)
+
+![Student Course Assignments](/img/19-student-course.png)
+
+![Student Requests](/img/20-student-requests.png)
+
+![New Extension Request](/img/21-student-new-request.png)
+
+## Common Errors
+
+![Assignment Enable Error](/img/11-common-error.png)
+
+## Integrations
+
+![Add Gradescope Bot](/img/12-add-gradescope-bot.png)
+
+![Google Sheets - Allow Access 1](/img/13-google-sheets-allow-access-1.png)
+
+![Google Sheets - Allow Access 2](/img/14-google-sheets-allow-access-2.png)

@@ -14,7 +14,7 @@ class ApplicationController < ActionController::Base
   def current_user
     return @current_user if defined?(@current_user)
 
-    @current_user = User.find_by(canvas_uid: session[:user_id]) || NullUser.new
+    @current_user = session_user || NullUser.new
   end
 
   # Because blazer is mounted as a module, `root_path` doesn't seem to work appropriately.
@@ -26,6 +26,22 @@ class ApplicationController < ActionController::Base
   end
 
   private
+
+  # `session[:user_id]` holds a Canvas uid and is nil for anybody not signed in.
+  #
+  # `User.find_by(canvas_uid: nil)` does NOT mean "no user": it compiles to
+  # `WHERE canvas_uid IS NULL LIMIT 1`, and `users.canvas_uid` is nullable, so it
+  # returns whichever account happens to have a null canvas_uid. Every anonymous
+  # request was therefore resolving to a real user -- in production, user 49812,
+  # which is why the load balancer's health check on `/` started redirecting to
+  # /courses instead of rendering the landing page. Bail out before the query
+  # when there is no session.
+  def session_user
+    canvas_uid = session[:user_id]
+    return nil if canvas_uid.blank?
+
+    User.find_by(canvas_uid: canvas_uid)
+  end
 
   def authenticated!
     return handle_authentication_failure('You must be logged in to access that page.') unless current_user.logged_in?
@@ -46,12 +62,29 @@ class ApplicationController < ActionController::Base
     end
 
     true
-  rescue StandardError
+  rescue StandardError => e
+    report_auth_error(e, 'authenticated!')
     handle_authentication_failure('An unexpected error occurred.')
   end
 
+  # Both this check and SessionController#omniauth_callback wrap the whole auth
+  # path in a bare `rescue StandardError`, so any bug in there surfaces to the
+  # user as a generic "log in again" and to us as nothing at all. Record the
+  # exception class and where it came from: a bare message (e.g. "missing
+  # attribute 'lms_name'") is not enough to place the failure.
+  def report_auth_error(error, component)
+    Rails.logger.error(
+      "#{component} error: #{error.class}: #{error.message}\n" \
+      "#{Array(error.backtrace).first(5).join("\n")}"
+    )
+    Rails.error.report(error, handled: true, context: { component: component })
+  end
+
   def handle_authentication_failure(message)
+    return_to = request.fullpath if request.get? && request.format.html?
+
     reset_session
+    session[:return_to] = return_to if return_to.present?
     flash[:alert] = message
     redirect_to root_path
     false

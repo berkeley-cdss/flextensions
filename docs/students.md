@@ -63,16 +63,16 @@ To request an extension:
 1. Click the **Requests** tab in the left-hand sidebar.
 2. A table will list all your submitted extension requests for the course.
 
-Each row displays:
+   Each row displays:
 
-- Assignment name
-- Date the request was submitted ("Requested At")
-- Original and requested due dates
-- Number of additional days requested
-- Status of the request:
-  - **Pending**
-  - **Approved**
-  - **Rejected**
+   - Assignment name
+   - Date the request was submitted ("Requested At")
+   - Original and requested due dates
+   - Number of additional days requested
+   - Status of the request:
+     - **Pending**
+     - **Approved**
+     - **Rejected**
 
 3. Click the **View** button in the Actions column to open the full request details, or **Edit** to update your request.
 

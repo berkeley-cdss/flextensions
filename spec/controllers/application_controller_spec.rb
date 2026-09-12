@@ -38,6 +38,16 @@ RSpec.describe ApplicationController, type: :controller do
       expect(controller.current_user).to be_logged_in
     end
 
+    it 'does not adopt an account with a null canvas_uid when nobody is signed in' do
+      orphan = User.create!(email: 'orphan@example.com', canvas_uid: nil)
+
+      get :index
+
+      expect(controller.current_user).not_to eq(orphan)
+      expect(controller.current_user).to be_a(NullUser)
+      expect(controller.current_user).not_to be_logged_in
+    end
+
     it 'returns a NullUser instead of nil when nobody is signed in' do
       get :index
 
@@ -117,6 +127,12 @@ RSpec.describe ApplicationController, type: :controller do
         expect(response).to redirect_to(root_path)
         expect(flash[:alert]).to eq('You must be logged in to access that page.')
       end
+
+      it 'stores the requested path so login can return to it' do
+        get :index, params: { filter: 'pending' }
+
+        expect(session[:return_to]).to eq('/index?filter=pending')
+      end
     end
 
     context 'when user token has expired' do
@@ -147,6 +163,30 @@ RSpec.describe ApplicationController, type: :controller do
 
         get :index
         expect(response.body).to eq('OK')
+      end
+    end
+
+    context 'when the check itself raises' do
+      before do
+        session[:user_id] = user.canvas_uid
+        allow_any_instance_of(User).to receive(:lms_credentials)
+          .and_raise(ActiveModel::MissingAttributeError, "missing attribute 'lms_name' for LmsCredential")
+      end
+
+      it 'logs the exception class rather than failing silently' do
+        allow(Rails.logger).to receive(:error)
+
+        get :index
+
+        expect(Rails.logger).to have_received(:error)
+          .with(/authenticated! error: ActiveModel::MissingAttributeError: missing attribute 'lms_name'/)
+      end
+
+      it 'still logs the user out safely' do
+        get :index
+
+        expect(response).to redirect_to(root_path)
+        expect(flash[:alert]).to eq('An unexpected error occurred.')
       end
     end
   end

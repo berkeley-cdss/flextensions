@@ -6,7 +6,7 @@ permalink: /instructors/
 # Setting Up Flextensions for Instructors
 
 This guide will get you started with using Flextensions as an instructor.
-When you're ready, view the [integration guide](/flextensions/integrations).
+When you're ready, view the [integration guide](/integrations/).
 
 ## Importing a Course
 
@@ -88,7 +88,7 @@ The **Enrollments** tab shows all instructors and students currently associated 
 The list will refresh with updated data, including new students and instructors, and will remove users no longer in the course.
 
 > [!NOTE]
-> ⚠️ If a student is added to the course after you have already imported a course, you will need to sync the course enrollments to ensure they are able to access the Flextensions course.
+> Flextensions also refreshes enrollments automatically each day between 3:00 and 4:00 AM Pacific for courses imported into Flextensions within the past five weeks. An automatic refresh is skipped when that course's roster was synced less than six hours earlier. You can still use **Sync Enrollments** when you need an update sooner.
 
 ## Filtering Student Requests
 By clicking the name of a student in the **Enrollments** tab, you can filter the requests to only show those made by that student. This is useful for quickly reviewing all requests from a specific student.
@@ -224,7 +224,7 @@ Once configured, click **Update** at the bottom of the page to save your setting
 
 ---
 
-## [Integration Guide](/flextensions/integrations/)
+## [Integration Guide](/integrations/)
 
 Flextensions supports integrations with:
 
