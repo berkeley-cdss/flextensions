@@ -88,13 +88,13 @@
 
             <div class="mb-4">
               <h3 class="mb-2 h6" id="reason-heading">
-                Reason for Extension<span class="text-danger ms-1" aria-hidden="true"><strong>*</strong></span><span class="visually-hidden"> (required)</span>
+                <%= @form_settings.reason_title_or_default %><span class="text-danger ms-1" aria-hidden="true"><strong>*</strong></span><span class="visually-hidden"> (required)</span>
               </h3>
               <% if @form_settings.reason_desc.presence %>
                 <p class="text-muted small mb-2" id="reason-desc"><%= @form_settings.reason_desc %></p>
               <% end %>
               <div class="form-group">
-                <%= f.label :reason, "Reason for Extension", for: "reason", class: "form-label" %>
+                <%= f.label :reason, @form_settings.reason_title_or_default, for: "reason", class: "form-label" %>
                 <%= f.text_area :reason, class: "form-control", id: "reason", rows: 3, required: true, 
                                aria: { describedby: @form_settings.reason_desc.present? ? "reason-desc" : nil, 
                                       labelledby: "reason-heading" } %>
