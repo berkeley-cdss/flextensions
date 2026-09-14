@@ -213,8 +213,8 @@ Faultline.configure do |config|
   # Maximum backtrace lines to store per occurrence
   config.backtrace_lines_limit = 50
 
-  # How long to keep error data in days (nil = forever)
-  # Consider setting up a cleanup job if you have high error volume
+  # How long to keep error data in days (nil = forever). Faultline itself
+  # never enforces this; FaultlineCleanupJob (GoodJob cron, nightly) does.
   config.retention_days = 90
 
   # =============================================================================
@@ -257,9 +257,9 @@ Faultline.configure do |config|
   # Paths to ignore for APM (defaults to middleware_ignore_paths if nil)
   # config.apm_ignore_paths = ["/assets", "/up", "/health", "/faultline"]
 
-  # How long to keep APM traces in days (default: 30)
-  # Use `rake faultline:apm:cleanup` to remove old traces.
-  # config.apm_retention_days = 30
+  # How long to keep APM traces in days (default: 30). Enforced nightly by
+  # FaultlineCleanupJob, the same as `rake faultline:apm:cleanup`.
+  config.apm_retention_days = 30
 
   # --- Span Collection (Waterfall Visualization) ---
   # Capture detailed spans for SQL, HTTP, Redis, and view rendering.

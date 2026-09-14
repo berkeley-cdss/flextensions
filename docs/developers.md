@@ -130,6 +130,7 @@ occurrence is enqueued once even if several processes are running.
 | `pending_digests_hourly` | Top of every hour | `PendingRequestsNotificationJob('hourly')` |
 | `pending_digests_daily` | 4:00 PM PT daily | `PendingRequestsNotificationJob('daily')` |
 | `pending_digests_weekly` | 4:00 PM PT Thursdays | `PendingRequestsNotificationJob('weekly')` |
+| `faultline_cleanup` | 3:30 AM PT daily | `FaultlineCleanupJob` |
 
 Each notification run emails the courses whose **Pending Request Notifications**
 setting matches that frequency and that currently have pending requests.
@@ -141,6 +142,12 @@ avoid a burst of Canvas API calls. Canvas applies a separate quota to each OAuth
 access token, so syncs performed with different instructors' tokens do not
 consume one shared quota; courses that share an instructor can still share that
 token's quota. See the [Canvas API throttling documentation](https://developerdocs.instructure.com/services/canvas/basics/file.throttling).
+
+`FaultlineCleanupJob` prunes the error-tracking tables (`/admin/errors`) so
+they do not grow forever: error occurrences older than `retention_days` and
+APM traces older than `apm_retention_days`, both set in
+`config/initializers/faultline.rb`. Faultline does not enforce either setting
+on its own.
 
 Admins can inspect queues, schedules and past runs at `/admin/good_job`. To send a
 digest by hand (locally, or to backfill after downtime):

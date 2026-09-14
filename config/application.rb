@@ -81,6 +81,11 @@ module Flextensions
         class: 'PendingRequestsNotificationJob',
         args: [ 'weekly' ],
         description: 'Pending extension request digests for courses set to weekly'
+      },
+      faultline_cleanup: {
+        cron: '30 3 * * * America/Los_Angeles',
+        class: 'FaultlineCleanupJob',
+        description: 'Prune Faultline errors and APM traces past their retention windows'
       }
     }
 
