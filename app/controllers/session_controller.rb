@@ -97,7 +97,7 @@ class SessionController < ApplicationController
     # credentials" sends whoever reports it looking at Canvas instead of at us.
     redirect_to root_path,
                 alert: 'Authentication failed due to an error on our end. Please try again, and ' \
-                       'contact flextension@berkeley.edu if the problem continues.'
+                       "contact #{Rails.configuration.x.contact_email} if the problem continues."
   end
 
   def omniauth_failure

@@ -42,6 +42,12 @@ module Flextensions
     config.generators.system_tests = nil
     config.active_job.queue_adapter = :good_job
 
+    # Address users are told to contact when something goes wrong on our side
+    # (error flashes, support prompts). Read it via
+    # Rails.configuration.x.contact_email rather than hard-coding the address
+    # so it can be changed in one place. Overridable with CONTACT_EMAIL.
+    config.x.contact_email = ENV.fetch('CONTACT_EMAIL') { 'flextensions@berkeley.edu' }
+
     # Report unhandled job exceptions (and GoodJob's own thread errors) to the
     # Rails error reporter. GoodJob only records these on the job row in its
     # dashboard; without this hook they never reach subscribers like Faultline.
