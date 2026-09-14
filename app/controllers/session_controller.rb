@@ -46,6 +46,11 @@ class SessionController < ApplicationController
       return
     end
 
+    # Capture this before persist_login! rotates the session. The path was
+    # recorded by ApplicationController when the visitor first requested a
+    # protected page.
+    return_to = url_from(session[:return_to]) || courses_path
+
     user_data = {
       'id' => auth.uid,
       'name' => auth.info.name,
@@ -83,7 +88,7 @@ class SessionController < ApplicationController
     # Auto-enroll developer login users in test courses
     ensure_developer_test_enrollments(user) if developer
 
-    redirect_to courses_path, notice: "Logged in! Welcome, #{user_data['name']}!"
+    redirect_to return_to, notice: "Welcome, #{user_data['name']}!"
   rescue StandardError => e
     report_auth_error(e, 'omniauth_callback')
     # Do not blame the user's credentials here. Anything reaching this rescue

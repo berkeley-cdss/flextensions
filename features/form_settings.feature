@@ -8,6 +8,21 @@ Feature: Course Form Settings
 		When I go to the Form Settings page
 		Then I should see "Form Settings"
 
+	Scenario: Reason question uses the default text until a course overrides it
+		Given I'm logged in as a student
+		When I go to the Request Extension page
+		Then I should see "Why do you need this extension?"
+
+	Scenario: Changing Reason question title
+		Given I'm logged in as a teacher
+		When I go to the Form Settings page
+		And I fill in "form_setting_reason_title" with "Why do you need more time?"
+		And I press "Save Form Settings"
+		Then I log in as a student
+		And I go to the Request Extension page
+		Then I should see "Why do you need more time?"
+		And I should not see "Why do you need this extension?"
+
 	Scenario: Changing Reason custom description
 		Given I'm logged in as a teacher
 		When I go to the Form Settings page

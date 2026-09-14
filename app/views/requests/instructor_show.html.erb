@@ -90,7 +90,7 @@
 
 					<!-- Display Reason for Extension -->
 					<div class="mb-4">
-						<h3 class="mb-2 h6">Reason for Extension</h3>
+						<h3 class="mb-2 h6"><%= @form_settings.reason_title_or_default %></h3>
 						<% if @form_settings.reason_desc.present? %>
 							<p class="text-muted small mb-2"><%= @form_settings.reason_desc %></p>
 						<% end %>

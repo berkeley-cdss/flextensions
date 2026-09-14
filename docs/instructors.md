@@ -6,7 +6,7 @@ permalink: /instructors/
 # Setting Up Flextensions for Instructors
 
 This guide will get you started with using Flextensions as an instructor.
-When you're ready, view the [integration guide](/flextensions/integrations).
+When you're ready, view the [integration guide](/integrations/).
 
 ## Importing a Course
 
@@ -221,11 +221,15 @@ Use the **Form** tab to customize the student request form.
 > The following options are required fields and cannot be removed:
 > Assignment Name, Requested Due Date, Reason for Extension.
 
+### Customizing the Reason Question
+
+The reason question is always shown and always required, but you can change its wording. Enter new **Question text** to replace the default "Why do you need this extension?" on the student form and on request pages. Leave it blank to keep the default.
+
 ### Writing Custom Descriptions
 
 You can provide custom description text for:
 
-- **Why do you need this extension?**
+- **Why do you need this extension?** (the reason question)
 - **Additional Documentation**
 
 These appear directly on the form and help guide student responses.
@@ -249,7 +253,7 @@ Once configured, click **Update** at the bottom of the page to save your setting
 
 ---
 
-## [Integration Guide](/flextensions/integrations/)
+## [Integration Guide](/integrations/)
 
 Flextensions supports integrations with:
 

@@ -252,6 +252,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_090000) do
     t.text "documentation_desc"
     t.enum "documentation_disp", enum_type: "form_display_status"
     t.text "reason_desc"
+    t.string "reason_title"
     t.datetime "updated_at", null: false
     t.index ["course_id"], name: "index_form_settings_on_course_id"
   end
