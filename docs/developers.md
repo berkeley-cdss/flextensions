@@ -160,6 +160,20 @@ recurring jobs — for example when moving them to a dedicated worker started wi
 Staging and production run on the *Ruby 3.3 on Amazon Linux 2023* platform, built
 by CodeBuild (`buildspec.yml`) and deployed by CodePipeline.
 
+### Load balancer health check
+
+The load balancer polls `/status/health_check` (`StatusController#health_check`),
+an unauthenticated JSON endpoint that also runs a `SELECT 1` against the
+database. The path is set in `.ebextensions/06_health_check.config`, so it ships
+with each deploy and does not depend on console settings. Do **not** point the
+health check at `/`: that route runs the full session stack, and a redirect there
+(see the `session_user` comment in `app/controllers/application_controller.rb`)
+fails every deployment.
+
+Option settings applied directly to the environment override `.ebextensions`, so
+if the health check path was ever set in the console, that value wins until it is
+removed; the config file's header has the `aws` commands to check and clear it.
+
 ### There is deliberately no `Procfile`
 
 The repository intentionally ships **no root `Procfile`**. When one is absent,
