@@ -10,6 +10,10 @@ RSpec.describe ApplicationController, type: :controller do
     def test_auth
       authenticated!
     end
+
+    def lms_failure
+      raise LmsFacade::LmsAPIError, 'boom'
+    end
   end
 
   let(:user) do
@@ -61,6 +65,21 @@ RSpec.describe ApplicationController, type: :controller do
 
       get :index
       expect(controller.current_user).to be_a(NullUser)
+    end
+  end
+
+  describe '#handle_lms_api_error' do
+    before { routes.draw { get 'lms_failure' => 'anonymous#lms_failure' } }
+
+    it 'points the user at the configured contact email' do
+      allow(Rails.error).to receive(:report)
+      session[:user_id] = user.canvas_uid
+
+      get :lms_failure
+
+      expect(response).to redirect_to(root_path)
+      expect(flash[:alert]).to include('reach out to flextensions@berkeley.edu')
+      expect(flash[:alert]).to include('Error: boom')
     end
   end
 

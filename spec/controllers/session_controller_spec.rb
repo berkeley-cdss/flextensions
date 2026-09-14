@@ -102,6 +102,7 @@ RSpec.describe SessionController, type: :controller do
 
         expect(response).to redirect_to(root_path)
         expect(flash[:alert]).to include('error on our end')
+        expect(flash[:alert]).to include('contact flextensions@berkeley.edu')
         expect(flash[:alert]).not_to include('Invalid credentials')
       end
 
