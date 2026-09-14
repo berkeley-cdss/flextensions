@@ -3,8 +3,9 @@ class StatusController < ApplicationController
   skip_before_action :authenticated!
 
   def health_check
-    # TODO: Consider if an API call to canvas makes sense here
-    render json: { status: 'ok', **check_database }
+    database_status = check_database
+    http_status = database_status[:database] ? :ok : :internal_server_error
+    render json: { status: http_status, **database_status }, status: http_status
   end
 
   def version

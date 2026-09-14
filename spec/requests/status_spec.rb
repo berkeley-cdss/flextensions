@@ -9,6 +9,18 @@ RSpec.describe "Status", type: :request do
       expect(json["status"]).to eq("ok")
       expect(json["database"]).to be(true)
     end
+
+    it "does not return ok when the database is unavailable" do
+      allow(ActiveRecord::Base).to receive(:connection).and_raise(StandardError, "database unavailable")
+
+      get "/status/health_check"
+
+      expect(response).to have_http_status(:internal_server_error)
+      json = response.parsed_body
+      expect(json["status"]).to eq("internal_server_error")
+      expect(json["database"]).to be(false)
+      expect(json["error"]).to eq("database unavailable")
+    end
   end
 
   describe "GET /status/version" do

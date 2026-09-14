@@ -1,1 +1,4 @@
-# See https://www.robotstxt.org/robotstxt.html for documentation on how to use the robots.txt file
+# https://www.robotstxt.org/robotstxt.html
+# Flextensions is an authenticated app; nothing here is worth indexing.
+User-agent: *
+Disallow: /
