@@ -117,11 +117,14 @@ class CourseSettings < ApplicationRecord
   def create_or_update_gradescope_link
     return unless enable_gradescope
 
-    gradescope_course_id = extract_gradescope_course_id(gradescope_course_url)
-    CourseToLms.find_or_initialize_by(course_id: course.id, lms_id: GRADESCOPE_LMS_ID).tap do |course_to_lms|
-      course_to_lms.external_course_id = gradescope_course_id
-      course_to_lms.save!
-    end
+    link = course.course_to_lms(GRADESCOPE_LMS_ID) || course.course_to_lmss.build(lms_id: GRADESCOPE_LMS_ID)
+    link.external_course_id = extract_gradescope_course_id(gradescope_course_url)
+    return if link.save
+
+    # Typically another course is already linked to this Gradescope course.
+    # Surface it on the form field and roll the settings save back.
+    errors.add(:gradescope_course_url, link.errors.full_messages.to_sentence)
+    raise ActiveRecord::RecordInvalid, self
   end
 
   def gradescope_url_is_valid

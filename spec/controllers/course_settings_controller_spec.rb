@@ -3,7 +3,7 @@ require 'rails_helper'
 RSpec.describe CourseSettingsController, type: :controller do
   let(:instructor) { User.create!(canvas_uid: '123', name: 'Instructor', email: 'instructor@example.com') }
   let(:student) { User.create!(canvas_uid: '456', name: 'Student', email: 'student@example.com') }
-  let(:course) { Course.create!(course_name: 'Test Course', canvas_id: '123') }
+  let(:course) { Course.create!(course_name: 'Test Course') }
 
   before do
     Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }

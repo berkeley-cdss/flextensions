@@ -192,7 +192,7 @@ RSpec.describe ApplicationController, type: :controller do
   end
 
   describe '#render_role_based_view' do
-    let(:course) { Course.create!(course_name: 'Biology 101', canvas_id: 'course-123') }
+    let(:course) { Course.create!(course_name: 'Biology 101') }
 
     before do
       allow(controller).to receive_messages(controller_name: controller_name_override, action_name: action_name_override)

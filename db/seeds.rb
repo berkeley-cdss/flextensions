@@ -31,7 +31,6 @@ if Rails.env.development?
   # Create a single test course
   test_course = Course.find_or_create_by!(course_code: 'DEV101') do |c|
     c.course_name = 'Development Test Course'
-    c.canvas_id = 'dev-course-001'
     c.demo_course = true
   end
 

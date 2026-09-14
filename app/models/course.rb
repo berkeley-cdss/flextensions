@@ -10,11 +10,9 @@
 #  semester           :string
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
-#  canvas_id          :string
 #
 # Indexes
 #
-#  index_courses_on_canvas_id           (canvas_id) UNIQUE
 #  index_courses_on_readonly_api_token  (readonly_api_token) UNIQUE
 #
 class Course < ApplicationRecord
@@ -41,9 +39,6 @@ class Course < ApplicationRecord
 
   # Scopes
   scope :by_semester, ->(semester) { where(semester: semester) }
-
-  # Always load the LMS integrations
-  default_scope { includes(:course_to_lmss) }
 
   # Semester ordering: most-recent-first.
   # Within the same year: Fall > Summer > Spring > Winter (furthest out to most recent).
@@ -121,17 +116,22 @@ class Course < ApplicationRecord
     nil
   end
 
-  # Note: This is too close to the association, course_to_lmss
-  def course_to_lms(lms_id = 1)
-    CourseToLms.find_by(course_id: id, lms_id: lms_id)
+  # The course's link to the given LMS, or nil when it is not linked. Links
+  # are read through the association, so a course loads them once and every
+  # later role check, Canvas id lookup, and sync-status read is free instead
+  # of being its own query. A course has at most one link per LMS (unique
+  # index on course_to_lmss), so the first match is the only match.
+  # Note: the name is too close to the association, course_to_lmss.
+  def course_to_lms(lms_id = CANVAS_LMS_ID)
+    course_to_lmss.detect { |link| link.lms_id == lms_id }
   end
 
   def all_linked_lmss
-    CourseToLms.where(course_id: id)
+    course_to_lmss
   end
 
   def has_canvas_linked?
-    course_to_lms(1).present?
+    course_to_lms(CANVAS_LMS_ID).present?
   end
 
   # Whether students can see this course and submit extension requests.
@@ -181,6 +181,8 @@ class Course < ApplicationRecord
     enrollments.where(user_id: user_id)
   end
 
+  # External course ids live only on course_to_lmss; there is no canvas_id
+  # column on courses. These read the id off the matching link.
   def canvas_id
     external_course_id_for(CANVAS_LMS_ID)
   end
@@ -189,13 +191,8 @@ class Course < ApplicationRecord
     external_course_id_for(GRADESCOPE_LMS_ID)
   end
 
-  # Returns the external course id for the given LMS. A course should have at
-  # most one link per LMS, but when several exist we deterministically prefer a
-  # link that actually carries an external id (ordered by id) so callers never
-  # get an arbitrary nil back.
   def external_course_id_for(lms_id)
-    links = CourseToLms.where(course_id: id, lms_id: lms_id).order(:id)
-    (links.where.not(external_course_id: nil).first || links.first)&.external_course_id
+    course_to_lms(lms_id)&.external_course_id
   end
 
   # Absolute URL of the course page, for links embedded in outbound
@@ -294,7 +291,8 @@ class Course < ApplicationRecord
             "Failed to fetch course #{course_data['id']} from Canvas (HTTP #{response&.status || 'no response'})"
     end
 
-    course = find_or_initialize_by(canvas_id: course_data['id'])
+    # The Canvas link is the only record of which Canvas course this is.
+    course = CourseToLms.find_by(lms_id: CANVAS_LMS_ID, external_course_id: course_data['id'].to_s)&.course || new
     response_data = JSON.parse(response.body)
     course.course_name = response_data['name']
     course.course_code = response_data['course_code']
@@ -305,12 +303,13 @@ class Course < ApplicationRecord
     course
   end
 
-  # Find or create the CourseToLms record
-  def self.find_or_create_course_to_lms(course, course_data, lms_id = 1)
-    CourseToLms.find_or_initialize_by(course_id: course.id, lms_id: lms_id).tap do |course_to_lms|
-      course_to_lms.external_course_id = course_data['id']
-      course_to_lms.save!
-    end
+  # Find or create the CourseToLms record. Built through the association so
+  # the course's cached links stay current within the request.
+  def self.find_or_create_course_to_lms(course, course_data, lms_id = CANVAS_LMS_ID)
+    link = course.course_to_lms(lms_id) || course.course_to_lmss.build(lms_id: lms_id)
+    link.external_course_id = course_data['id']
+    link.save!
+    link
   end
 
   # NOTE: this must be the plural course_to_lmss

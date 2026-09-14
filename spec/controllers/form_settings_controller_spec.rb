@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe FormSettingsController, type: :controller do
   let(:user) { User.create!(email: 'instructor@example.com', canvas_uid: '12345', name: 'Instructor') }
-  let(:course) { Course.create!(course_name: 'Algorithms', canvas_id: '789', course_code: 'CS101') }
+  let(:course) { Course.create!(course_name: 'Algorithms', course_code: 'CS101') }
   let(:enrollment) { Enrollment.create!(user: user, course: course, role: 'teacher') }
   let(:valid_params) do
     {

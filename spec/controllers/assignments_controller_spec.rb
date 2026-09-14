@@ -8,7 +8,7 @@ RSpec.describe AssignmentsController, type: :controller do
 
   describe 'POST #toggle_enabled' do
     let!(:user) { User.create!(name: 'Test User', email: 'test@example.com', canvas_uid: '123') }
-    let!(:course) { Course.create!(course_name: 'Test Course', canvas_id: '123') }
+    let!(:course) { Course.create!(course_name: 'Test Course') }
     let!(:course_to_lms) { CourseToLms.create!(course: course, lms_id: 1, external_course_id: '123') }
     let!(:course_settings) { course.course_settings.tap { |cs| cs.update!(enable_extensions: true) } }
     let!(:assignment) do

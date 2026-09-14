@@ -10,11 +10,9 @@
 #  semester           :string
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
-#  canvas_id          :string
 #
 # Indexes
 #
-#  index_courses_on_canvas_id           (canvas_id) UNIQUE
 #  index_courses_on_readonly_api_token  (readonly_api_token) UNIQUE
 #
 require 'rails_helper'
@@ -40,7 +38,7 @@ RSpec.describe Course, type: :model do
 
   describe 'course settings creation' do
     it 'automatically creates course settings with defaults when a course is created' do
-      course = described_class.create!(course_name: 'Settings Test', canvas_id: 'canvas_settings', course_code: 'SET101')
+      course = described_class.create!(course_name: 'Settings Test', course_code: 'SET101')
 
       expect(course.course_settings).to be_persisted
       expect(course.course_settings.enable_extensions).to be false
@@ -48,7 +46,7 @@ RSpec.describe Course, type: :model do
     end
 
     it 'keeps settings built before the course is saved' do
-      course = described_class.new(course_name: 'Prebuilt Settings', canvas_id: 'canvas_prebuilt', course_code: 'PRE101')
+      course = described_class.new(course_name: 'Prebuilt Settings', course_code: 'PRE101')
       course.build_course_settings(enable_extensions: true)
       course.save!
 
@@ -74,12 +72,31 @@ RSpec.describe Course, type: :model do
   end
 
   describe '#canvas_id' do
-    let(:course) { described_class.create!(canvas_id: 'canvas_cid', course_name: 'Test', course_code: 'TEST101') }
+    let(:course) { described_class.create!(course_name: 'Test', course_code: 'TEST101') }
 
     it 'returns the external course id of the Canvas link' do
       CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: '456')
 
       expect(course.canvas_id).to eq('456')
+    end
+
+    it 'is nil when the course has no Canvas link' do
+      expect(course.canvas_id).to be_nil
+    end
+
+    it 'reads from the cached links rather than querying on every call' do
+      CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: '456')
+      course.canvas_id
+
+      queries = 0
+      counter = ->(*) { queries += 1 }
+      ActiveSupport::Notifications.subscribed(counter, 'sql.active_record') do
+        3.times { course.canvas_id }
+        course.has_canvas_linked?
+        course.gradescope_id
+      end
+
+      expect(queries).to eq(0)
     end
 
     it 'does not allow a second link to the same LMS' do
@@ -92,7 +109,7 @@ RSpec.describe Course, type: :model do
 
     it 'does not allow two courses to share a Canvas course' do
       CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: '456')
-      other = described_class.create!(canvas_id: 'other', course_name: 'Other', course_code: 'OTHER101')
+      other = described_class.create!(course_name: 'Other', course_code: 'OTHER101')
       duplicate = CourseToLms.new(course: other, lms_id: CANVAS_LMS_ID, external_course_id: '456')
 
       expect(duplicate).not_to be_valid
@@ -113,7 +130,7 @@ RSpec.describe Course, type: :model do
   end
 
   describe '#staff_user_for_auto_approval' do
-    let(:course) { described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101') }
+    let(:course) { described_class.create!(course_name: 'Test', course_code: 'TEST101') }
 
     def create_staff(email, canvas_uid, role, with_credentials: true)
       user = User.create!(email: email, canvas_uid: canvas_uid)
@@ -163,7 +180,7 @@ RSpec.describe Course, type: :model do
     end
 
     it 'prefers the staff user whose credentials were refreshed most recently' do
-      course = described_class.create!(canvas_id: 'canvas_126', course_name: 'Test', course_code: 'TEST101')
+      course = described_class.create!(course_name: 'Test', course_code: 'TEST101')
 
       idle_ta = User.create!(email: 'idle_ta@example.com', canvas_uid: '127')
       idle_ta.lms_credentials.create!(
@@ -185,7 +202,7 @@ RSpec.describe Course, type: :model do
 
   describe '#user_role' do
     it 'treats leadta enrollments as instructors' do
-      course = described_class.create!(canvas_id: 'canvas_leadta', course_name: 'Test', course_code: 'TEST101')
+      course = described_class.create!(course_name: 'Test', course_code: 'TEST101')
       user = User.create!(email: 'leadta@example.com', canvas_uid: 'leadta_123')
       Enrollment.create!(user: user, course: course, role: 'leadta')
 
@@ -240,7 +257,8 @@ RSpec.describe Course, type: :model do
 
     it 'returns existing course if already created' do
       # Create an existing course
-      existing = described_class.create!(canvas_id: 'canvas_123', course_name: 'Intro to RSpec', course_code: 'RSPEC101')
+      existing = described_class.create!(course_name: 'Intro to RSpec', course_code: 'RSPEC101')
+      CourseToLms.create!(course: existing, lms_id: CANVAS_LMS_ID, external_course_id: 'canvas_123')
 
       # Stub the Faraday request
       stub_request(:get, %r{api/v1/courses/canvas_123})
@@ -305,7 +323,7 @@ RSpec.describe Course, type: :model do
     end
 
     it 'updates semester on existing course when Canvas term changes' do
-      described_class.create!(canvas_id: 'canvas_123', course_name: 'Intro to RSpec',
+      described_class.create!(course_name: 'Intro to RSpec',
                               course_code: 'RSPEC101', semester: 'Fall 2025')
 
       stub_request(:get, %r{api/v1/courses/canvas_123})
@@ -322,7 +340,7 @@ RSpec.describe Course, type: :model do
   end
 
   describe '.find_or_create_course_to_lms' do
-    let!(:course) { described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101') }
+    let!(:course) { described_class.create!(course_name: 'Test', course_code: 'TEST101') }
 
     it 'creates a new CourseToLms if not exists' do
       result = described_class.find_or_create_course_to_lms(course, course_data)
@@ -332,7 +350,7 @@ RSpec.describe Course, type: :model do
 end
 
   describe '#sync_users_from_canvas' do
-    let!(:course) { described_class.create!(canvas_id: 'canvas_999', course_name: 'User Sync', course_code: 'USYNC') }
+    let!(:course) { described_class.create!(course_name: 'User Sync', course_code: 'USYNC') }
     let(:course_to_lms) { CourseToLms.create!(course: course, external_course_id: 'canvas_999', lms_id: 1) }
     let(:user) { create(:user, id: 999, canvas_uid: 'u1', name: 'User 1', email: 'user1@example.com') }
 
@@ -354,9 +372,9 @@ end
 
   describe '.by_semester' do
     it 'returns only courses matching the given semester' do
-      spring = described_class.create!(canvas_id: 'c1', course_name: 'Course A', course_code: 'A', semester: 'Spring 2026')
-      fall = described_class.create!(canvas_id: 'c2', course_name: 'Course B', course_code: 'B', semester: 'Fall 2025')
-      described_class.create!(canvas_id: 'c3', course_name: 'Course C', course_code: 'C', semester: nil)
+      spring = described_class.create!(course_name: 'Course A', course_code: 'A', semester: 'Spring 2026')
+      fall = described_class.create!(course_name: 'Course B', course_code: 'B', semester: 'Fall 2025')
+      described_class.create!(course_name: 'Course C', course_code: 'C', semester: nil)
 
       results = described_class.by_semester('Spring 2026')
 
@@ -497,7 +515,7 @@ end
   end
 
   describe '#sync_all_enrollments_from_canvas' do
-    let!(:course) { described_class.create!(canvas_id: 'canvas_all_roles', course_name: 'User Sync', course_code: 'USYNC') }
+    let!(:course) { described_class.create!(course_name: 'User Sync', course_code: 'USYNC') }
 
     it 'syncs every supported internal role, including leadta' do
       expect(SyncUsersFromCanvasJob).to receive(:perform_later).with(course.id, 999, %w[student teacher ta leadta])
@@ -532,7 +550,7 @@ end
   end
 
   describe '#enroll_user_with_highest_role' do
-    let!(:course) { described_class.create!(canvas_id: 'canvas_enroll', course_name: 'Enroll Test', course_code: 'ENR101') }
+    let!(:course) { described_class.create!(course_name: 'Enroll Test', course_code: 'ENR101') }
     let(:user) { create(:user) }
 
     it 'enrolls the user with the highest-ranked role from the Canvas enrollments' do

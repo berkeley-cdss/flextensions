@@ -10,21 +10,24 @@
 #  semester           :string
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
-#  canvas_id          :string
 #
 # Indexes
 #
-#  index_courses_on_canvas_id           (canvas_id) UNIQUE
 #  index_courses_on_readonly_api_token  (readonly_api_token) UNIQUE
 #
 FactoryBot.define do
   factory :course do
     sequence(:course_name) { |n| "Course #{n}" }
-    sequence(:canvas_id, &:to_s)
     sequence(:course_code) { |n| "COURSE#{n}" }
     semester { 'Spring 2026' }
 
-    after(:create) do |course|
+    # Not a column: it becomes external_course_id on the course's Canvas link,
+    # which is where Course#canvas_id reads from.
+    transient do
+      sequence(:canvas_id, &:to_s)
+    end
+
+    after(:create) do |course, evaluator|
       lms = Lms.find_by(id: 1) || create(:lms, id: 1, lms_name: 'Canvas')
 
       # Course settings are created automatically with the course; factory
@@ -35,7 +38,7 @@ FactoryBot.define do
         :course_to_lms,
         course: course,
         lms: lms,
-        external_course_id: course[:canvas_id]
+        external_course_id: evaluator.canvas_id
       )
       create_list(:assignment, 5, course_to_lms: course_to_lms)
     end

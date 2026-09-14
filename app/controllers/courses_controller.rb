@@ -45,7 +45,8 @@ class CoursesController < ApplicationController
 
     # TODO: Add spec for when a course is created, but the user is not enrolled in it.
     # TODO: Why do some courses have empty enrollments?
-    existing_canvas_ids = current_user.courses.pluck(:canvas_id)
+    existing_canvas_ids = CourseToLms.where(course_id: current_user.courses.select(:id), lms_id: CANVAS_LMS_ID)
+                                     .pluck(:external_course_id)
     @courses_teacher = filter_courses(@courses, Enrollment.staff_roles, existing_canvas_ids)
     # Track if any teacher courses, so we still show the semester filter even if the selected semester filters out all courses.
     @has_any_teacher_courses = @courses_teacher.any?
