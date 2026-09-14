@@ -6,7 +6,7 @@ RSpec.describe PendingRequestsNotificationJob, type: :job do
   end
   let(:student) { create(:user, canvas_uid: 'stu_notif_1', email: 'student_notif@example.com', name: 'Student') }
   let(:lms) { Lms.first }
-  let(:course_to_lms) { CourseToLms.create!(course: course, lms: lms, external_course_id: 'ext_123') }
+  let(:course_to_lms) { course.course_to_lms(lms.id) }
   let(:assignment) do
     Assignment.create!(
       name: 'HW1',
@@ -129,7 +129,7 @@ RSpec.describe PendingRequestsNotificationJob, type: :job do
                       reason: 'Need time', requested_due_date: 5.days.from_now)
 
       other_course = create(:course, canvas_id: 'notif_456', course_name: 'CS 201', course_code: 'CS201')
-      other_ctlms = CourseToLms.create!(course: other_course, lms: lms, external_course_id: 'ext_456')
+      other_ctlms = other_course.course_to_lms(lms.id)
       other_assignment = Assignment.create!(name: 'HW2', course_to_lms: other_ctlms, due_date: 3.days.from_now,
                                             external_assignment_id: 'asgn_notif_2', enabled: true)
       other_course.course_settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof2@example.com')

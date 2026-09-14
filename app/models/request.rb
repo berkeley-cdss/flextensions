@@ -21,10 +21,9 @@
 # Indexes
 #
 #  index_requests_on_assignment_id              (assignment_id)
-#  index_requests_on_auto_approved              (auto_approved)
-#  index_requests_on_course_id                  (course_id)
+#  index_requests_on_course_id_and_status       (course_id,status)
 #  index_requests_on_last_processed_by_user_id  (last_processed_by_user_id)
-#  index_requests_on_user_id                    (user_id)
+#  index_requests_on_user_id_and_course_id      (user_id,course_id)
 #
 # Foreign Keys
 #

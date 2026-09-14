@@ -19,7 +19,7 @@
 #
 # Indexes
 #
-#  index_form_settings_on_course_id  (course_id)
+#  index_form_settings_on_course_id  (course_id) UNIQUE
 #
 # Foreign Keys
 #
@@ -31,6 +31,8 @@ class FormSetting < ApplicationRecord
   DEFAULT_REASON_TITLE = 'Why do you need this extension?'.freeze
 
   belongs_to :course
+  # One-to-one with courses, like course_settings (unique index on course_id).
+  validates :course_id, uniqueness: true
 
   # model-level validations for display enums
   validates :documentation_disp, :custom_q1_disp, :custom_q2_disp, inclusion: { in: %w[required optional hidden] }

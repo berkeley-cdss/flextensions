@@ -17,7 +17,8 @@
 #
 # Indexes
 #
-#  index_lms_credentials_on_user_id  (user_id)
+#  index_lms_credentials_on_lms_id              (lms_id)
+#  index_lms_credentials_on_user_id_and_lms_id  (user_id,lms_id) UNIQUE
 #
 # Foreign Keys
 #
@@ -27,6 +28,9 @@
 class LmsCredential < ApplicationRecord
   belongs_to :user
   belongs_to :lms
+
+  # One credential per user per LMS (unique index on user_id, lms_id).
+  validates :lms_id, uniqueness: { scope: :user_id }
 
   # Encryption for tokens
   encrypts :token, :refresh_token

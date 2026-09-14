@@ -16,7 +16,8 @@
 #
 # Indexes
 #
-#  index_assignments_on_course_id  (course_id)
+#  index_assignments_on_course_id         (course_id)
+#  index_assignments_on_course_to_lms_id  (course_to_lms_id)
 #
 # Foreign Keys
 #
@@ -68,7 +69,7 @@ RSpec.describe Assignment, type: :model do
     it 'builds the LMS assignment URL from the linked LMS and course' do
       lms = Lms.find_by(id: CANVAS_LMS_ID) || create(:lms, id: CANVAS_LMS_ID, lms_name: 'Canvas')
       lms.update!(lms_base_url: 'https://canvas.example.edu')
-      course_to_lms = create(:course_to_lms, lms: lms, external_course_id: '4567')
+      course_to_lms = create(:course, canvas_id: '4567').course_to_lms(lms.id)
       assignment = create(:assignment, course_to_lms: course_to_lms, external_assignment_id: '89')
 
       expect(assignment.external_url)

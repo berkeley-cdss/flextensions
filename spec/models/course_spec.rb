@@ -82,13 +82,21 @@ RSpec.describe Course, type: :model do
       expect(course.canvas_id).to eq('456')
     end
 
-    it 'prefers a populated link even when a blank duplicate exists' do
-      # Order of creation is intentionally "blank first" to guard against the
-      # non-deterministic find_by that previously returned an arbitrary row.
-      CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: nil)
+    it 'does not allow a second link to the same LMS' do
       CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: '456')
+      duplicate = CourseToLms.new(course: course, lms_id: CANVAS_LMS_ID, external_course_id: '789')
 
-      expect(course.canvas_id).to eq('456')
+      expect(duplicate).not_to be_valid
+      expect { duplicate.save!(validate: false) }.to raise_error(ActiveRecord::RecordNotUnique)
+    end
+
+    it 'does not allow two courses to share a Canvas course' do
+      CourseToLms.create!(course: course, lms_id: CANVAS_LMS_ID, external_course_id: '456')
+      other = described_class.create!(canvas_id: 'other', course_name: 'Other', course_code: 'OTHER101')
+      duplicate = CourseToLms.new(course: other, lms_id: CANVAS_LMS_ID, external_course_id: '456')
+
+      expect(duplicate).not_to be_valid
+      expect(duplicate.errors[:external_course_id]).to be_present
     end
   end
 

@@ -9,7 +9,7 @@ module API
 
       let(:lms) { Lms.find_or_create_by!(lms_name: 'Canvas') }
       let(:course) { create(:course, course_name: 'Test Course') }
-      let(:course_to_lms) { create(:course_to_lms, course: course, lms: lms, external_course_id: '301') }
+      let(:course_to_lms) { course.course_to_lms(lms.id).tap { |link| link.update!(external_course_id: '301') } }
       let(:assignment) do
         create(:assignment, name: 'Test Assignment', course_to_lms: course_to_lms,
                             external_assignment_id: 'abc123', due_date: 7.days.from_now, late_due_date: 10.days.from_now)

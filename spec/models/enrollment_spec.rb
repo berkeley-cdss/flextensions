@@ -14,8 +14,8 @@
 #
 # Indexes
 #
-#  index_enrollments_on_course_id  (course_id)
-#  index_enrollments_on_user_id    (user_id)
+#  index_enrollments_on_course_id                       (course_id)
+#  index_enrollments_on_user_id_and_course_id_and_role  (user_id,course_id,role) UNIQUE
 #
 # Foreign Keys
 #

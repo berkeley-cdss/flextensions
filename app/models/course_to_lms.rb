@@ -13,8 +13,8 @@
 #
 # Indexes
 #
-#  index_course_to_lmss_on_course_id  (course_id)
-#  index_course_to_lmss_on_lms_id     (lms_id)
+#  index_course_to_lmss_on_course_id_and_lms_id           (course_id,lms_id) UNIQUE
+#  index_course_to_lmss_on_lms_id_and_external_course_id  (lms_id,external_course_id)
 #
 # Foreign Keys
 #
@@ -25,6 +25,13 @@ class CourseToLms < ApplicationRecord
   # Associations
   belongs_to :course
   belongs_to :lms
+
+  # One link per course and LMS, and one Flextensions course per external
+  # course: otherwise assignment sync would import the same LMS assignments
+  # into two courses and approvals would provision extensions twice. Both are
+  # also enforced by indexes; the validations give callers a clean error.
+  validates :lms_id, uniqueness: { scope: :course_id }
+  validates :external_course_id, uniqueness: { scope: :lms_id }, allow_blank: true
 
   # Fetch assignments from Canvas API
   def get_all_canvas_assignments(user)

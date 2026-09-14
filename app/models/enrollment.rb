@@ -14,8 +14,8 @@
 #
 # Indexes
 #
-#  index_enrollments_on_course_id  (course_id)
-#  index_enrollments_on_user_id    (user_id)
+#  index_enrollments_on_course_id                       (course_id)
+#  index_enrollments_on_user_id_and_course_id_and_role  (user_id,course_id,role) UNIQUE
 #
 # Foreign Keys
 #
@@ -44,7 +44,9 @@ class Enrollment < ApplicationRecord
   # You should update that job if these validations become complex.
   # In the meantime, we can trust that the data coming from Canvas is valid.
   validates :role, presence: true
-
+  # A user holds a given role in a course once (unique index). Roster sync
+  # bypasses this with insert_all, where the index makes duplicates no-ops.
+  validates :role, uniqueness: { scope: [ :user_id, :course_id ] }
 
   def staff?
     Enrollment.staff_roles.include?(role)

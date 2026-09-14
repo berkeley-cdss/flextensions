@@ -1,5 +1,32 @@
 require 'rails_helper'
 
+# == Schema Information
+#
+# Table name: form_settings
+#
+#  id                 :bigint           not null, primary key
+#  custom_q1          :string
+#  custom_q1_desc     :text
+#  custom_q1_disp     :enum
+#  custom_q2          :string
+#  custom_q2_desc     :text
+#  custom_q2_disp     :enum
+#  documentation_desc :text
+#  documentation_disp :enum
+#  reason_desc        :text
+#  reason_title       :string
+#  created_at         :datetime         not null
+#  updated_at         :datetime         not null
+#  course_id          :bigint           not null
+#
+# Indexes
+#
+#  index_form_settings_on_course_id  (course_id) UNIQUE
+#
+# Foreign Keys
+#
+#  fk_rails_...  (course_id => courses.id)
+#
 RSpec.describe FormSetting, type: :model do
   let(:course) { create(:course) }
   let(:form_setting) { course.form_setting }

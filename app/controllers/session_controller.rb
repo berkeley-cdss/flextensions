@@ -195,21 +195,13 @@ class SessionController < ApplicationController
   end
 
   # TODO: Move this to a Canvas API libarary or user service
-  # TODO: Find credentals for the right LMS, not just the first one.
+  # Upserts the user's single Canvas credential (unique per user and LMS).
   def update_user_credential(user, token)
-    if user.lms_credentials.any?
-      user.lms_credentials.first.update(
-        token: token.token,
-        refresh_token: token.refresh_token,
-        expire_time: Time.zone.at(token.expires_at || 30.days.from_now.to_i)
-      )
-    else
-      user.lms_credentials.create!(
-        lms_id: Lms.CANVAS_LMS.id,
-        token: token.token,
-        refresh_token: token.refresh_token,
-        expire_time: Time.zone.at(token.expires_at || 30.days.from_now.to_i)
-      )
-    end
+    credential = user.canvas_credentials || user.lms_credentials.build(lms_id: Lms.CANVAS_LMS.id)
+    credential.update!(
+      token: token.token,
+      refresh_token: token.refresh_token,
+      expire_time: Time.zone.at(token.expires_at || 30.days.from_now.to_i)
+    )
   end
 end

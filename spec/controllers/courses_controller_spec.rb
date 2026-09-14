@@ -2,9 +2,9 @@ require 'rails_helper'
 
 RSpec.describe CoursesController, type: :controller do
   let(:user) { User.create!(email: 'student@example.com', canvas_uid: '123', name: 'Student') }
-  let(:course) { Course.create!(course_name: 'Test Course', canvas_id: '456', course_code: 'TST101') }
+  let(:course) { Course.create!(course_name: 'Test Course', course_code: 'TST101') }
   let(:course_to_lms) { CourseToLms.create!(course: course, external_course_id: '456', lms_id: 1) }
-  let(:student_course) { Course.create!(course_name: 'Student Course', canvas_id: '789', course_code: 'STU101') }
+  let(:student_course) { Course.create!(course_name: 'Student Course', course_code: 'STU101') }
   let(:course_settings) { course.course_settings.tap { |cs| cs.update!(enable_extensions: true) } }
 
   before do
@@ -40,8 +40,8 @@ RSpec.describe CoursesController, type: :controller do
     end
 
     context 'semester grouping' do
-      let(:spring_course) { Course.create!(course_name: 'Spring Course', canvas_id: 'sp1', course_code: 'SP101', semester: 'Spring 2026') }
-      let(:fall_course) { Course.create!(course_name: 'Fall Course', canvas_id: 'fa1', course_code: 'FA101', semester: 'Fall 2025') }
+      let(:spring_course) { Course.create!(course_name: 'Spring Course', course_code: 'SP101', semester: 'Spring 2026') }
+      let(:fall_course) { Course.create!(course_name: 'Fall Course', course_code: 'FA101', semester: 'Fall 2025') }
 
       before do
         Enrollment.create!(user: user, course: spring_course, role: 'teacher')
@@ -58,8 +58,8 @@ RSpec.describe CoursesController, type: :controller do
 
       it 'groups student courses by semester, most-recent-first' do
         # Extensions stay disabled on the default course so it doesn't appear
-        spring_student = Course.create!(course_name: 'Student Spring', canvas_id: 'ss1', course_code: 'SS101', semester: 'Spring 2026')
-        fall_student = Course.create!(course_name: 'Student Fall', canvas_id: 'sf1', course_code: 'SF101', semester: 'Fall 2025')
+        spring_student = Course.create!(course_name: 'Student Spring', course_code: 'SS101', semester: 'Spring 2026')
+        fall_student = Course.create!(course_name: 'Student Fall', course_code: 'SF101', semester: 'Fall 2025')
         spring_student.course_settings.update!(enable_extensions: true)
         fall_student.course_settings.update!(enable_extensions: true)
         Enrollment.create!(user: user, course: spring_student, role: 'student')
@@ -580,10 +580,6 @@ RSpec.describe CoursesController, type: :controller do
     end
 
     before do
-      # Create a fake LMS credential with a token
-      Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }
-      user.lms_credentials.create!(lms_id: 1, token: 'fake_token', expire_time: 1.hour.from_now)
-
       allow(Course).to receive(:fetch_courses).and_return(canvas_courses)
     end
 
@@ -682,11 +678,7 @@ RSpec.describe CoursesController, type: :controller do
 
   describe 'GET #enrollments' do
     before do
-      # Create LMS credentials so user has a token
-      Lms.find_or_create_by(id: 1) { |l| l.lms_name = 'Canvas'; l.use_auth_token = true }
-      user.lms_credentials.create!(lms_id: 1, token: 'fake_token', expire_time: 1.hour.from_now)
-
-      CourseToLms.create!(course: course, lms_id: 1)
+      course_to_lms
     end
 
     context 'when user is a teacher (course admin)' do
@@ -772,7 +764,7 @@ RSpec.describe CoursesController, type: :controller do
     end
 
     it 'does not delete unrelated courses that happen to have no enrollments' do
-      bystander = Course.create!(course_name: 'Bystander', canvas_id: '999', course_code: 'BYS101')
+      bystander = Course.create!(course_name: 'Bystander', course_code: 'BYS101')
 
       expect do
         delete :delete, params: { id: course.id }

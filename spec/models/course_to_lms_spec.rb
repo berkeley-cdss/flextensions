@@ -14,8 +14,8 @@
 #
 # Indexes
 #
-#  index_course_to_lmss_on_course_id  (course_id)
-#  index_course_to_lmss_on_lms_id     (lms_id)
+#  index_course_to_lmss_on_course_id_and_lms_id           (course_id,lms_id) UNIQUE
+#  index_course_to_lmss_on_lms_id_and_external_course_id  (lms_id,external_course_id)
 #
 # Foreign Keys
 #

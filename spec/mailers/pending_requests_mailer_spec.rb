@@ -6,7 +6,7 @@ RSpec.describe PendingRequestsMailer do
   end
   let(:course_settings) { course.course_settings }
   let(:lms) { Lms.first }
-  let(:course_to_lms) { CourseToLms.create!(course: course, lms: lms, external_course_id: 'ext_mailer_123') }
+  let(:course_to_lms) { course.course_to_lms(lms.id) }
   let(:assignment) do
     Assignment.create!(
       name: 'HW1',

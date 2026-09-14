@@ -4,7 +4,7 @@ RSpec.describe RequestsController, type: :controller do
   let(:user) { User.create!(email: 'student@example.com', canvas_uid: '123', name: 'Student') }
   let(:instructor) { User.create!(email: 'instructor@example.com', canvas_uid: '566', name: 'Instructor') }
   let(:course) { create(:course, :with_staff, course_name: 'Test Course', canvas_id: '456', course_code: 'TST101') }
-  let(:teacher_course) { Course.create!(course_name: 'Instructor Course', canvas_id: '999', course_code: 'INST101') }
+  let(:teacher_course) { Course.create!(course_name: 'Instructor Course', course_code: 'INST101') }
   let(:assignment) do
     Assignment.create!(
       name: 'A1',
@@ -15,18 +15,17 @@ RSpec.describe RequestsController, type: :controller do
     )
   end
   let(:request) { Request.create!(user:, course:, assignment:, reason: 'Need more time', requested_due_date: 4.days.from_now) }
-  let(:course_to_lms) { CourseToLms.create!(course:, lms_id: 1) }
+  # The factory course already carries its Canvas link and form setting.
+  let(:course_to_lms) { course.course_to_lms(1) }
 
   before do
     session[:user_id] = user.canvas_uid
-    FormSetting.create!(
-      course: course,
+    (course.form_setting || course.build_form_setting).update!(
       documentation_disp: 'hidden',
       custom_q1_disp: 'hidden',
       custom_q2_disp: 'hidden'
     )
     Enrollment.create!(user: user, course: course, role: 'student')
-    CourseToLms.create!(course:, lms_id: 1)
 
     user.lms_credentials.create!(
       lms_id: 1,
@@ -315,7 +314,7 @@ RSpec.describe RequestsController, type: :controller do
         name: 'Assignment 1',
         external_assignment_id: 'a1',
         due_date: 1.day.from_now,
-        course_to_lms_id: CourseToLms.create!(course: course, lms_id: 1).id, enabled: true
+        course_to_lms_id: course.course_to_lms(1).id, enabled: true
       )
     end
     let(:request_record) do
@@ -389,7 +388,6 @@ RSpec.describe RequestsController, type: :controller do
   describe 'POST #cancel' do
     before do
       session[:user_id] = user.canvas_uid
-      Enrollment.create!(user: user, course: course, role: 'student')
     end
 
     it 'cancels the request and updates its status to denied' do
@@ -428,8 +426,7 @@ RSpec.describe RequestsController, type: :controller do
         refresh_token: 'instructor_refresh',
         expire_time: 1.hour.from_now
       )
-      FormSetting.create!(
-        course: course,
+      course.form_setting.update!(
         documentation_disp: 'hidden',
         custom_q1_disp: 'hidden',
         custom_q2_disp: 'hidden'
@@ -494,7 +491,7 @@ RSpec.describe RequestsController, type: :controller do
     before do
       session[:user_id] = instructor.canvas_uid
       Enrollment.create!(user: instructor, course: course, role: 'teacher')
-      FormSetting.create!(course: course, documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden')
+      course.form_setting.update!(documentation_disp: 'hidden', custom_q1_disp: 'hidden', custom_q2_disp: 'hidden')
     end
 
     it 'rejects a pending request' do
@@ -659,13 +656,12 @@ RSpec.describe RequestsController, type: :controller do
   end
 
   describe 'Pending requests handling' do
-    let(:course) { Course.create!(course_name: 'Test Course', canvas_id: '1234', course_code: 'TST123') }
+    let(:course) { Course.create!(course_name: 'Test Course', course_code: 'TST123') }
     let(:user) { User.create!(name: 'Test User', canvas_uid: '5678', email: 'test@example.com') }
     let(:assignment) { Assignment.create!(name: 'Assignment 1', external_assignment_id: 'a1', course_to_lms_id: CourseToLms.create!(course: course, lms_id: 1).id, enabled: true, due_date: 2.days.from_now) }
 
     before do
       session[:user_id] = user.canvas_uid
-      Enrollment.create!(user: user, course: course, role: 'student')
 
       # Configure course settings for auto-approval
       course.course_settings.update!(
@@ -674,13 +670,7 @@ RSpec.describe RequestsController, type: :controller do
         max_auto_approve: 5
       )
 
-      # Set up form settings
-      FormSetting.create!(
-        course: course,
-        documentation_disp: 'hidden',
-        custom_q1_disp: 'hidden',
-        custom_q2_disp: 'hidden'
-      )
+      # Form settings are created in the top-level before block.
 
       # Create LMS
       Lms.find_or_create_by(id: 1, lms_name: 'Canvas', use_auth_token: true)
@@ -751,7 +741,7 @@ RSpec.describe RequestsController, type: :controller do
   end
 
   describe 'Auto-approval for edited requests' do
-    let(:course) { Course.create!(course_name: 'Test Course', canvas_id: '1234', course_code: 'TST123') }
+    let(:course) { Course.create!(course_name: 'Test Course', course_code: 'TST123') }
     let(:user) { User.create!(name: 'Test User', canvas_uid: '5678', email: 'test@example.com') }
     let(:assignment) { Assignment.create!(name: 'Assignment 1', external_assignment_id: 'a1', course_to_lms_id: CourseToLms.create!(course: course, lms_id: 1).id, enabled: true, due_date: 2.days.from_now) }
     let(:request_record) do
@@ -767,7 +757,6 @@ RSpec.describe RequestsController, type: :controller do
 
     before do
       session[:user_id] = user.canvas_uid
-      Enrollment.create!(user: user, course: course, role: 'student')
 
       # Configure course settings for auto-approval
       course.course_settings.update!(
@@ -776,24 +765,9 @@ RSpec.describe RequestsController, type: :controller do
         max_auto_approve: 5
       )
 
-      # Set up form settings
-      FormSetting.create!(
-        course: course,
-        documentation_disp: 'hidden',
-        custom_q1_disp: 'hidden',
-        custom_q2_disp: 'hidden'
-      )
+      # Form settings are created in the top-level before block.
 
-      # Create LMS
-      Lms.find_or_create_by(id: 1, lms_name: 'Canvas', use_auth_token: true)
-
-      # Create credentials for user
-      user.lms_credentials.create!(
-        lms_id: 1,
-        token: 'fake_token',
-        refresh_token: 'fake_refresh_token',
-        expire_time: 1.hour.from_now
-      )
+      # The LMS row and the user's Canvas credential come from the top-level before block.
     end
 
     it 'attempts auto-approval when editing a pending request' do
@@ -1015,10 +989,6 @@ RSpec.describe RequestsController, type: :controller do
   end
 
   describe 'staff-only actions' do
-    before do
-      Enrollment.create!(user: user, course: course, role: 'student')
-    end
-
     it 'forbids a student from approving a request' do
       post :approve, params: { course_id: course.id, id: request.id }
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_09_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_14_000006) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -31,6 +31,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_000001) do
     t.datetime "release_date"
     t.datetime "updated_at", null: false
     t.index ["course_id"], name: "index_assignments_on_course_id"
+    t.index ["course_to_lms_id"], name: "index_assignments_on_course_to_lms_id"
   end
 
   create_table "blazer_audits", force: :cascade do |t|
@@ -121,8 +122,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_000001) do
     t.jsonb "recent_assignment_sync", default: {}
     t.jsonb "recent_roster_sync", default: {}
     t.datetime "updated_at", null: false
-    t.index ["course_id"], name: "index_course_to_lmss_on_course_id"
-    t.index ["lms_id"], name: "index_course_to_lmss_on_lms_id"
+    t.index ["course_id", "lms_id"], name: "index_course_to_lmss_on_course_id_and_lms_id", unique: true
+    t.index ["lms_id", "external_course_id"], name: "index_course_to_lmss_on_lms_id_and_external_course_id"
   end
 
   create_table "courses", force: :cascade do |t|
@@ -148,7 +149,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_000001) do
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.index ["course_id"], name: "index_enrollments_on_course_id"
-    t.index ["user_id"], name: "index_enrollments_on_user_id"
+    t.index ["user_id", "course_id", "role"], name: "index_enrollments_on_user_id_and_course_id_and_role", unique: true
   end
 
   create_table "faultline_error_contexts", force: :cascade do |t|
@@ -251,7 +252,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_000001) do
     t.text "reason_desc"
     t.string "reason_title"
     t.datetime "updated_at", null: false
-    t.index ["course_id"], name: "index_form_settings_on_course_id"
+    t.index ["course_id"], name: "index_form_settings_on_course_id", unique: true
   end
 
   create_table "good_job_batches", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -356,7 +357,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_000001) do
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.string "username"
-    t.index ["user_id"], name: "index_lms_credentials_on_user_id"
+    t.index ["lms_id"], name: "index_lms_credentials_on_lms_id"
+    t.index ["user_id", "lms_id"], name: "index_lms_credentials_on_user_id_and_lms_id", unique: true
   end
 
   create_table "lmss", force: :cascade do |t|
@@ -383,10 +385,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_000001) do
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
     t.index ["assignment_id"], name: "index_requests_on_assignment_id"
-    t.index ["auto_approved"], name: "index_requests_on_auto_approved"
-    t.index ["course_id"], name: "index_requests_on_course_id"
+    t.index ["course_id", "status"], name: "index_requests_on_course_id_and_status"
     t.index ["last_processed_by_user_id"], name: "index_requests_on_last_processed_by_user_id"
-    t.index ["user_id"], name: "index_requests_on_user_id"
+    t.index ["user_id", "course_id"], name: "index_requests_on_user_id_and_course_id"
   end
 
   create_table "users", force: :cascade do |t|

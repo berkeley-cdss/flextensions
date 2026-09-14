@@ -19,9 +19,9 @@ RSpec.describe 'Accessibility', :a11y, :js, type: :feature do
 
   let!(:lms) { Lms.find_or_create_by(lms_name: 'Canvas') }
 
-  let!(:course_to_lms1) { create(:course_to_lms, course: course1, lms: lms, external_course_id: '301') }
-  let!(:course_to_lms2) { create(:course_to_lms, course: course2, lms: lms, external_course_id: '302') }
-  let!(:course_to_lms3) { create(:course_to_lms, course: course3, lms: lms, external_course_id: '303') }
+  let!(:course_to_lms1) { course1.course_to_lms(lms.id) }
+  let!(:course_to_lms2) { course2.course_to_lms(lms.id) }
+  let!(:course_to_lms3) { course3.course_to_lms(lms.id) }
 
   let!(:c1_assignment1) { create(:assignment, name: 'Math Quiz 1', course_to_lms: course_to_lms1, external_assignment_id: 'math_q1', due_date: 7.days.from_now, late_due_date: 10.days.from_now) }
   let!(:c1_assignment2) { create(:assignment, name: 'Math Homework 1', course_to_lms: course_to_lms1, external_assignment_id: 'math_hw1', due_date: 14.days.from_now, late_due_date: 16.days.from_now) }

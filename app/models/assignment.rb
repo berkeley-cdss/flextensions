@@ -17,7 +17,8 @@
 #
 # Indexes
 #
-#  index_assignments_on_course_id  (course_id)
+#  index_assignments_on_course_id         (course_id)
+#  index_assignments_on_course_to_lms_id  (course_to_lms_id)
 #
 # Foreign Keys
 #

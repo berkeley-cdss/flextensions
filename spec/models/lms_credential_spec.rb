@@ -17,7 +17,8 @@
 #
 # Indexes
 #
-#  index_lms_credentials_on_user_id  (user_id)
+#  index_lms_credentials_on_lms_id              (lms_id)
+#  index_lms_credentials_on_user_id_and_lms_id  (user_id,lms_id) UNIQUE
 #
 # Foreign Keys
 #
