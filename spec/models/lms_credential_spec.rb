@@ -5,10 +5,8 @@
 #
 #  id               :bigint           not null, primary key
 #  expire_time      :datetime
-#  password         :string
 #  refresh_token    :string
 #  token            :string
-#  username         :string
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
 #  external_user_id :string
@@ -47,8 +45,6 @@ RSpec.describe LmsCredential, type: :model do
       described_class.create!(
         user: user,
         lms_id: lms.id,
-        username: 'testuser',
-        password: 'testpassword',
         token: 'sensitive_token',
         refresh_token: 'sensitive_refresh_token'
       )

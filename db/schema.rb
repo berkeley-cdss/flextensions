@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_14_000006) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_14_000007) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -351,12 +351,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_14_000006) do
     t.datetime "expire_time"
     t.string "external_user_id"
     t.bigint "lms_id"
-    t.string "password"
     t.string "refresh_token"
     t.string "token"
     t.datetime "updated_at", null: false
     t.bigint "user_id"
-    t.string "username"
     t.index ["lms_id"], name: "index_lms_credentials_on_lms_id"
     t.index ["user_id", "lms_id"], name: "index_lms_credentials_on_user_id_and_lms_id", unique: true
   end
