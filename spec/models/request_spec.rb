@@ -626,6 +626,15 @@ RSpec.describe Request, type: :model do
         expect(message).not_to include(':warning:')
       end
     end
+
+    it 'sends the student a submission confirmation' do
+      allow(request).to receive(:try_auto_approval).and_return(false)
+      allow(request).to receive(:send_submission_confirmation)
+
+      request.process_created_request(user)
+
+      expect(request).to have_received(:send_submission_confirmation)
+    end
   end
 
   describe '#auto_approve' do
@@ -1039,48 +1048,201 @@ RSpec.describe Request, type: :model do
           enable_emails: true,
           reply_email: 'instructor@example.com',
           email_subject: 'Extension for {{student_name}}',
-          email_template: <<~TEMPLATE
+          email_template: <<~TEMPLATE,
             Dear {{student_name}},
             Your extension request has been {{status}}.
           TEMPLATE
+          denial_email_subject: 'Sorry {{student_name}}',
+          denial_email_template: 'Your request was {{status}}.'
         )
       end
     end
 
-    it 'calls EmailService.send_email with correct parameters' do
+    it 'sends the approval template with the full variable mapping for an approved request' do
+      request.update!(status: 'approved')
+
       expect(EmailService).to receive(:send_email).with(
         to: user.email,
+        cc: nil,
         from: ENV.fetch('DEFAULT_FROM_EMAIL', nil),
         reply_to: course_settings.reply_email,
         subject_template: course_settings.email_subject,
         body_template: course_settings.email_template,
-        mapping: hash_including(
+        mapping: {
           'student_name' => user.name,
+          'student_email' => user.email,
+          'student_id' => 'S12345',
           'assignment_name' => assignment.name,
           'course_name' => course.course_name,
           'course_code' => course.course_code,
-          'status' => request.status.capitalize,
+          'status' => 'Approved',
           'original_due_date' => assignment.due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
           'new_due_date' => request.requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
-          'extension_days' => request.calculate_days_difference.to_s
-        ),
+          'requested_due_date' => request.requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
+          'extension_days' => request.calculate_days_difference.to_s,
+          'request_url' => request.request_link,
+          'request_details_table' => a_string_including('<strong>Status:</strong>')
+        },
+        course: course,
+        cta_label: 'View Request',
+        cta_url: request.request_link,
         deliver_later: false
       )
       request.send_email_response
     end
 
+    it 'sends the denial template for a denied request' do
+      request.update!(status: 'denied')
+
+      expect(EmailService).to receive(:send_email).with(
+        hash_including(
+          subject_template: 'Sorry {{student_name}}',
+          body_template: 'Your request was {{status}}.',
+          mapping: hash_including('status' => 'Denied')
+        )
+      )
+      request.send_email_response
+    end
+
     it 'uses default from email when reply_email is blank' do
+      request.update!(status: 'approved')
       course_settings.update(reply_email: nil)
       expect(EmailService).to receive(:send_email).with(
-        hash_including(from: ENV.fetch('DEFAULT_FROM_EMAIL'))
+        hash_including(from: ENV.fetch('DEFAULT_FROM_EMAIL'), reply_to: ENV.fetch('DEFAULT_FROM_EMAIL'))
       )
       request.send_email_response
     end
 
     it 'does not call EmailService.send_email when emails are disabled' do
+      request.update!(status: 'denied')
       course_settings.update(enable_emails: false)
       expect(EmailService).not_to receive(:send_email)
       request.send_email_response
+    end
+  end
+
+  describe '#email_details_rows' do
+    it 'labels the requested date as the new due date once approved' do
+      request.update!(status: 'approved')
+
+      rows = request.email_details_rows.to_h
+      expect(rows['Status']).to eq('Approved')
+      expect(rows['New Due Date']).to eq(request.requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'))
+      expect(rows['Extension Days']).to eq(request.calculate_days_difference)
+      expect(rows).not_to have_key('Requested Due Date')
+    end
+
+    it 'shows the requested date and pending status for a pending request' do
+      rows = request.email_details_rows.to_h
+      expect(rows['Status']).to eq('Pending review')
+      expect(rows['Requested Due Date']).to be_present
+      expect(rows['Days Requested']).to eq(request.calculate_days_difference)
+      expect(rows['Reason']).to eq(request.reason)
+    end
+  end
+
+  describe '#email_details_html' do
+    it 'renders html_safe label/value lines with escaped values' do
+      request.update!(reason: 'Sick & <tired>')
+
+      html = request.email_details_html
+      expect(html).to be_html_safe
+      expect(html).to include("<strong>Status:</strong> Pending review\n")
+      expect(html).to include('<strong>Reason:</strong> Sick &amp; &lt;tired&gt;')
+      expect(html).not_to include('<table')
+    end
+
+    it 'is inserted into templates as markup rather than escaped' do
+      rendered = EmailService.render_templates('s', "Details:\n{{request_details_table}}", request.email_template_mapping)
+      expect(rendered[:body]).to include('<strong>Status:</strong>')
+      expect(rendered[:body]).not_to include('&lt;strong')
+    end
+  end
+
+  describe 'denial emails from #reject' do
+    before do
+      ENV['DEFAULT_FROM_EMAIL'] = 'flextensions@berkeley.edu'
+      course.course_settings.update!(enable_emails: true, denial_email_subject: 'Denied - {{course_code}}',
+                                     denial_email_template: 'Hi {{student_name}}, your request was {{status}}.')
+      ActionMailer::Base.deliveries.clear
+    end
+
+    it 'emails the student the denial template when staff deny the request' do
+      request.reject(instructor)
+
+      mail = ActionMailer::Base.deliveries.last
+      expect(mail).to be_present
+      expect(mail.to).to eq([ user.email ])
+      expect(mail.subject).to eq('Denied - TST101')
+      expect(mail.html_part.body.decoded).to include('Hi Student, your request was Denied.')
+      expect(mail.text_part.body.decoded).to include('Hi Student, your request was Denied.')
+    end
+
+    it 'does not email a student who cancels their own request' do
+      request.reject(user)
+
+      expect(ActionMailer::Base.deliveries).to be_empty
+    end
+
+    it 'copies the course reply address when staff copies are enabled' do
+      course.course_settings.update!(reply_email: 'staff@example.com', cc_course_staff: true)
+
+      request.reject(instructor)
+
+      expect(ActionMailer::Base.deliveries.last.cc).to eq([ 'staff@example.com' ])
+    end
+  end
+
+  describe '#send_submission_confirmation' do
+    before do
+      ENV['DEFAULT_FROM_EMAIL'] = 'flextensions@berkeley.edu'
+      ActionMailer::Base.deliveries.clear
+    end
+
+    it 'emails the student a receipt even when course email notifications are disabled' do
+      course.course_settings.update!(enable_emails: false)
+
+      request.send_submission_confirmation
+
+      mail = ActionMailer::Base.deliveries.last
+      expect(mail).to be_present
+      expect(mail.to).to eq([ user.email ])
+      expect(mail.subject).to eq('Extension Request Received: Assignment 1 - TST101')
+      expect(mail.html_part.body.decoded).to include('Pending review')
+    end
+
+    it 'copies the course reply address when staff copies are enabled' do
+      course.course_settings.update!(reply_email: 'staff@example.com', cc_course_staff: true)
+
+      request.send_submission_confirmation
+
+      expect(ActionMailer::Base.deliveries.last.cc).to eq([ 'staff@example.com' ])
+    end
+
+    it 'still sends a receipt for an auto-approved request when approval emails are disabled' do
+      course.course_settings.update!(enable_emails: false)
+      request.update!(status: 'approved', auto_approved: true)
+
+      request.send_submission_confirmation
+
+      expect(ActionMailer::Base.deliveries.last.html_part.body.decoded).to include('approved automatically')
+    end
+
+    it 'skips the receipt when the approval email already served as confirmation' do
+      course.course_settings.update!(enable_emails: true)
+      request.update!(status: 'approved', auto_approved: true)
+
+      request.send_submission_confirmation
+
+      expect(ActionMailer::Base.deliveries).to be_empty
+    end
+
+    it 'logs a delivery failure instead of raising' do
+      allow(RequestMailer).to receive(:submission_confirmation).and_raise(StandardError, 'smtp down')
+      allow(Rails.error).to receive(:report)
+
+      expect { request.send_submission_confirmation }.not_to raise_error
+      expect(Rails.error).to have_received(:report).with(an_instance_of(StandardError), hash_including(handled: true))
     end
   end
 

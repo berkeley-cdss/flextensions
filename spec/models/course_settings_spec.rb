@@ -58,17 +58,99 @@ RSpec.describe CourseSettings, type: :model do
   end
 
   describe 'default email templates' do
-    it 'seeds the subject and body from the constants when a row is created' do
-      expect(course_settings.email_subject).to eq(described_class::DEFAULT_EMAIL_SUBJECT)
-      expect(course_settings.email_template).to eq(described_class::DEFAULT_EMAIL_TEMPLATE)
+    it 'seeds the approval subject and body from the constants when a row is created' do
+      expect(course_settings.email_subject).to eq(described_class::DEFAULT_APPROVAL_EMAIL_SUBJECT)
+      expect(course_settings.email_template).to eq(described_class::DEFAULT_APPROVAL_EMAIL_TEMPLATE)
+    end
+
+    it 'leaves the denial subject and body NULL so the default is not stored' do
+      expect(course_settings.denial_email_subject).to be_nil
+      expect(course_settings.denial_email_template).to be_nil
     end
 
     it 'keeps explicitly provided values' do
       other = create(:course)
-      other.course_settings.update!(email_subject: 'Custom', email_template: 'Custom body')
+      other.course_settings.update!(email_subject: 'Custom', email_template: 'Custom body',
+                                    denial_email_subject: 'Denied', denial_email_template: 'Denied body')
 
       expect(other.course_settings.reload.email_subject).to eq('Custom')
       expect(other.course_settings.reload.email_template).to eq('Custom body')
+      expect(other.course_settings.reload.denial_email_subject).to eq('Denied')
+      expect(other.course_settings.reload.denial_email_template).to eq('Denied body')
+    end
+
+    it 'restores the approval default when a template is saved blank' do
+      course_settings.update!(email_subject: '')
+
+      expect(course_settings.reload.email_subject).to eq(described_class::DEFAULT_APPROVAL_EMAIL_SUBJECT)
+    end
+
+    it 'stores NULL when the denial template is saved blank or equal to the default' do
+      course_settings.update!(denial_email_subject: 'Custom', denial_email_template: 'Custom body')
+      course_settings.update!(denial_email_subject: '   ',
+                              denial_email_template: described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE)
+
+      expect(course_settings.reload.denial_email_subject).to be_nil
+      expect(course_settings.reload.denial_email_template).to be_nil
+    end
+
+    it 'treats the default submitted with CRLF line endings from the form as not customized' do
+      course_settings.update!(denial_email_template: described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE.gsub("\n", "\r\n"))
+
+      expect(course_settings.reload.denial_email_template).to be_nil
+    end
+
+    it 'normalizes CRLF line endings in customized templates' do
+      course_settings.update!(email_template: "Line one\r\nLine two", denial_email_template: "Sorry\r\nNo")
+
+      expect(course_settings.reload.email_template).to eq("Line one\nLine two")
+      expect(course_settings.reload.denial_email_template).to eq("Sorry\nNo")
+    end
+  end
+
+  describe 'staff copies of student notifications' do
+    it 'is off by default with no CC address' do
+      expect(course_settings.cc_course_staff).to be false
+      expect(course_settings.staff_cc_email).to be_nil
+    end
+
+    it 'requires a reply email when enabled' do
+      course_settings.reply_email = nil
+      course_settings.cc_course_staff = true
+
+      expect(course_settings).not_to be_valid
+      expect(course_settings.errors[:cc_course_staff]).to include('requires a Course Reply Email Address to send copies to')
+    end
+
+    it 'uses the reply email as the CC address when enabled' do
+      course_settings.update!(reply_email: 'staff@example.com', cc_course_staff: true)
+
+      expect(course_settings.staff_cc_email).to eq('staff@example.com')
+    end
+  end
+
+  describe '#email_templates_for' do
+    it 'returns the approval subject and body for an approved request' do
+      course_settings.update!(email_subject: 'Yay {{student_name}}', email_template: 'Approved body')
+
+      expect(course_settings.email_templates_for('approved')).to eq(subject: 'Yay {{student_name}}', body: 'Approved body')
+    end
+
+    it 'returns the denial subject and body for a denied request' do
+      course_settings.update!(denial_email_subject: 'Sorry', denial_email_template: 'Denied body')
+
+      expect(course_settings.email_templates_for(:denied)).to eq(subject: 'Sorry', body: 'Denied body')
+    end
+
+    it 'falls back to the defaults when the denial template is not customized' do
+      expect(course_settings.email_templates_for('denied')).to eq(
+        subject: described_class::DEFAULT_DENIAL_EMAIL_SUBJECT,
+        body: described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE
+      )
+    end
+
+    it 'raises for a status that has no template' do
+      expect { course_settings.email_templates_for('pending') }.to raise_error(ArgumentError, /pending/)
     end
   end
 

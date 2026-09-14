@@ -170,12 +170,23 @@ course will not receive hourly email.
 
 ### Email Template Customization
 
-In the **Email Settings** tab, you can customize:
+Every student receives a confirmation email from Flextensions as soon as their
+request is submitted (including requests staff submit on their behalf). It
+summarizes the request and says whether it is pending review or was approved
+automatically. This receipt is always sent and is not customizable.
 
-- Subject line
-- Email body
+In the **Email Templates** tab, you can turn on approval and denial
+notifications and customize two separate templates:
 
-Use provided dynamic variables to personalize each email.
+- **Approval Email**: sent when a request is approved by course staff or
+  automatically.
+- **Denial Email**: sent when course staff deny a request. Students who cancel
+  their own request are not emailed.
+
+Each template has its own subject line and body. Use the provided dynamic
+variables to personalize each email. Line breaks are preserved, and the
+message is delivered inside a Flextensions-branded layout with a button that
+links back to the request.
 
 **Available Variables**:
 
@@ -183,12 +194,26 @@ Use provided dynamic variables to personalize each email.
   `{{student_name}}, {{student_email}}, {{student_id}}`
 
 - **Course Information**
-  `{{course_name}}, {{course_code}}, {{assignment_name}}`
+  `{{course_name}}, {{course_code}}, {{assignment_name}}, {{request_url}}`
 
-- **Extension Information**
-  `{{original_due_date}}, {{new_due_date}}, {{extension_days}}, {{status}}`
+- **Request Information**
+  `{{request_details_table}}` inserts a formatted summary (one line per
+  field) of the assignment, status, due dates, days requested, and the
+  student's reason.
+  The individual fields are also available:
+  `{{original_due_date}}, {{new_due_date}}, {{requested_due_date}}, {{extension_days}}, {{status}}`
 
-Click **Reset to Default** to restore the system default template.
+Each variable on the page has a copy button next to it.
+
+Click **Reset to Default** on a template to restore that template's system
+default. A template saved blank is also reset to the default.
+
+### Staff Copies of Student Notifications
+
+Turn on **CC Course Staff on Student Notifications** to have every email sent
+to a student (submission confirmations, approvals, and denials) also sent to
+the Course Reply Email Address. This is off by default and requires a reply
+address to be set.
 
 ## Course Extension Request Form
 

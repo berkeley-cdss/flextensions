@@ -5,6 +5,9 @@
 #  id                                 :bigint           not null, primary key
 #  auto_approve_days                  :integer          default(0)
 #  auto_approve_extended_request_days :integer          default(0)
+#  cc_course_staff                    :boolean          default(FALSE), not null
+#  denial_email_subject               :string
+#  denial_email_template              :text
 #  email_subject                      :string
 #  email_template                     :text             default("")
 #  enable_emails                      :boolean          default(FALSE)
@@ -24,6 +27,11 @@
 #  updated_at                         :datetime         not null
 #  course_id                          :bigint           not null
 #
+#  email_subject / email_template hold the *approval* email; the denial_*
+#  columns hold the *denial* email. The approval columns keep their original
+#  names because renaming a column in use is not a safe migration. The denial
+#  columns are NULL unless staff customized them (see normalizes below).
+#
 # Indexes
 #
 #  index_course_settings_on_course_id  (course_id) UNIQUE
@@ -35,22 +43,24 @@
 # rubocop:enable Layout/LineLength
 
 class CourseSettings < ApplicationRecord
-  DEFAULT_EMAIL_SUBJECT = 'Extension Request Status: {{status}} - {{course_code}}'.freeze
-  DEFAULT_EMAIL_TEMPLATE = <<~TEMPLATE.freeze
-    Hello {{student_name}},
+  # Default email text lives in config/locales/en.yml (course_settings.email_defaults)
+  # alongside the rest of the copy for the Email Templates page.
+  # Sent when a request is approved (by staff or automatically).
+  DEFAULT_APPROVAL_EMAIL_SUBJECT = I18n.t('course_settings.email_defaults.approval.subject').freeze
+  DEFAULT_APPROVAL_EMAIL_TEMPLATE = I18n.t('course_settings.email_defaults.approval.body').freeze
+  # Sent when course staff deny a request. (A student who cancels their own
+  # request is not emailed.)
+  DEFAULT_DENIAL_EMAIL_SUBJECT = I18n.t('course_settings.email_defaults.denial.subject').freeze
+  DEFAULT_DENIAL_EMAIL_TEMPLATE = I18n.t('course_settings.email_defaults.denial.body').freeze
 
-    Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
-
-    Extension Details:
-    - Original Due Date: {{original_due_date}}
-    - New Due Date: {{new_due_date}}
-    - Extension Days: {{extension_days}}
-
-    If you have any questions, please contact your course staff.
-
-    Thanks,
-    The {{course_name}} Team
-  TEMPLATE
+  # Column names for each outcome's subject/body pair, keyed by the request
+  # status the email is sent for.
+  EMAIL_TEMPLATE_COLUMNS = {
+    'approved' => { subject: :email_subject, body: :email_template,
+                    default_subject: DEFAULT_APPROVAL_EMAIL_SUBJECT, default_body: DEFAULT_APPROVAL_EMAIL_TEMPLATE },
+    'denied' => { subject: :denial_email_subject, body: :denial_email_template,
+                  default_subject: DEFAULT_DENIAL_EMAIL_SUBJECT, default_body: DEFAULT_DENIAL_EMAIL_TEMPLATE }
+  }.freeze
 
   # Each frequency needs a matching GoodJob cron entry in config/application.rb,
   # otherwise nothing ever enqueues the digest for courses that select it.
@@ -63,15 +73,28 @@ class CourseSettings < ApplicationRecord
   # `allow_nil` behaves as expected and unset rows compare equal.
   normalizes :pending_notification_frequency, :pending_notification_email, with: ->(v) { v.presence }
 
+  # Browsers submit textarea content with CRLF line endings; store LF so a
+  # template round-tripped through the form compares equal to what was saved.
+  normalizes :email_template, :denial_email_template, with: ->(v) { v&.gsub("\r\n", "\n") }
+  # The denial template is only stored when it differs from the default, so a
+  # course that has not customized it always sends the current default text.
+  normalizes :denial_email_subject,
+             with: ->(v) { CourseSettings.customized_template(v, DEFAULT_DENIAL_EMAIL_SUBJECT) }
+  normalizes :denial_email_template,
+             with: ->(v) { CourseSettings.customized_template(v, DEFAULT_DENIAL_EMAIL_TEMPLATE) }
+
   before_save :ensure_system_user_for_auto_approval
   # Clear a stored email when notifications are turned off, so re-enabling
   # doesn't silently reuse a stale address.
   before_save -> { self.pending_notification_email = nil if pending_notification_frequency.nil? }
-  # Seed the email templates on the row itself so the stored value is the
+  # Seed the approval templates on the row itself so the stored value is the
   # source of truth (the columns no longer carry a meaningful DB default).
-  before_create :apply_default_email_templates
+  # Runs on every save so a template that is cleared out in the settings form
+  # falls back to the default instead of sending an empty email.
+  before_save :apply_default_email_templates
 
   validate :gradescope_url_is_valid, if: :enable_gradescope?
+  validate :cc_course_staff_requires_reply_email, if: :cc_course_staff?
   validates :pending_notification_frequency, inclusion: { in: VALID_NOTIFICATION_FREQUENCIES }, allow_nil: true
   validates :pending_notification_email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP },
                                          if: -> { pending_notification_frequency.present? }
@@ -82,9 +105,39 @@ class CourseSettings < ApplicationRecord
     .where.not(pending_notification_email: nil)
   }
 
+  # Returns nil when the submitted value is blank or matches the default
+  # (ignoring line-ending and surrounding-whitespace differences), otherwise
+  # the value itself.
+  def self.customized_template(value, default)
+    return nil if value.blank?
+
+    normalized = value.gsub("\r\n", "\n")
+    normalized.strip == default.strip ? nil : normalized
+  end
+
   def apply_default_email_templates
-    self.email_subject = DEFAULT_EMAIL_SUBJECT if email_subject.blank?
-    self.email_template = DEFAULT_EMAIL_TEMPLATE if email_template.blank?
+    self.email_subject = DEFAULT_APPROVAL_EMAIL_SUBJECT if email_subject.blank?
+    self.email_template = DEFAULT_APPROVAL_EMAIL_TEMPLATE if email_template.blank?
+  end
+
+  # The subject and body templates to send for a request that reached the
+  # given status ('approved' or 'denied'), falling back to the defaults for
+  # anything not customized.
+  def email_templates_for(status)
+    columns = EMAIL_TEMPLATE_COLUMNS.fetch(status.to_s) do
+      raise ArgumentError, "No email template for request status #{status.inspect}"
+    end
+
+    {
+      subject: self[columns[:subject]].presence || columns[:default_subject],
+      body: self[columns[:body]].presence || columns[:default_body]
+    }
+  end
+
+  # Address that copies of student notifications go to, or nil when staff
+  # copies are turned off.
+  def staff_cc_email
+    reply_email.presence if cc_course_staff?
   end
 
   def automatic_approval_enabled?
@@ -122,6 +175,12 @@ class CourseSettings < ApplicationRecord
       course_to_lms.external_course_id = gradescope_course_id
       course_to_lms.save!
     end
+  end
+
+  def cc_course_staff_requires_reply_email
+    return if reply_email.present?
+
+    errors.add(:cc_course_staff, 'requires a Course Reply Email Address to send copies to')
   end
 
   def gradescope_url_is_valid

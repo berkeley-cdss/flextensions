@@ -34,6 +34,9 @@
 #  fk_rails_...  (user_id => users.id)
 #
 class Request < ApplicationRecord
+  # How due dates are written in emails to students.
+  EMAIL_DATE_FORMAT = '%a, %b %-d, %Y %-I:%M %p'.freeze
+
   belongs_to :course
   belongs_to :assignment
   belongs_to :user
@@ -100,6 +103,7 @@ class Request < ApplicationRecord
     end
 
     notify_slack(slack_message)
+    send_submission_confirmation
 
     result
   end
@@ -293,34 +297,89 @@ class Request < ApplicationRecord
     }
   end
 
+  # Emails the student the course's approval or denial template, depending on
+  # the status this request has just reached.
   def send_email_response
-    return unless course.course_settings.enable_emails
-
     cs = course.course_settings
-    to = user.email
-    reply_to = cs.reply_email.presence || ENV.fetch('DEFAULT_FROM_EMAIL')
+    return unless cs.enable_emails
 
-    # build the mapping without braces:
-    mapping = {
+    templates = cs.email_templates_for(status)
+    default_from = ENV.fetch('DEFAULT_FROM_EMAIL')
+
+    EmailService.send_email(
+      to: user.email,
+      cc: cs.staff_cc_email,
+      from: default_from,
+      reply_to: cs.reply_email.presence || default_from,
+      subject_template: templates[:subject],
+      body_template: templates[:body],
+      mapping: email_template_mapping,
+      course: course,
+      cta_label: 'View Request',
+      cta_url: request_link,
+      deliver_later: false
+    )
+  end
+
+  # The {{variable}} values available to the approval and denial templates.
+  # Keep the list on the Email Templates settings page in sync with this.
+  def email_template_mapping
+    requested = requested_due_date.strftime(EMAIL_DATE_FORMAT)
+    {
       'student_name' => user.name,
+      'student_email' => user.email,
+      'student_id' => user.student_id.to_s,
       'assignment_name' => assignment.name,
       'course_name' => course.course_name,
       'course_code' => course.course_code,
       'status' => status.capitalize,
-      'original_due_date' => assignment.due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
-      'new_due_date' => requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
-      'extension_days' => calculate_days_difference.to_s
+      'original_due_date' => assignment.due_date.strftime(EMAIL_DATE_FORMAT),
+      'new_due_date' => requested,
+      'requested_due_date' => requested,
+      'extension_days' => calculate_days_difference.to_s,
+      'request_url' => request_link,
+      'request_details_table' => email_details_html
     }
+  end
 
-    EmailService.send_email(
-      to: to,
-      from: ENV.fetch('DEFAULT_FROM_EMAIL'),
-      reply_to: reply_to,
-      subject_template: cs.email_subject,
-      body_template: cs.email_template,
-      mapping: mapping,
-      deliver_later: false # or true if you prefer .deliver_later
-    )
+  # [label, value] pairs summarizing this request for emails. The due-date
+  # label reflects the outcome: an approved request has a new due date, any
+  # other request only has the date that was asked for.
+  def email_details_rows
+    approved = status == 'approved'
+    [
+      [ 'Assignment', assignment.name ],
+      [ 'Status', approved || status == 'denied' ? status.capitalize : 'Pending review' ],
+      [ 'Original Due Date', assignment.due_date&.strftime(EMAIL_DATE_FORMAT) ],
+      [ approved ? 'New Due Date' : 'Requested Due Date', requested_due_date.strftime(EMAIL_DATE_FORMAT) ],
+      [ approved ? 'Extension Days' : 'Days Requested', calculate_days_difference ],
+      [ 'Reason', reason ]
+    ]
+  end
+
+  # The details rows as "Label: value" lines for the {{request_details_table}}
+  # template variable. Lines are separated by newlines so TemplatedMailer turns
+  # them into line breaks like the rest of the body. Marked html_safe so
+  # EmailService inserts the bold labels as markup; the values are escaped here.
+  def email_details_html
+    email_details_rows.map do |label, value|
+      "<strong>#{ERB::Util.html_escape(label)}:</strong> #{ERB::Util.html_escape(value)}"
+    end.join("\n").html_safe # rubocop:disable Rails/OutputSafety
+  end
+
+  # Every student gets a receipt when a request is submitted, whether by them
+  # or by staff on their behalf, regardless of the course's notification
+  # setting. When the request was auto-approved and the course sends approval
+  # emails, that email has already gone out and serves as the confirmation.
+  # A mail failure is logged rather than raised so it never blocks the
+  # submission itself.
+  def send_submission_confirmation
+    return if status == 'approved' && course.course_settings.enable_emails
+
+    RequestMailer.submission_confirmation(self).deliver_now
+  rescue StandardError => e
+    Rails.logger.error "Failed to send the submission confirmation for request #{id}: #{e.message}"
+    Rails.error.report(e, handled: true, context: { component: 'submission_confirmation', request_id: id })
   end
 
   # Absolute URL for reviewing this request, used in Slack and email

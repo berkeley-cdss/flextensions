@@ -1,0 +1,6 @@
+<%# Plain "Label: value" lines summarizing a request. `rows` is an array of [label, value]. %>
+<p style="margin:0 0 16px;">
+  <% rows.each do |label, value| %>
+    <strong><%= label %>:</strong> <%= value %><br>
+  <% end %>
+</p>

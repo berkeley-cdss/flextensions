@@ -40,6 +40,8 @@ Rails.application.routes.default_url_options = { host: origin }
 # with `uninitialized constant StagingEmailInterceptor`.
 ActiveSupport.on_load(:action_mailer) do
   self.default_url_options = { host: origin }
+  # Images in emails (the logo in the shared layout) need absolute URLs too.
+  self.asset_host = origin
 end
 
 # Nobody notices the wrong host until a notification lands in an inbox pointing

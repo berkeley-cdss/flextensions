@@ -1,31 +1,119 @@
-# Files in the config/locales directory are used for internationalization and
-# are automatically loaded by Rails. If you want to use locales other than
-# English, add the necessary files in this directory.
+# In-app copy for the Email Templates settings page and the emails sent to
+# students. Views look strings up with `t('.key')`, which Rails scopes to the
+# view's path (e.g. `t('.save')` in course_settings/emails.html.erb resolves to
+# course_settings.emails.save). Keys ending in `_html` are rendered as markup
+# with their %{interpolations} escaped.
 #
-# To use the locales, use `I18n.t`:
-#
-#     I18n.t "hello"
-#
-# In views, this is aliased to just `t`:
-#
-#     <%= t("hello") %>
-#
-# To use a different locale, set it with `I18n.locale`:
-#
-#     I18n.locale = :es
-#
-# This would use the information in config/locales/es.yml.
-#
-# To learn more about the API, please read the Rails Internationalization guide
-# at https://guides.rubyonrails.org/i18n.html.
-#
-# Be aware that YAML interprets the following case-insensitive strings as
-# booleans: `true`, `false`, `on`, `off`, `yes`, `no`. Therefore, these strings
-# must be quoted to be interpreted as strings. For example:
-#
-#     en:
-#       "yes": yup
-#       enabled: "ON"
-
+# YAML notes: quote any value that starts with `{{`, and remember `%{name}` is
+# an interpolation placeholder while `{{name}}` is passed through verbatim for
+# the email template engine.
 en:
-  hello: "Hello world"
+  course_settings:
+    email_defaults:
+      approval:
+        subject: "Extension Request Status: {{status}} - {{course_code}}"
+        body: |
+          Hello {{student_name}},
+
+          Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
+
+          Extension Details:
+          - Original Due Date: {{original_due_date}}
+          - New Due Date: {{new_due_date}}
+          - Extension Days: {{extension_days}}
+
+          The new due date has been applied to the assignment. If you have any questions, please contact your course staff.
+
+          Thanks,
+          The {{course_name}} Team
+      denial:
+        subject: "Extension Request Status: {{status}} - {{course_code}}"
+        body: |
+          Hello {{student_name}},
+
+          Your extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.
+
+          Request Details:
+          - Original Due Date: {{original_due_date}}
+          - Requested Due Date: {{requested_due_date}}
+          - Days Requested: {{extension_days}}
+
+          The original due date still applies. If you have any questions or would like to provide more information, please contact your course staff.
+
+          Thanks,
+          The {{course_name}} Team
+
+    emails:
+      title: Email Templates
+      save: Save Email Templates
+      notifications:
+        title: Email Notifications
+        note_html: >-
+          Every student receives a confirmation email when a request is submitted.
+          The notifications below are sent when each request is approved or denied,
+          using the matching template. We strongly recommend keeping these enabled and
+          setting a reply-to address for an account which is monitored by multiple course staff.
+          <br><br>
+          If you will not monitor replies from students, we recommend you use an invalid email
+          address like <code>noreply@berkeley.edu</code> <em>and</em> add a note to the templates.
+        enable_label: Enable approval and denial email notifications
+        reply_email_label: Course Reply Email Address
+        reply_email_placeholder: example@example.com
+        reply_email_hint: Also used as the reply-to address on confirmation emails.
+      staff_copies:
+        title: Staff Copies of Student Notifications
+        toggle_label: CC Course Staff on Student Notifications
+        description: >-
+          When enabled, every email sent to a student (submission confirmations, approvals, and denials)
+          is also sent to the Course Reply Email Address above, so course staff receive a copy for every request.
+          A Course Reply Email Address is required.
+      templates:
+        approval:
+          title: Approval Email
+          description: Sent to the student when a request is approved by course staff or automatically.
+        denial:
+          title: Denial Email
+          description: Sent to the student when a request is denied by course staff. Students who cancel their own request are not emailed.
+        reset: Reset to Default
+        reset_aria: Reset %{template} to default
+        subject_label: Subject
+        body_label: Body
+        body_hint: "Use {{variable_name}} to insert dynamic values. Line breaks are preserved."
+      variables:
+        title: Email Variables
+        description: These can be used in the subject and body of both templates.
+        copy: "Copy %{variable} to clipboard"
+        columns:
+          variable: Variable
+          description: Description
+        groups:
+          student: "Student Information:"
+          course: "Course Information:"
+          request: "Request Information:"
+        student_name: Full name
+        student_email: Email
+        student_id: ID number
+        course_name: Course name
+        course_code: Course code
+        assignment_name: Assignment
+        request_url: Link to the request
+        original_due_date: Original due date
+        new_due_date: New due date (approvals)
+        requested_due_date: Requested due date (denials)
+        extension_days: Days requested
+        status: Status (Approved/Denied)
+        request_details_table: "A formatted summary containing the following fields:"
+
+  request_mailer:
+    submission_confirmation:
+      subject: "Extension Request Received: %{assignment} - %{course_code}"
+      greeting: "Hello %{name},"
+      fallback_name: there
+      received_html: We received your extension request for <strong>%{assignment}</strong> in %{course_name} (%{course_code}).
+      received: We received your extension request for %{assignment} in %{course_name} (%{course_code}).
+      auto_approved: It was approved automatically and the new due date has been applied to the assignment.
+      pending_review: Course staff will review it, and you will receive another email once a decision has been made.
+      edit_hint: You can edit or cancel this request in Flextensions while it is still pending.
+      questions_reply: Questions? Reply to this email to reach your course staff.
+      questions_contact: If you have any questions, please contact your course staff.
+      cta: View Your Request

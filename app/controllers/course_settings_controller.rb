@@ -36,8 +36,11 @@ class CourseSettingsController < ApplicationController
         :extend_late_due_date,
         :email_subject,
         :email_template,
+        :denial_email_subject,
+        :denial_email_template,
         :enable_emails,
-        :reply_email
+        :reply_email,
+        :cc_course_staff
       ]
     )
   end

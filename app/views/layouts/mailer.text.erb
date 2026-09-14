@@ -1,1 +1,8 @@
 <%= yield %>
+<% if @cta_url.present? -%>
+
+<%= @cta_label.presence || 'Open Flextensions' %>: <%= @cta_url %>
+<% end -%>
+
+--
+Sent by <%= root_url.chomp('/') %> | Get Help: https://docs.flextensions.berkeley.edu
