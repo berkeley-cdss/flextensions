@@ -17,7 +17,7 @@ RSpec.describe "Status", type: :request do
 
       expect(response).to have_http_status(:internal_server_error)
       json = response.parsed_body
-      expect(json["status"]).to eq("error")
+      expect(json["status"]).to eq("internal_server_error")
       expect(json["database"]).to be(false)
       expect(json["error"]).to eq("database unavailable")
     end
