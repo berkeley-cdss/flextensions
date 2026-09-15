@@ -36,6 +36,16 @@ RSpec.describe 'GoodJob cron schedule' do # rubocop:disable RSpec/DescribeClass
     expect(occurrence.to_t.in_time_zone('America/Los_Angeles').strftime('%A %H:%M')).to eq('Thursday 16:00')
   end
 
+  it 'prunes Faultline data once a night, after the enrollment sweep starts' do
+    entry = cron.fetch(:faultline_cleanup)
+    schedule = Fugit.parse_cron(entry[:cron])
+    occurrences = schedule.within(Time.utc(2026, 1, 1, 7, 59)..Time.utc(2026, 1, 2, 7, 59))
+
+    expect(entry[:class]).to eq('FaultlineCleanupJob')
+    expect(occurrences.size).to eq(1)
+    expect(occurrences.first.to_t.in_time_zone('America/Los_Angeles').strftime('%H:%M')).to eq('03:30')
+  end
+
   it 'runs the enrollment sync sweep daily at 3:00 AM Pacific' do
     schedule = Fugit.parse_cron(enrollment_sync_entry[:cron])
     occurrences = schedule.within(Time.utc(2026, 1, 1, 7, 59)..Time.utc(2026, 1, 2, 7, 59))

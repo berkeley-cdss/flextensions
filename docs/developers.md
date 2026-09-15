@@ -130,6 +130,7 @@ occurrence is enqueued once even if several processes are running.
 | `pending_digests_hourly` | Top of every hour | `PendingRequestsNotificationJob('hourly')` |
 | `pending_digests_daily` | 4:00 PM PT daily | `PendingRequestsNotificationJob('daily')` |
 | `pending_digests_weekly` | 4:00 PM PT Thursdays | `PendingRequestsNotificationJob('weekly')` |
+| `faultline_cleanup` | 3:30 AM PT daily | `FaultlineCleanupJob` |
 
 Each notification run emails the courses whose **Pending Request Notifications**
 setting matches that frequency and that currently have pending requests.
@@ -141,6 +142,14 @@ avoid a burst of Canvas API calls. Canvas applies a separate quota to each OAuth
 access token, so syncs performed with different instructors' tokens do not
 consume one shared quota; courses that share an instructor can still share that
 token's quota. See the [Canvas API throttling documentation](https://developerdocs.instructure.com/services/canvas/basics/file.throttling).
+
+The Faultline cleanup enforces the two retention windows set in
+`config/initializers/faultline.rb`, which the gem records but never acts on:
+error occurrences older than `retention_days` (and the groups they leave empty,
+except ones marked ignored) and APM request traces older than
+`apm_retention_days`. Faultline samples 30% of requests, so the traces table
+would otherwise grow without bound. `bundle exec rake faultline:apm:cleanup`
+does the APM half by hand.
 
 Admins can inspect queues, schedules and past runs at `/admin/good_job`. To send a
 digest by hand (locally, or to backfill after downtime):
