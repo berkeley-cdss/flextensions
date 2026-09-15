@@ -20,7 +20,7 @@ en:
           Extension Details:
           - Original Due Date: {{original_due_date}}
           - New Due Date: {{new_due_date}}
-          - Extension Days: {{extension_days}}
+          - Extension Days: {{requested_days}}
 
           The new due date has been applied to the assignment. If you have any questions, please contact your course staff.
 
@@ -36,7 +36,7 @@ en:
           Request Details:
           - Original Due Date: {{original_due_date}}
           - Requested Due Date: {{requested_due_date}}
-          - Days Requested: {{extension_days}}
+          - Days Requested: {{requested_days}}
 
           The original due date still applies. If you have any questions or would like to provide more information, please contact your course staff.
 
@@ -100,7 +100,7 @@ en:
         original_due_date: Original due date
         new_due_date: New due date (approvals)
         requested_due_date: Requested due date (denials)
-        extension_days: Days requested
+        requested_days: Days requested
         status: Status (Approved/Denied)
         request_details_table: "A formatted summary containing the following fields:"
 
