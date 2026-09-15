@@ -160,27 +160,39 @@ recurring jobs — for example when moving them to a dedicated worker started wi
 Staging and production run on the *Ruby 3.3 on Amazon Linux 2023* platform, built
 by CodeBuild (`buildspec.yml`) and deployed by CodePipeline.
 
-### There is deliberately no `Procfile`
+### The `Procfile` and `config/puma.rb`
 
-The repository intentionally ships **no root `Procfile`**. When one is absent,
-Elastic Beanstalk [generates the default](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/ruby-platform-procfile.html)
-for the Ruby platform:
+The root `Procfile` starts the web process with the app's own Puma config:
 
 ```
-web: bundle exec puma -C /opt/elasticbeanstalk/config/private/pumaconf.rb
+web: bundle exec puma -C config/puma.rb
 ```
 
-That platform-provided `pumaconf.rb` binds Puma to the Unix socket
-`/var/run/puma/my_app.sock`, which is what the platform's nginx config proxies
-to (`upstream my_app { server unix:///var/run/puma/my_app.sock; }`). Note that
-this is *not* the generic `PORT` / TCP-5000 convention used by the Go and Java SE
-platforms — the Ruby platform does **not** set a `PORT` environment variable, so
-a `Procfile` line like `web: bundle exec rails server -p $PORT` starts Rails with
-an empty `--port` argument and the web process dies at boot with
-`Thor::MalformattedArgumentError: No value provided for option '--port'`.
+Without a `Procfile`, Elastic Beanstalk [generates the default](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/ruby-platform-procfile.html)
+for the Ruby platform (`bundle exec puma -C /opt/elasticbeanstalk/config/private/pumaconf.rb`)
+and `config/puma.rb` is never read. The app ships its own config so it can raise
+`worker_timeout` (the nightly AIDE scan was killing workers at the 60s default)
+and wire GoodJob into Puma's fork lifecycle.
 
-If you ever do need a custom `Procfile`, two platform behaviours are worth
-knowing:
+`config/puma.rb` decides *where to listen* from where it is running, and
+*how many processes to run* from `WEB_CONCURRENCY`. The two are independent:
+
+- **On an EB host** (detected by the presence of `/opt/elasticbeanstalk`) Puma
+  binds the Unix socket `/var/run/puma/my_app.sock`, which is what the
+  platform's nginx config proxies to
+  (`upstream my_app { server unix:///var/run/puma/my_app.sock; }`), runs from
+  `/var/app/current` and logs to `/var/log/puma/puma.log`. The Ruby platform does
+  **not** set a `PORT` variable and nginx does not proxy to a TCP port, so binding
+  anything else makes nginx return 502, the health check fails and EB rolls the
+  deployment back.
+- **Everywhere else** (development, CI, the Docker image) Puma listens on TCP
+  `PORT` (default 3000).
+- `WEB_CONCURRENCY` sets the worker count. Until it is set as an EB environment
+  property, `RAILS_ENV=production` and `RAILS_ENV=staging` default to 2 workers
+  and every other environment to 0 (a single process). Either mode works on EB,
+  because the socket bind does not depend on it.
+
+Two platform behaviours to keep in mind when editing the `Procfile`:
 
 - **Comments are not supported.** Every line must match
   `^[A-Za-z0-9_-]+:\s*[^\s].*$`. A `#` comment makes the whole file invalid, and
@@ -191,7 +203,10 @@ knowing:
   or nginx will return 502.
 
 Because GoodJob runs in-process (see [Background and Scheduled Jobs](#background-and-scheduled-jobs)),
-the single platform-managed `web` process is all this app needs.
+the single `web` process is all this app needs. In cluster mode `config/puma.rb`
+stops GoodJob before the fork and restarts it in each worker, as GoodJob's Puma
+guidance requires when `preload_app!` is on; `spec/config/puma_spec.rb` checks
+the bind, worker and hook settings for both environments.
 
 ---
 
