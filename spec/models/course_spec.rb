@@ -104,6 +104,28 @@ RSpec.describe Course, type: :model do
     end
   end
 
+  describe '#duplicate_assignment_names' do
+    it 'returns names shared by more than one enabled assignment' do
+      course = create(:course)
+      link = course.course_to_lms(1)
+      create(:assignment, name: 'Homework 1', course_to_lms: link, enabled: true)
+      create(:assignment, name: 'Homework 1', course_to_lms: link, enabled: true)
+      create(:assignment, name: 'Homework 2', course_to_lms: link, enabled: true)
+      create(:assignment, name: 'Homework 2', course_to_lms: link, enabled: false)
+
+      expect(course.duplicate_assignment_names).to eq(Set['Homework 1'])
+    end
+
+    it 'ignores matching names in other courses' do
+      course = create(:course)
+      other_course = create(:course)
+      create(:assignment, name: 'Homework 1', course_to_lms: course.course_to_lms(1), enabled: true)
+      create(:assignment, name: 'Homework 1', course_to_lms: other_course.course_to_lms(1), enabled: true)
+
+      expect(course.duplicate_assignment_names).to be_empty
+    end
+  end
+
   describe '#staff_user_for_auto_approval' do
     let(:course) { described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101') }
 

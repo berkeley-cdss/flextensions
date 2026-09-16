@@ -143,6 +143,13 @@ class Course < ApplicationRecord
     assignments.where(enabled: true)
   end
 
+  # Names shared by more than one enabled assignment, e.g. the same homework
+  # synced from both bCourses and Gradescope. Used to disambiguate the
+  # assignment dropdowns by appending the LMS name.
+  def duplicate_assignment_names
+    enabled_assignments.group(:name).having('COUNT(*) > 1').pluck(:name).to_set
+  end
+
   # TODO: Replace this with staff_role?(user) or student_role?(user)
   # Or is user.staff_role?(course) or user.student_role?(course) better?
   def user_role(user)

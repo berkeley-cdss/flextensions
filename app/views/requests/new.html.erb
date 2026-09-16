@@ -33,19 +33,7 @@
 							<% end %>
 							
 							<%= f.select :assignment_id,
-							options_for_select(
-								@assignments.map do |assignment|
-								[
-									"#{assignment.name}",
-									assignment.id,
-									{
-									"data-original-due-date" => assignment.due_date.strftime('%a, %b %-d, %Y at %-I:%M%P'),
-									"data-original-late-due-date" => assignment.late_due_date&.strftime('%a, %b %-d, %Y at %-I:%M%P')
-									}
-								]
-								end,
-								params[:assignment_id].to_i
-							),
+							assignment_select_options(@assignments, @course, params[:assignment_id].to_i),
 							{ prompt: '---', required: true },
 							{
 								class: "form-select",
