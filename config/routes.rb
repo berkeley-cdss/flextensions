@@ -1,5 +1,5 @@
 Rails.application.routes.draw do
-  mount Faultline::Engine, at: "/admin/errors"
+  mount Faultline::Engine, at: "/admin/faultline"
   if Rails.env.development?
     mount LetterOpenerWeb::Engine, at: "/letter_opener"
   end

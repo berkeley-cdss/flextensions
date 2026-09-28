@@ -11,15 +11,23 @@ Faultline.configure do |config|
   # Method to get current user in controllers
   config.user_method = :current_user
 
-  # Custom context - add extra data to every error occurrence
-  # Receives request and Rack env, should return a hash
-  # config.custom_context = lambda { |request, env|
-  #   controller = env["action_controller.instance"]
-  #   {
-  #     account_id: controller&.current_account&.id,
-  #     tenant: request.subdomain
-  #   }
-  # }
+  # Custom context - add extra data to every error occurrence.
+  #
+  # Faultline already records the `User` returned by `current_user` above
+  # (its id and email show up on the occurrence as the "user"), but that only
+  # works when the exception reaches the middleware with a controller instance
+  # in the Rack env. Errors raised earlier in the stack -- in another
+  # middleware, in the session store, before the controller is built -- have
+  # no controller to ask, and an anonymous request resolves to a NullUser whose
+  # id is nil. So we also attach the Canvas uid straight from the session as a
+  # context entry, which is the "basic user ID" the team looks up first: it is
+  # what the Canvas dashboard and the users table are keyed on, and it is
+  # present for every signed-in request regardless of where the error came
+  # from. Each key becomes a Faultline::ErrorContext row on the occurrence.
+  config.custom_context = lambda { |request, _env|
+    canvas_uid = request.session[:user_id]
+    { canvas_uid: canvas_uid.presence }.compact
+  }
 
   # =============================================================================
   # Error Filtering
@@ -203,8 +211,12 @@ Faultline.configure do |config|
   # This captures errors from background jobs and explicit Rails.error calls
   config.register_error_subscriber = true
 
-  # Paths to ignore (no error tracking for these)
-  config.middleware_ignore_paths = ["/assets", "/up", "/health", "/admin/errors"]
+  # Paths to ignore (no error tracking for these).
+  # /status/health_check is the load balancer health check endpoint
+  # (StatusController#health_check); it reports database failures in its JSON
+  # body rather than raising. /admin/faultline is the engine itself
+  # (config/routes.rb).
+  config.middleware_ignore_paths = ["/assets", "/status/health_check", "/admin/faultline"]
 
   # =============================================================================
   # Data Configuration
@@ -213,20 +225,31 @@ Faultline.configure do |config|
   # Maximum backtrace lines to store per occurrence
   config.backtrace_lines_limit = 50
 
-  # How long to keep error data in days (nil = forever)
-  # Consider setting up a cleanup job if you have high error volume
+  # How long to keep error data in days (nil = forever). Faultline only stores
+  # this number; FaultlineCleanupJob (nightly via GoodJob's cron, see
+  # config.good_job.cron in config/application.rb) is what deletes occurrences
+  # older than this and the groups left empty by it.
   config.retention_days = 90
 
   # =============================================================================
   # Callbacks (Advanced)
   # =============================================================================
 
-  # Before tracking - return false to skip tracking this error
-  # config.before_track = lambda { |exception, context|
-  #   # Example: Skip timeout errors
-  #   return false if exception.message.include?("Timeout")
-  #   true
-  # }
+  # Before tracking - return false to skip tracking this error.
+  #
+  # An unhandled request exception reaches Faultline twice. The Rack middleware
+  # (enable_middleware above, innermost in the stack) sees it first and records
+  # the request, the signed-in user and the captured locals. It then re-raises,
+  # and ActionDispatch::Executor at the top of the stack reports the very same
+  # exception to Rails.error with source "application.action_dispatch", which
+  # the error subscriber would turn into a second occurrence with no user and
+  # no URL -- doubling every count and alert threshold and leaving half the
+  # occurrences anonymous. Drop that second report. The subscriber still
+  # handles everything the middleware cannot see: background jobs (source
+  # "application.active_job" / "good_job") and explicit Rails.error calls.
+  config.before_track = lambda { |_exception, context|
+    context[:source] != "application.action_dispatch"
+  }
 
   # After tracking - for custom integrations
   # config.after_track = lambda { |error_group, occurrence|
@@ -249,17 +272,25 @@ Faultline.configure do |config|
 
   # Enable basic APM to track request performance metrics.
   # Captures response times, database queries, and throughput per endpoint.
-  # config.enable_apm = true
+  # The dashboard lives at /admin/faultline/performance.
+  config.enable_apm = true
 
-  # Sample rate for high-traffic apps (0.0 to 1.0, default: 1.0 = every request)
-  # config.apm_sample_rate = 1.0
+  # Sample rate (0.0 to 1.0, 1.0 = every request). Each sampled request costs
+  # an extra INSERT (plus span JSON) after the response is sent, so we trace
+  # 30% of requests: enough to get meaningful p95s per endpoint without
+  # tripling the write load on a small database.
+  config.apm_sample_rate = 0.3
 
-  # Paths to ignore for APM (defaults to middleware_ignore_paths if nil)
-  # config.apm_ignore_paths = ["/assets", "/up", "/health", "/faultline"]
+  # Paths to ignore for APM (defaults to middleware_ignore_paths if nil).
+  # Faultline's own routes are always ignored; the load balancer polls
+  # /status/health_check constantly and would swamp the traces.
+  config.apm_ignore_paths = ["/assets", "/status/health_check", "/admin/faultline"]
 
-  # How long to keep APM traces in days (default: 30)
-  # Use `rake faultline:apm:cleanup` to remove old traces.
-  # config.apm_retention_days = 30
+  # How long to keep APM traces (and their profiles) in days. Enforced by
+  # FaultlineCleanupJob, which GoodJob's cron runs nightly (see
+  # config.good_job.cron in config/application.rb). `rake faultline:apm:cleanup`
+  # does the APM half of that by hand.
+  config.apm_retention_days = 30
 
   # --- Span Collection (Waterfall Visualization) ---
   # Capture detailed spans for SQL, HTTP, Redis, and view rendering.
