@@ -44,14 +44,9 @@ Rails.application.configure do
   # caching is enabled.
   config.action_mailer.perform_caching = false
 
-  config.action_mailer.default_url_options = { host: "localhost", port: 3000 }
-
   # Print deprecation notices to the Rails logger.
+  # (Ruby-level deprecation warnings are enabled globally in config/boot.rb.)
   config.active_support.deprecation = :log
-
-  # Surface Ruby-level deprecation warnings (off by default since Ruby 3.0) so
-  # deprecated language/stdlib usage is visible during local development.
-  Warning[:deprecated] = true
 
   # Raise exceptions for disallowed deprecations.
   config.active_support.disallowed_deprecation = :raise
@@ -94,12 +89,16 @@ Rails.application.configure do
 
   config.hosts << "flextensions.lvh.me:3000"
 
+  if ENV["AGENT_WEB_HOST"].present?
+    # Superconductor serves previews through a tunneled host and embeds them in an iframe.
+    config.hosts << ENV["AGENT_WEB_HOST"]
+    config.action_dispatch.default_headers.delete("X-Frame-Options")
+  end
+
   config.action_mailer.delivery_method = :letter_opener_web
   config.action_mailer.perform_deliveries = true
-  config.action_mailer.default_url_options = {
-    host: ENV.fetch("APP_HOST", "localhost"),
-    port: ENV.fetch("APP_PORT", "3000")
-  }
+  # The host that links are built against comes from APP_HOST in every
+  # environment -- see config/initializers/default_url_options.rb.
 
   # Set up default encryption keys for the development environment
   config.active_record.encryption.primary_key = 'dev-primary-key-1234567890abcdef'

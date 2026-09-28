@@ -1,0 +1,14 @@
+<p style="margin:0 0 16px;"><%= t('.greeting', name: @student.name.presence || t('.fallback_name')) %></p>
+
+<p style="margin:0 0 16px;">
+  <%= t('.received_html', assignment: @assignment.name, course_name: @course.course_name, course_code: @course.course_code) %>
+  <%= @request.status == 'approved' ? t('.auto_approved') : t('.pending_review') %>
+</p>
+
+<%= render 'request_mailer/details', rows: @request.email_details_rows %>
+
+<% if @request.status == 'pending' %>
+  <p style="margin:0 0 16px;"><%= t('.edit_hint') %></p>
+<% end %>
+
+<p style="margin:0;"><%= @reply_email ? t('.questions_reply') : t('.questions_contact') %></p>

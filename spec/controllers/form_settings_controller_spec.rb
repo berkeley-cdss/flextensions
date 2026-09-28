@@ -8,6 +8,7 @@ RSpec.describe FormSettingsController, type: :controller do
     {
       course_id: course.id,
       form_setting: {
+        reason_title: 'Why do you need more time?',
         reason_desc: 'Updated reason',
         documentation_desc: 'Provide docs',
         documentation_disp: 'required',
@@ -67,6 +68,14 @@ RSpec.describe FormSettingsController, type: :controller do
         expect(response).to redirect_to(edit_course_form_setting_path(course))
         expect(flash[:notice]).to eq('Form settings updated successfully.')
         expect(course.form_setting.reload.reason_desc).to eq('Updated reason')
+        expect(course.form_setting.reason_title).to eq('Why do you need more time?')
+      end
+
+      it 'clears a custom reason title when it is submitted blank' do
+        course.form_setting.update!(reason_title: 'Old title')
+        patch :update, params: valid_params.deep_merge(form_setting: { reason_title: '' })
+        expect(course.form_setting.reload.reason_title).to eq('')
+        expect(course.form_setting.reason_title_or_default).to eq(FormSetting::DEFAULT_REASON_TITLE)
       end
     end
 

@@ -4,16 +4,15 @@ class FormSettingsController < ApplicationController
   before_action :set_pending_request_count
 
   def edit
-    @side_nav = 'form_settings'
     @form_setting = @course.form_setting
   end
 
   def update
-    @side_nav = 'form_settings'
     @form_setting = @course.form_setting || @course.build_form_setting
 
     permitted = form_setting_params.to_h
     defaulted = {
+      reason_title: '',
       reason_desc: '',
       documentation_desc: '',
       documentation_disp: '',
@@ -37,7 +36,7 @@ class FormSettingsController < ApplicationController
   def form_setting_params
     params.expect(
       form_setting: [
-        :reason_desc, :documentation_desc, :documentation_disp,
+        :reason_title, :reason_desc, :documentation_desc, :documentation_disp,
         :custom_q1, :custom_q1_desc, :custom_q1_disp,
         :custom_q2, :custom_q2_desc, :custom_q2_disp
       ]

@@ -10,9 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_05_000001) do
-  create_schema "hypershield"
-
+ActiveRecord::Schema[8.1].define(version: 2026_09_11_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -94,10 +92,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000001) do
   create_table "course_settings", force: :cascade do |t|
     t.integer "auto_approve_days", default: 0
     t.integer "auto_approve_extended_request_days", default: 0
+    t.boolean "cc_course_staff", default: false, null: false
     t.bigint "course_id", null: false
     t.datetime "created_at", null: false
-    t.string "email_subject", default: "Extension Request Status: {{status}} - {{course_code}}"
-    t.text "email_template", default: "Dear {{student_name}},\n\nYour extension request for {{assignment_name}} in {{course_name}} ({{course_code}}) has been {{status}}.\n\nExtension Details:\n- Original Due Date: {{original_due_date}}\n- New Due Date: {{new_due_date}}\n- Extension Days: {{extension_days}}\n\nIf you have any questions, please contact the course staff.\n\nBest regards,\n{{course_name}} Staff"
+    t.string "denial_email_subject"
+    t.text "denial_email_template"
+    t.string "email_subject"
+    t.text "email_template", default: ""
     t.boolean "enable_emails", default: false
     t.boolean "enable_extensions", default: false
     t.boolean "enable_gradescope", default: false
@@ -251,6 +252,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000001) do
     t.text "documentation_desc"
     t.enum "documentation_disp", enum_type: "form_display_status"
     t.text "reason_desc"
+    t.string "reason_title"
     t.datetime "updated_at", null: false
     t.index ["course_id"], name: "index_form_settings_on_course_id"
   end

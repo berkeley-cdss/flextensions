@@ -898,6 +898,10 @@ describe CanvasFacade do
       Timecop.freeze(DateTime.new(2002, 0o3, 16, 16))
     end
 
+    # Without this the frozen clock leaks into every example that runs after
+    # this one, breaking anything that depends on the real current date.
+    after { Timecop.return }
+
     it 'outputs the current time in Canvas iso8601 formatting' do
       expect(facade.send(:get_current_formatted_time)).to eq('2002-03-16T16:00:00Z')
     end

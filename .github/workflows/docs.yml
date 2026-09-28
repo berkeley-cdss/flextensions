@@ -21,15 +21,27 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.4'
+          ruby-version: '4.0'
           bundler-cache: true
           working-directory: docs
 
+      # The site is served from the root of the custom domain in docs/CNAME,
+      # so build with the baseurl from _config.yml (empty).
       - name: Build Jekyll site
-        run: bundle exec jekyll build --baseurl /flextensions
+        run: bundle exec jekyll build
         env:
           JEKYLL_ENV: production
-          PAGES_REPO_NWO: berkeley-cds/flextensions
+          PAGES_REPO_NWO: berkeley-cdss/flextensions
+
+      - name: Check the custom domain is published
+        run: |
+          expected=$(tr -d '[:space:]' < CNAME)
+          actual=$(tr -d '[:space:]' < _site/CNAME)
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::_site/CNAME ($actual) does not match docs/CNAME ($expected)"
+            exit 1
+          fi
+          echo "Custom domain: $actual"
 
       - name: Check for broken internal links
         run: |
@@ -38,29 +50,29 @@ jobs:
           find _site -name '*.html' | sort
           echo ""
           echo "Checking for broken internal links..."
-          # Extract internal href links and verify they resolve
+          # Extract root-relative href/src values and verify they resolve.
+          # Protocol-relative URLs (//example.com) are external, so skip those.
           broken=0
-          for file in $(find _site -name '*.html'); do
-            # Extract href values pointing to /flextensions/ paths
-            grep -oP 'href="(/flextensions/[^"]*)"' "$file" 2>/dev/null | while read -r match; do
-              path=$(echo "$match" | grep -oP '"/flextensions/[^"]*"' | tr -d '"')
-              # Convert URL path to file path
-              local_path="_site${path#/flextensions}"
-              # Check if it's a directory (index.html) or file
-              if [ -d "$local_path" ] && [ -f "$local_path/index.html" ]; then
-                continue
-              elif [ -f "$local_path" ]; then
-                continue
-              elif [ -f "${local_path}.html" ]; then
-                continue
-              elif [ -f "${local_path%/}/index.html" ]; then
-                continue
-              else
-                echo "::warning file=$file::Broken link: $path (resolved to $local_path)"
-                broken=1
-              fi
-            done
-          done
+          while read -r path; do
+            path=${path%%#*}
+            path=${path%%\?*}
+            local_path="_site${path}"
+            if [ -f "$local_path" ] \
+              || [ -f "${local_path%/}/index.html" ] \
+              || [ -f "${local_path%/}.html" ]; then
+              continue
+            fi
+            echo "::error::Broken internal link: $path (resolved to $local_path)"
+            broken=1
+          done < <(grep -rhoP '(?:href|src)="\K/(?!/)[^"]*' _site --include='*.html' | sort -u)
+          # Links written without a scheme (e.g. [example.com](example.com))
+          # resolve against the current page, which is never what we want.
+          while read -r href; do
+            echo "::error::Link is not absolute or root-relative: $href"
+            broken=1
+          done < <(grep -rhoP 'href="\K(?!https?://|//|/|\#|mailto:)[^"]*' _site --include='*.html' | sort -u)
           if [ "$broken" -eq 1 ]; then
-            echo "::warning::Some internal links may be broken. Check warnings above."
+            echo "::error::Some internal links are broken. See errors above."
+            exit 1
           fi
+          echo "All internal links resolve."

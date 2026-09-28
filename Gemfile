@@ -1,6 +1,9 @@
 source 'https://rubygems.org'
 
-ruby '>= 3.3', '< 3.5'
+# Local dev and CI run Ruby 4.0 (see .tool-versions); Elastic Beanstalk
+# deploys on the Ruby 3.3 platform branch today and will move to 4.0, so the
+# app must run on both.
+ruby '>= 3.3', '< 5'
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem 'rails', '~> 8.1.3'
@@ -130,7 +133,7 @@ group :test do
   gem 'rspec-retry'
   gem 'selenium-webdriver'
   gem 'shoulda-matchers', '~> 8.0'
-  gem 'simplecov', '~> 1.0.3', require: false
+  gem 'simplecov', '~> 1.3.0', require: false
   gem 'timecop'
   gem 'webmock'
 end

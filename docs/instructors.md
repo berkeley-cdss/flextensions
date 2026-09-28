@@ -6,7 +6,7 @@ permalink: /instructors/
 # Setting Up Flextensions for Instructors
 
 This guide will get you started with using Flextensions as an instructor.
-When you're ready, view the [integration guide](/flextensions/integrations).
+When you're ready, view the [integration guide](/integrations/).
 
 ## Importing a Course
 
@@ -88,7 +88,7 @@ The **Enrollments** tab shows all instructors and students currently associated 
 The list will refresh with updated data, including new students and instructors, and will remove users no longer in the course.
 
 > [!NOTE]
-> ⚠️ If a student is added to the course after you have already imported a course, you will need to sync the course enrollments to ensure they are able to access the Flextensions course.
+> Flextensions also refreshes enrollments automatically each day between 3:00 and 4:00 AM Pacific for courses imported into Flextensions within the past five weeks. An automatic refresh is skipped when that course's roster was synced less than six hours earlier. You can still use **Sync Enrollments** when you need an update sooner.
 
 ## Filtering Student Requests
 By clicking the name of a student in the **Enrollments** tab, you can filter the requests to only show those made by that student. This is useful for quickly reviewing all requests from a specific student.
@@ -105,7 +105,7 @@ Control when and how requests are automatically approved:
   Automatically approves requests made within the specified number of days before the assignment due date. Leave blank to disable.
 
 - **Auto approve extended requests within days**
-  From the Enrollments page, you can mark a student to allow for 'Extended Requests'. When enabled, this setting allows a limited number of students to have requests automatically approved over a longer window. This is useful for students with known extenuating circumstances or accommodations. 
+  From the Enrollments page, you can mark a student to allow for 'Extended Requests'. When enabled, this setting allows a limited number of students to have requests automatically approved over a longer window. This is useful for students with known extenuating circumstances or accommodations.
 
 - **Maximum requests to auto-approve**
   Sets a per-student limit on auto-approved requests. Use `0` for no limit.
@@ -152,14 +152,41 @@ You can specify a **Course Reply Email Address** for outgoing emails. This will 
 
 After setting these options, click **Save Settings** to save.
 
+### Pending Request Notifications
+
+Flextensions can email course staff a reminder of how many extension requests are
+still waiting for a decision. Choose how often you want that reminder under
+**Pending Request Notifications**, and enter the address it should go to:
+
+| Setting | When it is sent |
+|---------|-----------------|
+| No notifications | Never (the default) |
+| Hourly | At the top of every hour |
+| Daily | 4:00 PM PT every day |
+| Once weekly (Thursdays) | 4:00 PM PT on Thursdays |
+
+Reminders are only sent when the course actually has pending requests, so a quiet
+course will not receive hourly email.
+
 ### Email Template Customization
 
-In the **Email Settings** tab, you can customize:
+Every student receives a confirmation email from Flextensions as soon as their
+request is submitted (including requests staff submit on their behalf). It
+summarizes the request and says whether it is pending review or was approved
+automatically. This receipt is always sent and is not customizable.
 
-- Subject line
-- Email body
+In the **Email Templates** tab, you can turn on approval and denial
+notifications and customize two separate templates:
 
-Use provided dynamic variables to personalize each email.
+- **Approval Email**: sent when a request is approved by course staff or
+  automatically.
+- **Denial Email**: sent when course staff deny a request. Students who cancel
+  their own request are not emailed.
+
+Each template has its own subject line and body. Use the provided dynamic
+variables to personalize each email. Line breaks are preserved, and the
+message is delivered inside a Flextensions-branded layout with a button that
+links back to the request.
 
 **Available Variables**:
 
@@ -167,12 +194,26 @@ Use provided dynamic variables to personalize each email.
   `{{student_name}}, {{student_email}}, {{student_id}}`
 
 - **Course Information**
-  `{{course_name}}, {{course_code}}, {{assignment_name}}`
+  `{{course_name}}, {{course_code}}, {{assignment_name}}, {{request_url}}`
 
-- **Extension Information**
-  `{{original_due_date}}, {{new_due_date}}, {{extension_days}}, {{status}}`
+- **Request Information**
+  `{{request_details_table}}` inserts a formatted summary (one line per
+  field) of the assignment, status, due dates, days requested, and the
+  student's reason.
+  The individual fields are also available:
+  `{{original_due_date}}, {{new_due_date}}, {{requested_due_date}}, {{extension_days}}, {{status}}`
 
-Click **Reset to Default** to restore the system default template.
+Each variable on the page has a copy button next to it.
+
+Click **Reset to Default** on a template to restore that template's system
+default. A template saved blank is also reset to the default.
+
+### Staff Copies of Student Notifications
+
+Turn on **CC Course Staff on Student Notifications** to have every email sent
+to a student (submission confirmations, approvals, and denials) also sent to
+the Course Reply Email Address. This is off by default and requires a reply
+address to be set.
 
 ## Course Extension Request Form
 
@@ -180,11 +221,15 @@ Use the **Form** tab to customize the student request form.
 > The following options are required fields and cannot be removed:
 > Assignment Name, Requested Due Date, Reason for Extension.
 
+### Customizing the Reason Question
+
+The reason question is always shown and always required, but you can change its wording. Enter new **Question text** to replace the default "Why do you need this extension?" on the student form and on request pages. Leave it blank to keep the default.
+
 ### Writing Custom Descriptions
 
 You can provide custom description text for:
 
-- **Why do you need this extension?**
+- **Why do you need this extension?** (the reason question)
 - **Additional Documentation**
 
 These appear directly on the form and help guide student responses.
@@ -208,7 +253,7 @@ Once configured, click **Update** at the bottom of the page to save your setting
 
 ---
 
-## [Integration Guide](/flextensions/integrations/)
+## [Integration Guide](/integrations/)
 
 Flextensions supports integrations with:
 

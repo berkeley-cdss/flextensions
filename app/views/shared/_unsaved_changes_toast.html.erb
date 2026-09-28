@@ -1,0 +1,15 @@
+<%# Toast shown by the unsaved-changes Stimulus controller. Render inside the
+    form that carries data-controller="unsaved-changes" so the target resolves. %>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+    <div class="toast border-info" role="status" aria-live="polite" aria-atomic="true"
+         data-unsaved-changes-target="toast" data-bs-autohide="false">
+        <div class="toast-header">
+            <i class="fas fa-circle-info text-info me-2" aria-hidden="true"></i>
+            <strong class="me-auto">Unsaved changes</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+            You have unsaved changes to your course. Please select save if you wish to keep your changes.
+        </div>
+    </div>
+</div>

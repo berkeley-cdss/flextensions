@@ -12,6 +12,12 @@ RSpec.describe 'notifications:send_pending_digests' do # rubocop:disable RSpec/D
     Rake::Task['notifications:send_pending_digests'].invoke('daily')
   end
 
+  it 'invokes PendingRequestsNotificationJob with hourly frequency' do
+    expect(PendingRequestsNotificationJob).to receive(:perform_now).with('hourly')
+    Rake::Task['notifications:send_pending_digests'].reenable
+    Rake::Task['notifications:send_pending_digests'].invoke('hourly')
+  end
+
   it 'aborts with usage message for invalid frequency' do
     Rake::Task['notifications:send_pending_digests'].reenable
     expect {

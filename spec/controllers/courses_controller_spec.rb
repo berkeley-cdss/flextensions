@@ -134,6 +134,172 @@ RSpec.describe CoursesController, type: :controller do
       expect(response).to redirect_to(courses_path)
       expect(flash[:alert]).to eq('You do not have access to this page.')
     end
+
+    context 'as an instructor' do
+      let(:instructor) { User.create!(email: 'teacher@example.com', canvas_uid: '999', name: 'Teacher') }
+
+      before do
+        session[:user_id] = instructor.canvas_uid
+        instructor.lms_credentials.create!(
+          lms_id: 1, token: 't', expire_time: 1.hour.from_now
+        )
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+      end
+
+      it 'renders the Course Details page' do
+        get :edit, params: { id: course.id }
+
+        expect(response).to render_template(:edit)
+      end
+    end
+  end
+
+  describe 'PATCH #update' do
+    let(:instructor) { User.create!(email: 'teacher@example.com', canvas_uid: '999', name: 'Teacher') }
+
+    before do
+      session[:user_id] = instructor.canvas_uid
+      instructor.lms_credentials.create!(
+        lms_id: 1, token: 't', expire_time: 1.hour.from_now
+      )
+      Enrollment.create!(user: instructor, course: course, role: 'teacher')
+    end
+
+    it 'updates the name, code and semester from the dropdowns' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'New Name', course_code: 'NEW1', semester_season: 'Fall', semester_year: '2025' }
+      }
+
+      expect(response).to redirect_to(edit_course_path(course))
+      expect(flash[:notice]).to eq('Course details updated successfully.')
+      course.reload
+      expect(course.course_name).to eq('New Name')
+      expect(course.course_code).to eq('NEW1')
+      expect(course.semester).to eq('Fall 2025')
+    end
+
+    it 'can flag the course as a demo course' do
+      patch :update, params: { id: course.id, course: { course_name: 'Test Course', demo_course: '1' } }
+
+      expect(course.reload.demo_course).to be true
+    end
+
+    it 'leaves the semester unchanged when the dropdowns are blank' do
+      course.update!(semester: 'weird-format')
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Kept Name', semester_season: '', semester_year: '' }
+      }
+
+      course.reload
+      expect(course.course_name).to eq('Kept Name')
+      expect(course.semester).to eq('weird-format')
+    end
+
+    it 'redirects non-instructor users' do
+      session[:user_id] = user.canvas_uid
+
+      patch :update, params: { id: course.id, course: { course_name: 'Nope' } }
+
+      expect(response).to redirect_to(courses_path)
+      expect(flash[:alert]).to eq('You do not have access to this page.')
+      expect(course.reload.course_name).to eq('Test Course')
+    end
+
+    it 're-renders with an alert when validation fails' do
+      patch :update, params: { id: course.id, course: { course_name: '' } }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(flash[:alert]).to include('Failed to update course details')
+    end
+
+    it 'saves the course-settings fields shown on Course Details' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: {
+          enable_extensions: 'true',
+          enable_gradescope: 'true',
+          gradescope_course_url: 'https://www.gradescope.com/courses/123456'
+        }
+      }
+
+      expect(response).to redirect_to(edit_course_path(course))
+      settings = course.reload.course_settings
+      expect(settings.enable_extensions).to be true
+      expect(settings.enable_gradescope).to be true
+      expect(settings.gradescope_course_url).to eq('https://www.gradescope.com/courses/123456')
+    end
+
+    it 'sends a Slack ping when the webhook is newly enabled' do
+      expect(SlackNotifier).to receive(:notify).and_return(true)
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: {
+          enable_slack_webhook_url: 'true',
+          slack_webhook_url: 'https://hooks.slack.com/services/T/B/x'
+        }
+      }
+
+      expect(response).to redirect_to(edit_course_path(course))
+      expect(flash[:notice]).to include('Check your Slack channel')
+    end
+
+    it 'warns when the Slack ping fails' do
+      allow(SlackNotifier).to receive(:notify).and_return(false)
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: {
+          enable_slack_webhook_url: 'true',
+          slack_webhook_url: 'https://hooks.slack.com/services/T/B/x'
+        }
+      }
+
+      expect(flash[:alert]).to include('Failed to send Slack notification')
+    end
+
+    it 'persists pending notification settings' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: { pending_notification_frequency: 'daily', pending_notification_email: 'prof@berkeley.edu' }
+      }
+
+      settings = course.reload.course_settings
+      expect(settings.pending_notification_frequency).to eq('daily')
+      expect(settings.pending_notification_email).to eq('prof@berkeley.edu')
+    end
+
+    it 'clears the stored email when the frequency is set to blank' do
+      course.course_settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof@berkeley.edu')
+
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: { pending_notification_frequency: '', pending_notification_email: '' }
+      }
+
+      settings = course.reload.course_settings
+      expect(settings.pending_notification_frequency).to be_nil
+      expect(settings.pending_notification_email).to be_nil
+    end
+
+    it 'shows a validation error for an invalid notification email' do
+      patch :update, params: {
+        id: course.id,
+        course: { course_name: 'Test Course' },
+        course_settings: { pending_notification_frequency: 'daily', pending_notification_email: 'not-an-email' }
+      }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(flash[:alert]).to include('Failed to update course details')
+    end
   end
 
   describe 'POST #create' do
@@ -161,6 +327,44 @@ RSpec.describe CoursesController, type: :controller do
       post :create, params: { courses: [ '999' ] }
 
       expect(Course).to have_received(:create_or_update_from_canvas).with(lead_ta_course, 'fake_token', user)
+    end
+
+    context 'when an import fails' do
+      let(:failing_course) do
+        { 'id' => '456', 'name' => 'New Canvas Course', 'course_code' => 'C101', 'enrollments' => [ { 'type' => 'teacher' } ] }
+      end
+      let(:working_course) do
+        { 'id' => '457', 'name' => 'Working Course', 'course_code' => 'C102', 'enrollments' => [ { 'type' => 'teacher' } ] }
+      end
+
+      before do
+        allow(Rails.error).to receive(:report)
+      end
+
+      it 'reports the error and tells the user which course failed' do
+        allow(Course).to receive(:fetch_courses).and_return([ failing_course ])
+        allow(Course).to receive(:create_or_update_from_canvas)
+          .and_raise(CanvasFacade::CanvasAPIError, 'Canvas is down')
+
+        post :create, params: { courses: [ '456' ] }
+
+        expect(Rails.error).to have_received(:report)
+          .with(an_instance_of(CanvasFacade::CanvasAPIError), hash_including(source: 'courses#create'))
+        expect(flash[:alert]).to include('New Canvas Course')
+        expect(flash[:notice]).to be_nil
+      end
+
+      it 'still confirms the courses that did import' do
+        allow(Course).to receive(:fetch_courses).and_return([ failing_course, working_course ])
+        allow(Course).to receive(:create_or_update_from_canvas) do |course_api, _token, _user|
+          raise CanvasFacade::CanvasAPIError, 'Canvas is down' if course_api['id'] == '456'
+        end
+
+        post :create, params: { courses: %w[456 457] }
+
+        expect(flash[:alert]).to include('New Canvas Course')
+        expect(flash[:notice]).to be_present
+      end
     end
   end
 
@@ -258,6 +462,85 @@ RSpec.describe CoursesController, type: :controller do
 
         expect(response).to have_http_status(:forbidden)
         expect(response.parsed_body).to eq({ 'error' => 'You do not have permission.' })
+      end
+    end
+  end
+
+  describe 'GET #sync_status' do
+    before do
+      Enrollment.create!(user: user, course: course, role: 'teacher')
+    end
+
+    it 'returns sync timestamps and any recorded sync errors' do
+      course_to_lms.update!(
+        recent_roster_sync: {
+          'synced_at' => '2026-08-24T12:00:00Z',
+          'error' => 'Unexpected response from Canvas API',
+          'failed_at' => '2026-08-25T01:00:00Z'
+        },
+        recent_assignment_sync: { 'synced_at' => '2026-08-24T12:00:00Z' }
+      )
+
+      get :sync_status, params: { id: course.id }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include(
+        'roster_synced_at' => '2026-08-24T12:00:00Z',
+        'roster_sync_error' => 'Unexpected response from Canvas API',
+        'roster_sync_failed_at' => '2026-08-25T01:00:00Z',
+        'assignments_synced_at' => '2026-08-24T12:00:00Z',
+        'assignments_sync_error' => nil,
+        'assignments_sync_failed_at' => nil
+      )
+    end
+
+    context 'with a Gradescope link whose sync failed' do
+      before do
+        Lms.find_or_create_by(id: 2) { |l| l.lms_name = 'Gradescope'; l.use_auth_token = false }
+        course_to_lms.update!(recent_assignment_sync: { 'synced_at' => '2026-08-25T12:00:00Z' })
+      end
+
+      let!(:gradescope_link) do
+        CourseToLms.create!(
+          course: course, external_course_id: '9999', lms_id: 2,
+          recent_assignment_sync: {
+            'synced_at' => '2026-08-24T12:00:00Z',
+            'error' => 'Flextensions could not access this course in Gradescope.',
+            'failed_at' => '2026-08-25T12:00:05Z'
+          }
+        )
+      end
+
+      it 'surfaces the Gradescope failure and does not advance assignments_synced_at past it' do
+        get :sync_status, params: { id: course.id }
+
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to include(
+          'assignments_synced_at' => '2026-08-24T12:00:00Z',
+          'assignments_sync_error' => 'Flextensions could not access this course in Gradescope.',
+          'assignments_sync_failed_at' => '2026-08-25T12:00:05Z'
+        )
+      end
+
+      context 'when the Gradescope link has never synced successfully' do
+        before do
+          gradescope_link.update!(
+            recent_assignment_sync: {
+              'error' => 'Flextensions could not access this course in Gradescope.',
+              'failed_at' => '2026-08-25T12:00:05Z'
+            }
+          )
+        end
+
+        it 'reports no synced_at so the poller waits for the failure instead of declaring success' do
+          get :sync_status, params: { id: course.id }
+
+          expect(response.parsed_body).to include(
+            'assignments_synced_at' => nil,
+            'assignments_sync_error' => 'Flextensions could not access this course in Gradescope.',
+            'assignments_sync_failed_at' => '2026-08-25T12:00:05Z'
+          )
+        end
       end
     end
   end

@@ -61,6 +61,10 @@ bower.json
 # Ignore node_modules
 node_modules/
 
+# Ignore the release info stamped in by the build (see buildspec.yml)
+/REVISION
+/DEPLOYED_AT
+
 # Ignore precompiled javascript packs
 /public/packs
 /public/packs-test

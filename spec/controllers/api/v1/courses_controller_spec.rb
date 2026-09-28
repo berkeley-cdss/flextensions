@@ -6,6 +6,33 @@ module API
 
       before { session[:user_id] = api_user.canvas_uid }
 
+      describe 'availability guard outside the test environment' do
+        before do
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+        end
+
+        it 'refuses #create with :forbidden and does not write data' do
+          expect do
+            post :create, params: { course_name: 'Blocked Course' }
+          end.not_to change(Course, :count)
+
+          expect(response).to have_http_status(:forbidden)
+          expect(response.parsed_body['error']).to eq('This endpoint is not available')
+        end
+
+        it 'refuses #add_user with :forbidden and does not create an enrollment' do
+          course = Course.create!(course_name: 'Guarded Course')
+          user = User.create!(email: 'guarded@example.com')
+
+          expect do
+            post :add_user, params: { course_id: course.id, user_id: user.id, role: 'teacher' }
+          end.not_to change(Enrollment, :count)
+
+          expect(response).to have_http_status(:forbidden)
+          expect(response.parsed_body['error']).to eq('This endpoint is not available')
+        end
+      end
+
       describe 'POST #create' do
         context 'when the new course is successfully created' do
           let(:course_name) { 'New Course' }

@@ -3,19 +3,17 @@ class StatusController < ApplicationController
   skip_before_action :authenticated!
 
   def health_check
-    # TODO: Consider if an API call to canvas makes sense here
-    render json: { status: 'ok', **check_database }
+    database_status = check_database
+    http_status = database_status[:database] ? :ok : :internal_server_error
+    render json: { status: http_status, **database_status }, status: http_status
   end
 
   def version
-    git_commit = fetch_git_commit
-    puma_start_time = fetch_puma_start_time
-    server_time = Time.zone.now
-
     render json: {
-      git_commit: git_commit,
-      puma_start_time: puma_start_time,
-      server_time: server_time
+      git_commit: DeploymentInfo.commit,
+      deployed_at: DeploymentInfo.deployed_at,
+      puma_start_time: fetch_puma_start_time,
+      server_time: Time.zone.now
     }
   end
 
@@ -26,12 +24,6 @@ class StatusController < ApplicationController
     { database: true }
   rescue => e
     { database: false, error: e.message }
-  end
-
-  def fetch_git_commit
-    ENV['GIT_COMMIT'] || ENV['HEROKU_SLUG_COMMIT'] || `git rev-parse HEAD`.strip.presence || nil
-  rescue StandardError
-    'unknown'
   end
 
   def fetch_puma_start_time

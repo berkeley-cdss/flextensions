@@ -1,0 +1,27 @@
+<p>Hello,</p>
+
+<p>
+  You have <%= @pending_requests.size %> pending extension <%= 'request'.pluralize(@pending_requests.size) %>
+  in <%= link_to @course.course_code, @course.course_link %>
+  (<%= [@course.course_name, @course.semester].compact_blank.join(', ') %>).
+</p>
+
+<p>
+  Please review them on the <%= link_to 'requests page', @course.requests_link %>.<br>
+  In the past <%= @period_label %> <%= @auto_approved_count %> <%= 'request'.pluralize(@auto_approved_count) %> <%= @auto_approved_count == 1 ? 'has' : 'have' %> been auto approved.
+</p>
+
+<p>Here are the individual pending requests:</p>
+<ul>
+  <% @listed_requests.each do |request| %>
+    <li>
+      <%= link_to "#{request.user.name.presence || 'Unknown student'}, #{request.assignment.name}, #{pluralize(request.calculate_days_difference, 'day')}",
+                  request.request_link %>
+    </li>
+  <% end %>
+  <% if @unlisted_count.positive? %>
+    <li>…and <%= @unlisted_count %> more on the <%= link_to 'requests page', @course.requests_link %>.</li>
+  <% end %>
+</ul>
+
+<p>Thanks!</p>

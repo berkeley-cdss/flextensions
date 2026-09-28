@@ -1,0 +1,14 @@
+<%= t('.greeting', name: @student.name.presence || t('.fallback_name')) %>
+
+<%= t('.received', assignment: @assignment.name, course_name: @course.course_name, course_code: @course.course_code) %>
+<%= @request.status == 'approved' ? t('.auto_approved') : t('.pending_review') %>
+
+<% @request.email_details_rows.each do |label, value| -%>
+<%= label %>: <%= value %>
+<% end -%>
+
+<% if @request.status == 'pending' -%>
+<%= t('.edit_hint') %>
+
+<% end -%>
+<%= @reply_email ? t('.questions_reply') : t('.questions_contact') %>

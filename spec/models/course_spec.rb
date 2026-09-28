@@ -104,6 +104,28 @@ RSpec.describe Course, type: :model do
     end
   end
 
+  describe '#duplicate_assignment_names' do
+    it 'returns names shared by more than one enabled assignment' do
+      course = create(:course)
+      link = course.course_to_lms(1)
+      create(:assignment, name: 'Homework 1', course_to_lms: link, enabled: true)
+      create(:assignment, name: 'Homework 1', course_to_lms: link, enabled: true)
+      create(:assignment, name: 'Homework 2', course_to_lms: link, enabled: true)
+      create(:assignment, name: 'Homework 2', course_to_lms: link, enabled: false)
+
+      expect(course.duplicate_assignment_names).to eq(Set['Homework 1'])
+    end
+
+    it 'ignores matching names in other courses' do
+      course = create(:course)
+      other_course = create(:course)
+      create(:assignment, name: 'Homework 1', course_to_lms: course.course_to_lms(1), enabled: true)
+      create(:assignment, name: 'Homework 1', course_to_lms: other_course.course_to_lms(1), enabled: true)
+
+      expect(course.duplicate_assignment_names).to be_empty
+    end
+  end
+
   describe '#staff_user_for_auto_approval' do
     let(:course) { described_class.create!(canvas_id: 'canvas_123', course_name: 'Test', course_code: 'TEST101') }
 
@@ -206,6 +228,15 @@ RSpec.describe Course, type: :model do
 
   describe '.find_or_create_course' do
     let(:token) { 'fake_token' }
+
+    it 'raises when Canvas fails to return the course' do
+      stub_request(:get, %r{api/v1/courses/canvas_123})
+        .to_return(status: 401, body: { errors: 'unauthorized' }.to_json)
+
+      expect {
+        described_class.find_or_create_course(course_data, token)
+      }.to raise_error(CanvasFacade::CanvasAPIError, /HTTP 401/)
+    end
 
     it 'creates a new course if not found' do
       # Stub the Faraday request
@@ -362,6 +393,40 @@ end
     end
   end
 
+  describe '.semester_year_options' do
+    it 'spans 2012 through next year relative to the given date' do
+      options = described_class.semester_year_options(Date.new(2026, 6, 23))
+      expect(options.first).to eq(2012)
+      expect(options.last).to eq(2027)
+    end
+  end
+
+  describe '.parse_semester' do
+    around do |example|
+      travel_to(Date.new(2026, 6, 23)) { example.run }
+    end
+
+    it 'splits a well-formed semester into [season, year]' do
+      expect(described_class.parse_semester('Spring 2026')).to eq([ 'Spring', 2026 ])
+      expect(described_class.parse_semester('Fall 2025')).to eq([ 'Fall', 2025 ])
+    end
+
+    it 'returns [nil, nil] for an unrecognized season' do
+      expect(described_class.parse_semester('Autumn 2026')).to eq([ nil, nil ])
+    end
+
+    it 'returns [nil, nil] for an out-of-range year' do
+      expect(described_class.parse_semester('Spring 2011')).to eq([ nil, nil ])
+      expect(described_class.parse_semester('Spring 2099')).to eq([ nil, nil ])
+    end
+
+    it 'returns [nil, nil] for blank or malformed input' do
+      expect(described_class.parse_semester(nil)).to eq([ nil, nil ])
+      expect(described_class.parse_semester('')).to eq([ nil, nil ])
+      expect(described_class.parse_semester('Spring2026')).to eq([ nil, nil ])
+    end
+  end
+
   describe '.semester_from_term' do
     it 'returns the term name when present' do
       expect(described_class.semester_from_term({ 'name' => 'Spring 2026' })).to eq('Spring 2026')
@@ -467,6 +532,51 @@ end
       expect do
         described_class.create_or_update_from_canvas(course_data, 'fake_token', user)
       end.to change(described_class, :count).by(1).and change(FormSetting, :count).by(1)
+    end
+
+    it 'synchronously enrolls the creating user with their Canvas role' do
+      data = course_data.merge('enrollments' => [ { 'type' => 'student' }, { 'type' => 'teacher' } ])
+      stub_request(:get, %r{api/v1/courses/canvas_123})
+        .to_return(status: 200, body: { name: 'Intro to RSpec', course_code: 'RSPEC101' }.to_json)
+
+      course = described_class.create_or_update_from_canvas(data, 'fake_token', user)
+
+      expect(course.enrollments.exists?(user: user, role: 'teacher')).to be true
+    end
+  end
+
+  describe '#enroll_user_with_highest_role' do
+    let!(:course) { described_class.create!(canvas_id: 'canvas_enroll', course_name: 'Enroll Test', course_code: 'ENR101') }
+    let(:user) { create(:user) }
+
+    it 'enrolls the user with the highest-ranked role from the Canvas enrollments' do
+      course.enroll_user_with_highest_role(user, [ { 'type' => 'ta' }, { 'type' => 'teacher' } ])
+
+      expect(course.enrollments.find_by(user: user).role).to eq('teacher')
+    end
+
+    it 'does not duplicate an existing enrollment' do
+      Enrollment.create!(user: user, course: course, role: 'teacher')
+
+      expect {
+        course.enroll_user_with_highest_role(user, [ { 'type' => 'teacher' } ])
+      }.not_to change(Enrollment, :count)
+    end
+
+    it 'is a no-op when no Canvas enrollment maps to a known role' do
+      expect {
+        course.enroll_user_with_highest_role(user, [ { 'type' => 'observer' } ])
+      }.not_to change(Enrollment, :count)
+    end
+  end
+
+  describe '#course_link', app_origin: 'https://flextensions.example.com' do
+    let(:course) { create(:course, canvas_id: 'canvas_link', course_name: 'Linked', course_code: 'LNK101') }
+
+    # A bare path in an email renders as "http:///courses/19" in the mail client.
+    it 'is an absolute URL, as is the requests link derived from it' do
+      expect(course.course_link).to eq("https://flextensions.example.com/courses/#{course.id}")
+      expect(course.requests_link).to eq("https://flextensions.example.com/courses/#{course.id}/requests")
     end
   end
 end

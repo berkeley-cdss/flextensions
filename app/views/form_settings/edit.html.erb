@@ -37,7 +37,12 @@
 				</div>
 			</div>
 						
-		<%= form_with(model: [@course, @form_setting], url: course_form_setting_path(@course), method: :patch, local: true) do |f| %>
+		<%= form_with(model: [@course, @form_setting], url: course_form_setting_path(@course), method: :patch, local: true,
+		              data: {
+		                controller: 'unsaved-changes',
+		                action: 'input->unsaved-changes#markDirty change->unsaved-changes#markDirty submit->unsaved-changes#save'
+		              }) do |f| %>
+			<%= render 'shared/unsaved_changes_toast' %>
 			<% if @form_setting.errors.any? %>
 				<div id="error_explanation" class="alert alert-danger">
 					<h2><%= pluralize(@form_setting.errors.count, "error") %> prohibited this form setting from being saved:</h2>
@@ -51,9 +56,13 @@
 
 			<div class="card rounded-0 mb-4">
 				<div class="card-header">
-					<h2 class="card-title mb-0 h5">Why do you need this extension?</h2>
+					<h2 class="card-title mb-0 h5">Reason for Extension <span class="fw-normal">(always required)</span></h2>
 				</div>
 				<div class="card-body">
+					<label for="form_setting_reason_title" class="form-label">Question text</label>
+					<%= f.text_field :reason_title, class: "form-control", id: "form_setting_reason_title",
+						placeholder: FormSetting::DEFAULT_REASON_TITLE, aria: { describedby: "form_setting_reason_title_help" } %>
+					<div id="form_setting_reason_title_help" class="form-text mb-2">Leave blank to use the default question, "<%= FormSetting::DEFAULT_REASON_TITLE %>".</div>
 					<label for="form_setting_reason_desc" class="form-label">Custom Description</label>
 					<%= f.text_area :reason_desc, class: "form-control", id: "form_setting_reason_desc" %>
 				</div>
@@ -149,8 +158,8 @@
 				</div>
 			</div>
 			
-			<div class="text-center mb-4">
-				<%= f.submit 'Update', class: "btn btn-success" %>
+			<div class="text-start mb-4">
+				<%= f.submit 'Save Form Settings', class: "btn btn-success px-4" %>
 			</div>
 		<% end %>
 		</div>

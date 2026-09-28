@@ -1,34 +1,60 @@
-# This configuration file will be evaluated by Puma. The top-level methods that
-# are invoked here are part of Puma's configuration DSL. For more information
-# about methods provided by the DSL, see https://puma.io/puma/Puma/DSL.html.
-
-# Puma starts a configurable number of processes (workers) and each process
-# serves each request in a thread from an internal thread pool.
+# Loaded by `rails server` locally and in the Docker image, and by the Procfile
+# (`bundle exec puma -C config/puma.rb`) on Elastic Beanstalk.
 #
-# The ideal number of threads per worker depends both on how much time the
-# application spends waiting for IO operations and on how much you wish to
-# to prioritize throughput over latency.
+# Where Puma listens depends on *where it is running*, never on how many
+# workers it has. EB's nginx only proxies to the Unix socket below, so the
+# socket bind must apply in single mode too: an EB environment without
+# WEB_CONCURRENCY set otherwise boots one process on TCP 3000, nginx answers
+# 502, the health check fails and EB rolls the deployment back.
 #
-# As a rule of thumb, increasing the number of threads will increase how much
-# traffic a given process can handle (throughput), but due to CRuby's
-# Global VM Lock (GVL) it has diminishing returns and will degrade the
-# response time (latency) of the application.
-#
-# The default is set to 3 threads as it's deemed a decent compromise between
-# throughput and latency for the average Rails application.
-#
-# Any libraries that use a connection pool or another resource pool should
-# be configured to provide at least as many connections as the number of
-# threads. This includes Active Record's `pool` parameter in `database.yml`.
-threads_count = ENV.fetch("RAILS_MAX_THREADS", 3)
-threads threads_count, threads_count
+# Per worker process:  AR pool >= RAILS_MAX_THREADS + GOOD_JOB_MAX_THREADS + 1
+# database.yml derives the pool from the same env vars — keep them in sync.
 
-# Specifies the `port` that Puma will listen on to receive requests; default is 3000.
-port ENV.fetch("PORT", 3000)
+max_threads_count = ENV.fetch('RAILS_MAX_THREADS', 5).to_i
+min_threads_count = ENV.fetch('RAILS_MIN_THREADS', max_threads_count).to_i
+threads min_threads_count, max_threads_count
 
-# Allow puma to be restarted by `bin/rails restart` command.
-plugin :tmp_restart
+rails_env = ENV.fetch('RAILS_ENV', 'development')
+environment rails_env
 
-# Specify the PID file. Defaults to tmp/pids/server.pid in development.
-# In other environments, only set the PID file if requested.
-pidfile ENV["PIDFILE"] if ENV["PIDFILE"]
+# The Ruby platform installs its tooling here; dev machines, CI and the Docker
+# image do not have it.
+on_elastic_beanstalk = File.directory?('/opt/elasticbeanstalk')
+
+if on_elastic_beanstalk
+  directory '/var/app/current'
+  bind 'unix:///var/run/puma/my_app.sock'   # EB nginx proxies to this socket
+  stdout_redirect '/var/log/puma/puma.log', '/var/log/puma/puma.log', true
+else
+  port ENV.fetch('PORT', 3000)
+end
+
+# WEB_CONCURRENCY sets the worker count; 0 runs a single process. Until it is
+# set as an EB environment property, production and staging default to 2
+# workers and everything else to a single process.
+default_workers = %w[production staging].include?(rails_env) ? 2 : 0
+workers ENV.fetch('WEB_CONCURRENCY', default_workers).to_i
+
+single do
+  plugin :tmp_restart            # bin/rails restart
+end
+
+cluster do
+  preload_app!
+  worker_timeout 120             # default 60; nightly AIDE run was killing workers
+
+  # GoodJob runs in-process (:async, see config/environments/production.rb).
+  # With preload_app! its thread pool starts in the master before the fork,
+  # and threads do not survive fork, so each worker would inherit a capsule
+  # with no running threads. Per GoodJob's Puma guidance: stop before forking,
+  # restart in each worker, stop again when a worker exits.
+  before_fork { GoodJob.shutdown if defined?(GoodJob) }
+  before_worker_boot { GoodJob.restart if defined?(GoodJob) }
+  before_worker_shutdown { GoodJob.shutdown if defined?(GoodJob) }
+end
+
+# Thread backtraces only if a graceful stop escalates to a forced one.
+shutdown_debug on_force: true
+force_shutdown_after 30
+
+pidfile ENV['PIDFILE'] if ENV['PIDFILE']

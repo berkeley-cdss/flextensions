@@ -42,6 +42,59 @@ module Flextensions
     config.generators.system_tests = nil
     config.active_job.queue_adapter = :good_job
 
+    # Address users are told to contact when something goes wrong on our side
+    # (error flashes, support prompts). Read it via
+    # Rails.configuration.x.contact_email rather than hard-coding the address
+    # so it can be changed in one place. Overridable with CONTACT_EMAIL.
+    config.x.contact_email = ENV.fetch('CONTACT_EMAIL') { 'flextensions@berkeley.edu' }
+
+    # Report unhandled job exceptions (and GoodJob's own thread errors) to the
+    # Rails error reporter. GoodJob only records these on the job row in its
+    # dashboard; without this hook they never reach subscribers like Faultline.
+    config.good_job.on_thread_error = ->(exception) do
+      Rails.error.report(exception, handled: false, source: 'good_job')
+    end
+
+    # Recurring jobs, run by GoodJob's built-in cron. The schedule is defined
+    # for every environment so it is visible in one place, but GoodJob only acts
+    # on it where `enable_cron` is true (production/staging — see
+    # config/environments/production.rb).
+    #
+    # Times are Pacific (the timezone is the trailing cron field) so they match
+    # what instructors see in course settings, regardless of the server clock.
+    # Each occurrence is enqueued at most once even if several processes are
+    # running: GoodJob has a unique index on (cron_key, cron_at).
+    config.good_job.cron = {
+      daily_enrollment_sync: {
+        cron: '0 3 * * * America/Los_Angeles',
+        class: 'DailyEnrollmentSyncJob',
+        description: 'Daily Canvas enrollment sync sweep for recently imported courses'
+      },
+      pending_digests_hourly: {
+        cron: '0 * * * * America/Los_Angeles',
+        class: 'PendingRequestsNotificationJob',
+        args: [ 'hourly' ],
+        description: 'Pending extension request digests for courses set to hourly'
+      },
+      pending_digests_daily: {
+        cron: '0 16 * * * America/Los_Angeles',
+        class: 'PendingRequestsNotificationJob',
+        args: [ 'daily' ],
+        description: 'Pending extension request digests for courses set to daily'
+      },
+      pending_digests_weekly: {
+        cron: '0 16 * * 4 America/Los_Angeles',
+        class: 'PendingRequestsNotificationJob',
+        args: [ 'weekly' ],
+        description: 'Pending extension request digests for courses set to weekly'
+      },
+      faultline_cleanup: {
+        cron: '30 3 * * * America/Los_Angeles',
+        class: 'FaultlineCleanupJob',
+        description: 'Delete Faultline error data and APM traces past their retention windows'
+      }
+    }
+
     # We do not require the master key and insetad use environment variables
     # Review .env.example for required variables.
     config.require_master_key = false
