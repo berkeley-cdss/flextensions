@@ -50,6 +50,8 @@ jobs:
         chrome-version: stable
     - name: Setup Database
       run: bundle exec rails db:setup
+    - name: Build CSS
+      run: bundle exec rails dartsass:build
     - name: Create Chrome data directory
       run: mkdir -p /tmp/chrome-data-cucumber
     - name: Run non-JavaScript Cucumber tests
