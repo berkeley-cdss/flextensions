@@ -144,6 +144,40 @@ RSpec.describe RequestsController, type: :controller do
       expect(response).to render_template('requests/new_for_student')
     end
 
+    context 'when two assignments in the course share a name' do
+      render_views
+
+      let(:gradescope_link) { CourseToLms.create!(course:, lms: Lms.find_by(id: 2) || create(:lms, :gradescope)) }
+
+      before do
+        Assignment.create!(name: 'Homework 1', course_to_lms: course_to_lms, due_date: 2.days.from_now,
+                           external_assignment_id: 'c-hw1', enabled: true)
+        Assignment.create!(name: 'Homework 1', course_to_lms: gradescope_link, due_date: 2.days.from_now,
+                           external_assignment_id: 'g-hw1', enabled: true)
+        Assignment.create!(name: 'Homework 2', course_to_lms: course_to_lms, due_date: 3.days.from_now,
+                           external_assignment_id: 'c-hw2', enabled: true)
+      end
+
+      it 'appends the LMS name in the student dropdown' do
+        get :new, params: { course_id: course.id }
+
+        expect(response.body).to include('Homework 1 [Canvas]')
+        expect(response.body).to include('Homework 1 [Gradescope]')
+        expect(response.body).to include('>Homework 2<')
+      end
+
+      it 'appends the LMS name in the instructor dropdown' do
+        session[:user_id] = instructor.canvas_uid
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+
+        get :new, params: { course_id: course.id }
+
+        expect(response.body).to include('Homework 1 [Canvas]')
+        expect(response.body).to include('Homework 1 [Gradescope]')
+        expect(response.body).to include('>Homework 2<')
+      end
+    end
+
     it 'redirects a user with no role in the course' do
       other = User.create!(email: 'norole@example.com', canvas_uid: '654', name: 'No Role')
       session[:user_id] = other.canvas_uid

@@ -29,7 +29,7 @@
                   options_for_select(
                     [
                       [
-                        @selected_assignment.name,
+                        assignment_option_label(@selected_assignment, @course.duplicate_assignment_names),
                         @selected_assignment.id,
                         {
                           "data-original-due-date" => @selected_assignment.due_date.strftime('%a, %b %-d, %Y at %-I:%M %p'),
