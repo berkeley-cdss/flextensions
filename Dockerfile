@@ -17,9 +17,12 @@ ENV RAILS_ENV="production" \
 # Throw-away build stage to reduce size of final image
 FROM base as build
 
-# Install packages needed to build gems
+# Install packages needed to build gems. nodejs/npm are here for the DataTables
+# stylesheets only: application.scss @imports them out of node_modules, so they
+# have to be installed before assets:precompile. This is a build-stage-only
+# dependency -- the runtime image below carries no Node.
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential git libvips pkg-config
+    apt-get install --no-install-recommends -y build-essential git libvips pkg-config nodejs npm
 
 # Install application gems
 COPY Gemfile Gemfile.lock ./
@@ -29,6 +32,12 @@ RUN bundle install && \
 
 # Copy application code
 COPY . .
+
+# Install the npm packages that supply the DataTables stylesheets. --omit=dev
+# skips the documentation tooling the image does not need. This runs after
+# COPY so that npm ci (which wipes node_modules first) also clears out any
+# node_modules that came along in the build context.
+RUN npm ci --omit=dev
 
 # Precompile bootsnap code for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
