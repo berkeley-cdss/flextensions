@@ -39,10 +39,6 @@ gem 'bootsnap', require: false
 # Verify instances of `LMS::Canvas`
 gem 'lms-api'
 
-# TODO: Not used with UCB env, but used on Heroku.
-gem 'sentry-ruby'
-gem 'sentry-rails'
-
 gem 'json'
 
 # Used to make http requests.
