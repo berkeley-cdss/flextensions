@@ -201,7 +201,9 @@ links back to the request.
   field) of the assignment, status, due dates, days requested, and the
   student's reason.
   The individual fields are also available:
-  `{{original_due_date}}, {{new_due_date}}, {{requested_due_date}}, {{extension_days}}, {{status}}`
+  `{{original_due_date}}, {{new_due_date}}, {{requested_due_date}}, {{requested_days}}, {{status}}`
+  (`{{extension_days}}` is an older name for `{{requested_days}}` and still
+  works in existing templates.)
 
 Each variable on the page has a copy button next to it.
 

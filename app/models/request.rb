@@ -325,6 +325,7 @@ class Request < ApplicationRecord
   # Keep the list on the Email Templates settings page in sync with this.
   def email_template_mapping
     requested = requested_due_date.strftime(EMAIL_DATE_FORMAT)
+    days = calculate_days_difference.to_s
     {
       'student_name' => user.name,
       'student_email' => user.email,
@@ -336,7 +337,10 @@ class Request < ApplicationRecord
       'original_due_date' => assignment.due_date.strftime(EMAIL_DATE_FORMAT),
       'new_due_date' => requested,
       'requested_due_date' => requested,
-      'extension_days' => calculate_days_difference.to_s,
+      'requested_days' => days,
+      # Deprecated alias for {{requested_days}}, kept so templates written
+      # before the rename keep rendering the number of days.
+      'extension_days' => days,
       'request_url' => request_link,
       'request_details_table' => email_details_html
     }

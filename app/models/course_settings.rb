@@ -9,7 +9,7 @@
 #  denial_email_subject               :string
 #  denial_email_template              :text
 #  email_subject                      :string
-#  email_template                     :text             default("")
+#  email_template                     :text
 #  enable_emails                      :boolean          default(FALSE)
 #  enable_extensions                  :boolean          default(FALSE)
 #  enable_gradescope                  :boolean          default(FALSE)
@@ -29,8 +29,9 @@
 #
 #  email_subject / email_template hold the *approval* email; the denial_*
 #  columns hold the *denial* email. The approval columns keep their original
-#  names because renaming a column in use is not a safe migration. The denial
-#  columns are NULL unless staff customized them (see normalizes below).
+#  names because renaming a column in use is not a safe migration. All four
+#  columns are NULL unless staff customized them (see normalizes below), so a
+#  course that has not edited a template always sends the current default.
 #
 # Indexes
 #
@@ -73,11 +74,14 @@ class CourseSettings < ApplicationRecord
   # `allow_nil` behaves as expected and unset rows compare equal.
   normalizes :pending_notification_frequency, :pending_notification_email, with: ->(v) { v.presence }
 
-  # Browsers submit textarea content with CRLF line endings; store LF so a
-  # template round-tripped through the form compares equal to what was saved.
-  normalizes :email_template, :denial_email_template, with: ->(v) { v&.gsub("\r\n", "\n") }
-  # The denial template is only stored when it differs from the default, so a
-  # course that has not customized it always sends the current default text.
+  # A template is only stored when it differs from the default, so a course
+  # that has not customized it always sends the current default text. The
+  # same rule resets a template that is saved blank, and CRLF line endings
+  # submitted from the form's textarea are stored as LF (see customized_template).
+  normalizes :email_subject,
+             with: ->(v) { CourseSettings.customized_template(v, DEFAULT_APPROVAL_EMAIL_SUBJECT) }
+  normalizes :email_template,
+             with: ->(v) { CourseSettings.customized_template(v, DEFAULT_APPROVAL_EMAIL_TEMPLATE) }
   normalizes :denial_email_subject,
              with: ->(v) { CourseSettings.customized_template(v, DEFAULT_DENIAL_EMAIL_SUBJECT) }
   normalizes :denial_email_template,
@@ -87,11 +91,6 @@ class CourseSettings < ApplicationRecord
   # Clear a stored email when notifications are turned off, so re-enabling
   # doesn't silently reuse a stale address.
   before_save -> { self.pending_notification_email = nil if pending_notification_frequency.nil? }
-  # Seed the approval templates on the row itself so the stored value is the
-  # source of truth (the columns no longer carry a meaningful DB default).
-  # Runs on every save so a template that is cleared out in the settings form
-  # falls back to the default instead of sending an empty email.
-  before_save :apply_default_email_templates
 
   validate :gradescope_url_is_valid, if: :enable_gradescope?
   validate :cc_course_staff_requires_reply_email, if: :cc_course_staff?
@@ -107,17 +106,12 @@ class CourseSettings < ApplicationRecord
 
   # Returns nil when the submitted value is blank or matches the default
   # (ignoring line-ending and surrounding-whitespace differences), otherwise
-  # the value itself.
+  # the value with CRLF line endings converted to LF.
   def self.customized_template(value, default)
     return nil if value.blank?
 
     normalized = value.gsub("\r\n", "\n")
     normalized.strip == default.strip ? nil : normalized
-  end
-
-  def apply_default_email_templates
-    self.email_subject = DEFAULT_APPROVAL_EMAIL_SUBJECT if email_subject.blank?
-    self.email_template = DEFAULT_APPROVAL_EMAIL_TEMPLATE if email_template.blank?
   end
 
   # The subject and body templates to send for a request that reached the

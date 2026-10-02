@@ -6,7 +6,7 @@
 #  auto_approve_days                  :integer          default(0)
 #  auto_approve_extended_request_days :integer          default(0)
 #  email_subject                      :string
-#  email_template                     :text             default("")
+#  email_template                     :text
 #  enable_emails                      :boolean          default(FALSE)
 #  enable_extensions                  :boolean          default(FALSE)
 #  enable_gradescope                  :boolean          default(FALSE)
@@ -58,14 +58,18 @@ RSpec.describe CourseSettings, type: :model do
   end
 
   describe 'default email templates' do
-    it 'seeds the approval subject and body from the constants when a row is created' do
-      expect(course_settings.email_subject).to eq(described_class::DEFAULT_APPROVAL_EMAIL_SUBJECT)
-      expect(course_settings.email_template).to eq(described_class::DEFAULT_APPROVAL_EMAIL_TEMPLATE)
-    end
-
-    it 'leaves the denial subject and body NULL so the default is not stored' do
+    it 'leaves every subject and body NULL so the default is not stored' do
+      expect(course_settings.email_subject).to be_nil
+      expect(course_settings.email_template).to be_nil
       expect(course_settings.denial_email_subject).to be_nil
       expect(course_settings.denial_email_template).to be_nil
+    end
+
+    it 'uses {{requested_days}} rather than the old {{extension_days}} name in the defaults' do
+      expect(described_class::DEFAULT_APPROVAL_EMAIL_TEMPLATE).to include('{{requested_days}}')
+      expect(described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE).to include('{{requested_days}}')
+      expect(described_class::DEFAULT_APPROVAL_EMAIL_TEMPLATE).not_to include('{{extension_days}}')
+      expect(described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE).not_to include('{{extension_days}}')
     end
 
     it 'keeps explicitly provided values' do
@@ -79,10 +83,15 @@ RSpec.describe CourseSettings, type: :model do
       expect(other.course_settings.reload.denial_email_template).to eq('Denied body')
     end
 
-    it 'restores the approval default when a template is saved blank' do
-      course_settings.update!(email_subject: '')
+    it 'stores NULL when the approval template is saved blank or equal to the default' do
+      course_settings.update!(email_subject: 'Custom', email_template: 'Custom body')
+      course_settings.update!(email_subject: '', email_template: described_class::DEFAULT_APPROVAL_EMAIL_TEMPLATE)
 
-      expect(course_settings.reload.email_subject).to eq(described_class::DEFAULT_APPROVAL_EMAIL_SUBJECT)
+      expect(course_settings.reload.email_subject).to be_nil
+      expect(course_settings.reload.email_template).to be_nil
+      expect(course_settings.email_templates_for('approved')).to eq(
+        subject: described_class::DEFAULT_APPROVAL_EMAIL_SUBJECT, body: described_class::DEFAULT_APPROVAL_EMAIL_TEMPLATE
+      )
     end
 
     it 'stores NULL when the denial template is saved blank or equal to the default' do
@@ -95,8 +104,10 @@ RSpec.describe CourseSettings, type: :model do
     end
 
     it 'treats the default submitted with CRLF line endings from the form as not customized' do
-      course_settings.update!(denial_email_template: described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE.gsub("\n", "\r\n"))
+      course_settings.update!(email_template: described_class::DEFAULT_APPROVAL_EMAIL_TEMPLATE.gsub("\n", "\r\n"),
+                              denial_email_template: described_class::DEFAULT_DENIAL_EMAIL_TEMPLATE.gsub("\n", "\r\n"))
 
+      expect(course_settings.reload.email_template).to be_nil
       expect(course_settings.reload.denial_email_template).to be_nil
     end
 
