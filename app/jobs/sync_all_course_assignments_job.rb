@@ -70,9 +70,8 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
   end
 
   # Reports a Gradescope authentication failure to the Rails error reporter
-  # (and through it Faultline). Faultline has no message-only capture like
-  # Sentry's capture_message, so the exception itself is reported, with the
-  # course/user linked via the context hash (each key becomes a Faultline
+  # (and through it Faultline). Faultline has no message-only capture, so the
+  # exception itself is reported, with the course/user linked via the context hash (each key becomes a Faultline
   # error-context row). Runs while handling that error, so it must not raise.
   def report_gradescope_auth_error(error, course_to_lms, sync_user)
     course = course_to_lms&.course
