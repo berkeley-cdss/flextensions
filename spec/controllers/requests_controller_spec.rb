@@ -127,6 +127,35 @@ RSpec.describe RequestsController, type: :controller do
       get :show, params: { course_id: course.id, id: request.id }
       expect(assigns(:review)).to be_nil
     end
+
+    context 'when staff view a decided request' do
+      render_views
+
+      before do
+        session[:user_id] = instructor.canvas_uid
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+        instructor.lms_credentials.create!(
+          lms_id: 1, token: 'fake_token', refresh_token: 'fake_refresh_token', expire_time: 1.hour.from_now
+        )
+      end
+
+      it 'offers an Approve button, with a confirmation, on a denied request' do
+        request.update!(status: 'denied')
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(response.body).to include(approve_course_request_path(course, request))
+        expect(response.body).to include('This request was denied. Approving it will re-open the assignment to the selected date, and override any other requests for this assignment.')
+      end
+
+      it 'does not offer an Approve button on an approved request' do
+        request.update!(status: 'approved')
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(response.body).not_to include(approve_course_request_path(course, request))
+      end
+    end
   end
 
   describe 'GET #new' do
@@ -521,6 +550,25 @@ RSpec.describe RequestsController, type: :controller do
       expect(response).to have_http_status(:unprocessable_content)
       expect(payload['success']).to be(false)
       expect(payload['message']).to match(/failed/i)
+    end
+
+    it 'approves a previously denied request' do
+      request.update!(status: 'denied')
+      allow_any_instance_of(Request).to receive(:approve).and_return(true)
+
+      post :approve, params: { course_id: course.id, id: request.id }
+
+      expect(response).to redirect_to(course_requests_path(course))
+      expect(flash[:notice]).to match(/approved/i)
+    end
+
+    it 'does not approve a request that is already approved' do
+      request.update!(status: 'approved')
+
+      post :approve, params: { course_id: course.id, id: request.id }
+
+      expect(response).to redirect_to(course_path(course))
+      expect(flash[:alert]).to match(/pending or denied/i)
     end
   end
 

@@ -7,7 +7,7 @@ class RequestsController < ApplicationController
   before_action :require_course_access
   before_action :set_request, only: %i[show edit update cancel approve reject]
   before_action :set_pending_request_count
-  before_action :ensure_request_is_pending, only: %i[update approve reject]
+  before_action :ensure_request_is_pending, only: %i[update reject]
 
   def index
     @side_nav = 'requests'
@@ -107,6 +107,8 @@ class RequestsController < ApplicationController
   end
 
   def approve
+    return unless ensure_request_is_approvable!
+
     if @request.approve_by(current_user)
       notice = 'Request approved and extension created successfully in Canvas.'
       respond_to do |format|
@@ -216,6 +218,15 @@ class RequestsController < ApplicationController
     return if @request.pending?
 
     redirect_to course_path(@course), alert: 'This action can only be performed on pending requests.'
+  end
+
+  # Approving is allowed for pending requests and for requests that were
+  # denied earlier, so staff can reverse a denial without re-filing.
+  def ensure_request_is_approvable!
+    return true if @request.approvable?
+
+    redirect_to course_path(@course), alert: 'Only pending or denied requests can be approved.'
+    false
   end
 
   # Gate for every in-course request page. Three rules, in order:
