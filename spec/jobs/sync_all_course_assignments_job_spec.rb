@@ -137,6 +137,66 @@ RSpec.describe SyncAllCourseAssignmentsJob, type: :job do
       end
     end
 
+    context 'when the class deadline moved past an approved extension' do
+      let(:student) { course.students.first }
+      let(:assignment) do
+        create(:assignment, course_to_lms: course_to_lms, external_assignment_id: '123',
+                            due_date: DateTime.parse('2025-01-05T23:59:00Z'))
+      end
+      let(:extended_due_date) { DateTime.parse('2025-01-06T23:59:00Z') }
+
+      before do
+        create(:request, :approved, course: course, assignment: assignment, user: student,
+                                    requested_due_date: extended_due_date)
+        allow(canvas_facade_double).to receive(:student_identifier) { |user| user.canvas_uid.to_i }
+        allow(canvas_facade_double).to receive_messages(
+          extension_due_dates: { student.canvas_uid.to_i => extended_due_date },
+          remove_extension: true
+        )
+      end
+
+      it 'removes the extension using the newly synced deadline' do
+        described_class.perform_now(course_to_lms.id, sync_user.id)
+
+        expect(assignment.reload.due_date).to eq(DateTime.parse('2025-01-15T23:59:00Z'))
+        expect(canvas_facade_double).to have_received(:remove_extension)
+          .with(course_to_lms.external_course_id, student.canvas_uid.to_i, '123')
+      end
+
+      it 'records the outcome for the course page' do
+        described_class.perform_now(course_to_lms.id, sync_user.id)
+
+        expect(course_to_lms.reload.recent_assignment_sync['stale_extensions'])
+          .to eq('removed' => 1, 'skipped' => 0, 'failed' => 0)
+      end
+
+      it 'repairs an extension whose deadline moved before an earlier sync' do
+        assignment.update!(due_date: DateTime.parse('2025-01-15T23:59:00Z'))
+
+        described_class.perform_now(course_to_lms.id, sync_user.id)
+
+        expect(canvas_facade_double).to have_received(:remove_extension).once
+      end
+
+      it 'still finishes the sync when the LMS refuses the removal' do
+        allow(canvas_facade_double).to receive(:remove_extension).and_raise(CanvasFacade::CanvasAPIError, 'nope')
+
+        expect { described_class.perform_now(course_to_lms.id, sync_user.id) }.not_to raise_error
+
+        sync = course_to_lms.reload.recent_assignment_sync
+        expect(sync['stale_extensions']).to include('failed' => 1)
+        expect(sync['synced_at']).to be_present
+      end
+
+      it 'leaves alone an assignment that is gone from the LMS' do
+        assignment.update!(external_assignment_id: 'deleted-from-canvas')
+
+        described_class.perform_now(course_to_lms.id, sync_user.id)
+
+        expect(canvas_facade_double).not_to have_received(:remove_extension)
+      end
+    end
+
     context 'when sync_user is not staff' do
       let(:student_user) { course.students.first }
 

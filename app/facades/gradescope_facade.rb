@@ -157,7 +157,76 @@ class GradescopeFacade < LmsFacade
     end
   end
 
+  # See LmsFacade#student_identifier.
+  def student_identifier(user)
+    user.email
+  end
+
+  # See LmsFacade#extension_due_dates. Overrides identify students by their
+  # Gradescope id, so these are matched to emails using the page's student list.
+  def extension_due_dates(course_id, assignment_id)
+    ensure_authenticated!
+    html = extensions_page(course_id, assignment_id)
+    emails = student_emails_by_id(html)
+
+    extension_overrides(html).each_with_object({}) do |override, due_dates|
+      email = emails[override.student_id.to_s]
+      due_date = parse_extension_date(override.override_due_date)
+      due_dates[email] = due_date if email && due_date
+    end
+  end
+
+  # See LmsFacade#remove_extension. Reads the page again afterwards because a
+  # rejected delete can still return a successful status.
+  def remove_extension(course_id, student_email, assignment_id)
+    ensure_authenticated!
+    html = extensions_page(course_id, assignment_id)
+    student_id = student_emails_by_id(html).key(student_email)
+    override = find_extension_override(html, student_id)
+    return false unless override
+
+    @gradescope_conn.delete("/courses/#{course_id}/assignments/#{assignment_id}/extensions/#{override.id}")
+
+    if find_extension_override(extensions_page(course_id, assignment_id), student_id)
+      raise GradescopeAPIError, "Gradescope did not remove the extension for #{student_email}"
+    end
+    true
+  end
+
   private
+
+  # Unlike get_assignment_overrides, this raises on failure: callers must be
+  # able to tell "no extensions" apart from "could not read the extensions".
+  def extensions_page(course_id, assignment_id)
+    html = @gradescope_conn.get("/courses/#{course_id}/assignments/#{assignment_id}/extensions")
+    raise GradescopeAPIError, 'Failed to fetch assignment extensions: No response' if html.blank?
+
+    html
+  end
+
+  def extension_overrides(html)
+    @gradescope_conn.extract_all_react_props(html, 'EditExtension')
+                    .map { |data| Lmss::Gradescope::Override.new(data) }
+  end
+
+  def find_extension_override(html, student_id)
+    return if student_id.nil?
+
+    extension_overrides(html).find { |override| override.student_id.to_s == student_id }
+  end
+
+  def student_emails_by_id(html)
+    students = @gradescope_conn.extract_react_props(html, 'AddExtension')&.fetch('students', nil) || []
+    students.to_h { |student| [ student['id'].to_s, student['email'] ] }
+  end
+
+  # An extension can hold a relative value rather than a date, which isn't one
+  # Flextensions created, so anything unreadable is treated as having no date.
+  def parse_extension_date(value)
+    Time.zone.parse(value.to_s)
+  rescue ArgumentError
+    nil
+  end
 
   # Performs authentication to Gradescope if not already authenticated.
   def ensure_authenticated!

@@ -45,6 +45,17 @@ class Assignment < ApplicationRecord
     requests.exists?(user: user, course: course, status: 'pending')
   end
 
+  # The deadline that applies to this user right now: their approved extension
+  # when it is still later than the class deadline, otherwise the class deadline.
+  # The class deadline can move past an extension after it was approved.
+  #
+  # Only the most recent approval counts, even if an earlier one ended later,
+  # because each approval replaces the student's previous override in the LMS.
+  def current_due_date_for(user)
+    latest_extension = requests.where(user: user, status: 'approved').order(:updated_at).last
+    [ due_date, latest_extension&.requested_due_date ].compact.max
+  end
+
   def set_course_from_course_to_lms
     self.course ||= course_to_lms&.course
   end

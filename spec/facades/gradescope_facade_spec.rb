@@ -481,6 +481,90 @@ describe GradescopeFacade do
     end
   end
 
+  describe 'removing outdated extensions' do
+    let(:extensions_path) { "/courses/#{course_id}/assignments/#{assignment_id}/extensions" }
+    let(:students) { { 'students' => [ { 'id' => 111222, 'email' => student_email }, { 'id' => 333444, 'email' => 'other@example.com' } ] } }
+    let(:overrides) do
+      [
+        { 'deletePath' => "#{extensions_path}/7",
+          'override' => { 'user_id' => 111222, 'settings' => { 'due_date' => { 'value' => '2026-11-06T23:59:00-08:00' } } } },
+        { 'deletePath' => "#{extensions_path}/8",
+          'override' => { 'user_id' => 999999, 'settings' => { 'due_date' => { 'value' => '2026-11-07T23:59:00-08:00' } } } }
+      ]
+    end
+
+    before do
+      facade.instance_variable_set(:@gradescope_conn, mock_client)
+      allow(mock_client).to receive(:get).with(extensions_path).and_return('<html></html>')
+      allow(mock_client).to receive(:extract_react_props).with('<html></html>', 'AddExtension').and_return(students)
+      allow(mock_client).to receive(:extract_all_react_props).with('<html></html>', 'EditExtension').and_return(overrides)
+      allow(mock_client).to receive(:delete)
+    end
+
+    describe '#student_identifier' do
+      it 'uses the email address' do
+        expect(facade.student_identifier(instance_double(User, email: student_email))).to eq(student_email)
+      end
+    end
+
+    describe '#extension_due_dates' do
+      it 'lists due dates by email, leaving out students it cannot identify' do
+        expect(facade.extension_due_dates(course_id, assignment_id))
+          .to eq(student_email => Time.zone.parse('2026-11-06T23:59:00-08:00'))
+      end
+
+      it 'leaves out an extension with no due date' do
+        overrides.first['override']['settings'] = {}
+
+        expect(facade.extension_due_dates(course_id, assignment_id)).to eq({})
+      end
+
+      it 'leaves out an extension with an unreadable date' do
+        overrides.first['override']['settings']['due_date']['value'] = 'not a date'
+
+        expect(facade.extension_due_dates(course_id, assignment_id)).to eq({})
+      end
+
+      it 'raises when the page is empty, rather than reporting no extensions' do
+        allow(mock_client).to receive(:get).with(extensions_path).and_return('')
+
+        expect { facade.extension_due_dates(course_id, assignment_id) }.to raise_error(GradescopeFacade::GradescopeAPIError)
+      end
+
+      it 'raises when the page cannot be loaded' do
+        allow(mock_client).to receive(:get).and_raise(Lmss::Gradescope::RequestError, 'Request failed: 500')
+
+        expect { facade.extension_due_dates(course_id, assignment_id) }.to raise_error(Lmss::Gradescope::RequestError)
+      end
+    end
+
+    describe '#remove_extension' do
+      it 'deletes the extension and confirms that it is gone' do
+        allow(mock_client).to receive(:extract_all_react_props).and_return(overrides, overrides.drop(1))
+
+        expect(facade.remove_extension(course_id, student_email, assignment_id)).to be(true)
+        expect(mock_client).to have_received(:delete).with("#{extensions_path}/7")
+      end
+
+      it 'returns false when the student has no extension' do
+        allow(mock_client).to receive(:extract_all_react_props).and_return(overrides.drop(1))
+
+        expect(facade.remove_extension(course_id, student_email, assignment_id)).to be(false)
+        expect(mock_client).not_to have_received(:delete)
+      end
+
+      it 'returns false when the student is not on the page' do
+        expect(facade.remove_extension(course_id, 'unknown@example.com', assignment_id)).to be(false)
+        expect(mock_client).not_to have_received(:delete)
+      end
+
+      it 'raises when the extension is still there afterwards' do
+        expect { facade.remove_extension(course_id, student_email, assignment_id) }
+          .to raise_error(GradescopeFacade::GradescopeAPIError, /did not remove/)
+      end
+    end
+  end
+
   describe '#ensure_authenticated!' do
     context 'when not yet authenticated' do
       it 'creates a new Gradescope client' do

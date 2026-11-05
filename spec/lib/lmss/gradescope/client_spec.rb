@@ -33,4 +33,38 @@ RSpec.describe Lmss::Gradescope::Client do
         .to raise_error(Lmss::Gradescope::RequestError, /500/)
     end
   end
+
+  describe '#delete' do
+    let(:connection) { instance_double(Faraday::Connection) }
+    let(:delete_request) { Struct.new(:headers).new({}) }
+
+    before do
+      client.instance_variable_set(:@conn, connection)
+      client.instance_variable_set(:@csrf_token, 'csrf-token')
+    end
+
+    def stub_delete(status)
+      allow(connection).to receive(:delete).with('/path').and_yield(delete_request).and_return(response_with(status))
+    end
+
+    it 'sends the CSRF token' do
+      stub_delete(200)
+
+      client.delete('/path')
+
+      expect(delete_request.headers).to include('X-CSRF-Token' => 'csrf-token')
+    end
+
+    it 'accepts a redirect, which callers confirm by checking the record is gone' do
+      stub_delete(302)
+
+      expect(client.delete('/path')).to eq('body')
+    end
+
+    it 'raises on an error status' do
+      stub_delete(403)
+
+      expect { client.delete('/path') }.to raise_error(Lmss::Gradescope::AuthenticationError)
+    end
+  end
 end

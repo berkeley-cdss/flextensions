@@ -15,7 +15,7 @@
 <ul>
   <% @listed_requests.each do |request| %>
     <li>
-      <%= link_to "#{request.user.name.presence || 'Unknown student'}, #{request.assignment.name}, #{pluralize(request.calculate_days_difference, 'day')}",
+      <%= link_to "#{request.user.name.presence || 'Unknown student'}, #{request.assignment.name}, #{pluralize(request.extension_days.to_i, 'day')}",
                   request.request_link %>
     </li>
   <% end %>

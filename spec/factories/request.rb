@@ -5,7 +5,8 @@ FactoryBot.define do
     association :assignment
     reason { 'Extension request reason' }
     status { 'pending' }
-    requested_due_date { 14.days.from_now }
+    # Relative to the assignment, whose due date can be any number of days away.
+    requested_due_date { (assignment&.due_date || Time.current) + 14.days }
 
     trait :approved do
       status { 'approved' }

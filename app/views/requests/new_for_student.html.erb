@@ -80,7 +80,7 @@
 								<%= f.date_field :requested_due_date,
 									class: "form-control",
 									id: "new-request-requested-due-date",
-									value: (@selected_assignment.due_date.strftime('%Y-%m-%d') if @selected_assignment),
+									value: ((@selected_assignment.due_date + 1.day).strftime('%Y-%m-%d') if @selected_assignment),
 									required: true,
 									data: { 
 										extension_form_target: "dueDateInput",

@@ -55,3 +55,37 @@ succeeds by falling back to another staff user:
 
 The script cleans up the Canvas overrides it created; pass `KEEP_OVERRIDES=1`
 to leave them in place for manual inspection.
+
+## 3. `test_moved_deadline.rb` — extensions after a deadline moves
+
+```sh
+CANVAS_TOKEN=<token> CANVAS_URL=https://ucberkeleysandbox.instructure.com \
+  bin/rails runner utils/canvas_sandbox/test_moved_deadline.rb
+```
+
+Runs the real application code (`Request#approve`,
+`SyncAllCourseAssignmentsJob`, `StaleExtensionRemover`, `CanvasFacade`) against
+the sandbox. **It temporarily moves the test assignments' deadlines 10 days
+later**, so it refuses to run against a production Canvas. For each of the three
+assignment types it verifies:
+
+- **REPRO** — before a sync, Canvas still gives a student their old extension
+  date, even though the class deadline is now later. It reads the date Canvas
+  actually applies to the student from the submission's `cached_due_date`.
+- **SOLO** — after a sync, an override with one student is deleted, and Canvas
+  gives that student the class deadline.
+- **SHARED** — two students on a shared override both come off it, and neither
+  is put back when the other is removed.
+- **BYSTANDER** — a third student on that override, whose date doesn't match a
+  request Flextensions approved, keeps the override and its dates.
+- **LATER** — an extension still later than the new deadline is left in place.
+
+It also checks the counts recorded for the course page (**TOTALS**), and that
+syncing again changes nothing in Canvas (**RESYNC**).
+
+The script restores the deadlines and removes its overrides when it finishes,
+even after a failure. If it is killed partway through, run it again to clear the
+overrides, and run `setup_test_course.rb` to reset the deadlines.
+
+If Canvas recalculates due dates slowly and **SOLO** fails only on its date, try
+a longer wait with `SETTLE_SECONDS=60`.

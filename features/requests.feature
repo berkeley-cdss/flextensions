@@ -45,6 +45,14 @@ Scenario: Changing "Requested Due Date"/"Assignment" changes Number of Days
     When I select "Homework 2" from "Select Assignment"
     Then I should see "Number of Days: 1"
 
+@javascript
+Scenario: Requesting from the course page suggests a one-day extension
+    Given I'm logged in as a student
+    And I go to the Course page
+    And I click New for "Homework 3" in the "assignments-table"
+    Then I should see "Number of Days: 1"
+    And the "new-request-requested-due-date" field should contain the date 4 days from now
+
 Scenario: Student creates a request and teacher Approves
     Given I'm logged in as a student
     And I go to the Course page
