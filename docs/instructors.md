@@ -30,6 +30,17 @@ On the **Courses** page, click a blue course name (e.g., **CS 161**, **CS 168**)
 
 If you have added new assignments in Canvas (or Gradescope, if configured), you can click **Sync Assignments** to import the latest assignments into Flextensions.
 
+#### Moving a deadline
+
+Click **Sync Assignments** after moving an assignment's deadline in Canvas or Gradescope. Canvas and Gradescope keep using a student's extension even when the class deadline moves past it, so until you sync, students with an older extension can have an earlier deadline than the rest of the class.
+
+When you sync, Flextensions removes any extension it approved that now ends before the class deadline, and the course page shows how many it removed. Those students then follow the class deadline, including any later changes to it. Their requests stay in Flextensions as a record, but show 0 days.
+
+- Flextensions leaves other dates alone. If a student has an earlier date that it did not approve, the course page asks you to check that date in the LMS.
+- If an extension can't be removed, the course page warns you, and Flextensions tries again on the next sync.
+- Pending requests for a date that is no longer later than the deadline can't be approved. Edit the request to choose a later date, or reject it.
+- Extensions that have been removed don't come back. If you move a deadline back to an earlier date, students who need an extension again will need a new one.
+
 ### Enabling Assignments
 
 To allow students to request extensions for an assignment, toggle the **Enable** switch on the right side of that assignment’s row.

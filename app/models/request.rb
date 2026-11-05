@@ -44,6 +44,9 @@ class Request < ApplicationRecord
 
   delegate :form_setting, to: :course, allow_nil: true
   validates :requested_due_date, :reason, presence: true
+  # Only checked when the date is being set: a saved request must stay valid
+  # after the class deadline moves past it, or its later saves would fail.
+  validate :requested_due_date_extends_current_deadline, if: :will_save_change_to_requested_due_date?
 
   scope :pending, -> { where(status: 'pending') }
   scope :for_user, ->(user) { where(user: user).includes(:assignment) }
@@ -52,6 +55,11 @@ class Request < ApplicationRecord
   }
   scope :auto_approved_for_user_in_course, lambda { |user, course|
     where(user: user, course: course, status: 'approved', auto_approved: true)
+  }
+  # Approved extensions that end before the assignment's current due date,
+  # because the class deadline was moved after they were approved.
+  scope :approved_before_current_deadline, lambda {
+    where(status: 'approved').joins(:assignment).where('requests.requested_due_date < assignments.due_date')
   }
 
   def pending?
@@ -133,6 +141,23 @@ class Request < ApplicationRecord
 
   def calculate_days_difference
     (requested_due_date.to_date - assignment.due_date.to_date).to_i
+  end
+
+  # The number of days to show people. The class deadline can move past the
+  # requested date, which should read as no extension rather than a negative
+  # count. Returns nil when either date is missing.
+  def extension_days
+    return unless requested_due_date && assignment&.due_date
+
+    [ calculate_days_difference, 0 ].max
+  end
+
+  # False once the class deadline has reached the requested date, at which point
+  # this request no longer gives the student any extra time.
+  def extends_current_deadline?
+    return true unless requested_due_date && assignment&.due_date
+
+    requested_due_date > assignment.due_date
   end
 
   # Set when a request met the auto-approval rules but could not be approved
@@ -228,6 +253,13 @@ class Request < ApplicationRecord
 
   # TODO: All of these code should really be moved to each LMS' facade class
   def approve(lms_facade, processed_user_id)
+    # The class deadline may have moved since this was requested. An override
+    # for the old date would give the student an earlier deadline than the class.
+    unless extends_current_deadline?
+      errors.add(:base, stale_approval_message)
+      return false
+    end
+
     begin
       case lms_facade
       when CanvasFacade
@@ -335,7 +367,7 @@ class Request < ApplicationRecord
   # Keep the list on the Email Templates settings page in sync with this.
   def email_template_mapping
     requested = requested_due_date.strftime(EMAIL_DATE_FORMAT)
-    days = calculate_days_difference.to_s
+    days = extension_days.to_s
     {
       'student_name' => user.name,
       'student_email' => user.email,
@@ -366,7 +398,7 @@ class Request < ApplicationRecord
       [ 'Status', approved || status == 'denied' ? status.capitalize : 'Pending review' ],
       [ 'Original Due Date', assignment.due_date&.strftime(EMAIL_DATE_FORMAT) ],
       [ approved ? 'New Due Date' : 'Requested Due Date', requested_due_date.strftime(EMAIL_DATE_FORMAT) ],
-      [ approved ? 'Extension Days' : 'Days Requested', calculate_days_difference ],
+      [ approved ? 'Extension Days' : 'Days Requested', extension_days ],
       [ 'Reason', reason ]
     ]
   end
@@ -403,6 +435,18 @@ class Request < ApplicationRecord
   end
 
   private
+
+  def requested_due_date_extends_current_deadline
+    return if extends_current_deadline?
+
+    errors.add(:requested_due_date, "must be later than the assignment's current due date")
+  end
+
+  def stale_approval_message
+    "This request can't be approved: the requested date (#{requested_due_date.strftime(EMAIL_DATE_FORMAT)}) is not " \
+      "later than the assignment's current due date (#{assignment.due_date.strftime(EMAIL_DATE_FORMAT)}). " \
+      'Edit it to choose a later date, or reject it.'
+  end
 
   def flag_auto_approval_breakdown(reason)
     @auto_approval_breakdown = reason

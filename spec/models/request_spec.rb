@@ -154,6 +154,115 @@ RSpec.describe Request, type: :model do
     end
   end
 
+  describe 'requested due date validation' do
+    let(:valid_attributes) { { user: user, course: course, assignment: assignment, reason: 'Need more time' } }
+
+    it 'accepts a date later than the current due date' do
+      expect(described_class.new(valid_attributes.merge(requested_due_date: assignment.due_date + 1.minute))).to be_valid
+    end
+
+    it 'rejects the current due date itself' do
+      new_request = described_class.new(valid_attributes.merge(requested_due_date: assignment.due_date))
+
+      expect(new_request).not_to be_valid
+      expect(new_request.errors.full_messages_for(:requested_due_date))
+        .to contain_exactly("Requested due date must be later than the assignment's current due date")
+    end
+
+    it 'rejects an earlier date' do
+      expect(described_class.new(valid_attributes.merge(requested_due_date: assignment.due_date - 1.day))).not_to be_valid
+    end
+
+    it 'skips the check when the assignment has no due date' do
+      assignment.update!(due_date: nil, enabled: false)
+
+      expect(described_class.new(valid_attributes.merge(requested_due_date: 1.day.ago))).to be_valid
+    end
+
+    context 'when the class deadline moves past a saved request' do
+      before do
+        request
+        assignment.update!(due_date: 10.days.from_now)
+      end
+
+      it 'can still save changes that leave the date alone' do
+        expect(request.reload.update(reason: 'Updated reason', status: 'denied')).to be(true)
+      end
+
+      it 'requires a later date if the date is edited' do
+        expect(request.reload.update(requested_due_date: 5.days.from_now)).to be(false)
+        expect(request.update(requested_due_date: 11.days.from_now)).to be(true)
+      end
+    end
+  end
+
+  describe '.approved_before_current_deadline' do
+    before do
+      request.update!(status: 'approved')
+    end
+
+    it 'finds approved requests that end before the current due date' do
+      assignment.update!(due_date: 10.days.from_now)
+
+      expect(described_class.approved_before_current_deadline).to contain_exactly(request)
+    end
+
+    it 'leaves out requests that are still later than the current due date' do
+      expect(described_class.approved_before_current_deadline).to be_empty
+    end
+
+    it 'leaves out requests that are not approved' do
+      request.update!(status: 'pending')
+      assignment.update!(due_date: 10.days.from_now)
+
+      expect(described_class.approved_before_current_deadline).to be_empty
+    end
+  end
+
+  describe '#extension_days' do
+    before { request }
+
+    it 'counts the days past the current due date' do
+      expect(request.extension_days).to eq(2)
+    end
+
+    it 'is 0 once the class deadline moves past the request, never negative' do
+      assignment.update!(due_date: 20.days.from_now)
+
+      expect(request.reload.extension_days).to eq(0)
+    end
+
+    it 'is nil when the assignment has no due date' do
+      assignment.update!(due_date: nil, enabled: false)
+
+      expect(request.reload.extension_days).to be_nil
+    end
+
+    it 'is nil without a requested date' do
+      expect(described_class.new(assignment: assignment).extension_days).to be_nil
+    end
+  end
+
+  describe '#extends_current_deadline?' do
+    before { request }
+
+    it 'is true while the requested date is later' do
+      expect(request.extends_current_deadline?).to be(true)
+    end
+
+    it 'is false once the due date reaches the requested date' do
+      assignment.update!(due_date: request.requested_due_date)
+
+      expect(request.reload.extends_current_deadline?).to be(false)
+    end
+
+    it 'is true when the assignment has no due date to compare with' do
+      assignment.update!(due_date: nil, enabled: false)
+
+      expect(request.reload.extends_current_deadline?).to be(true)
+    end
+  end
+
   describe '#auto_approval_eligible_for_course?' do
     context 'when course settings allow auto approval' do
       before { course_settings }
@@ -233,15 +342,15 @@ RSpec.describe Request, type: :model do
       end
     end
 
-    context 'when requested date is before assignment due date' do
+    context 'when the assignment due date has moved past the requested date' do
       let(:early_request) do
         described_class.create!(
           user: user,
           course: course,
           assignment: assignment,
           reason: 'Need more time',
-          requested_due_date: assignment.due_date - 1.day
-        )
+          requested_due_date: assignment.due_date + 1.day
+        ).tap { assignment.update!(due_date: assignment.due_date + 2.days) }
       end
 
       it 'returns false' do
@@ -692,6 +801,31 @@ RSpec.describe Request, type: :model do
 
     before do
       allow(lms_facade).to receive(:provision_extension).and_return(provisioned_override)
+    end
+
+    context 'when the class deadline has moved past the requested date' do
+      before do
+        request
+        assignment.update!(due_date: 10.days.from_now, late_due_date: 12.days.from_now)
+        request.reload
+      end
+
+      it 'does not approve the request' do
+        expect(request.approve(lms_facade, instructor)).to be(false)
+        expect(request.reload.status).to eq('pending')
+      end
+
+      it 'does not write anything to the LMS' do
+        request.approve(lms_facade, instructor)
+
+        expect(lms_facade).not_to have_received(:provision_extension)
+      end
+
+      it 'tells staff why' do
+        request.approve(lms_facade, instructor)
+
+        expect(request.errors.full_messages.to_sentence).to include("can't be approved", 'not later than', 'choose a later date')
+      end
     end
 
     it 'provisions an extension through the LMS facade using AssignmentDateCalculator' do
@@ -1155,6 +1289,19 @@ RSpec.describe Request, type: :model do
       expect(rows['Requested Due Date']).to be_present
       expect(rows['Days Requested']).to eq(request.calculate_days_difference)
       expect(rows['Reason']).to eq(request.reason)
+    end
+  end
+
+  describe 'days in emails after the class deadline moves past the request' do
+    before do
+      request
+      assignment.update!(due_date: 20.days.from_now)
+      request.reload
+    end
+
+    it 'shows 0 days rather than a negative number' do
+      expect(request.email_details_rows.to_h['Days Requested']).to eq(0)
+      expect(request.email_template_mapping).to include('requested_days' => '0', 'extension_days' => '0')
     end
   end
 

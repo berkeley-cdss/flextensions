@@ -330,6 +330,16 @@ class Course < ApplicationRecord
     end
   end
 
+  # What the latest assignment syncs did about outdated extensions, added up
+  # across this course's LMSs: { 'removed' => 0, 'skipped' => 0, 'failed' => 0 }.
+  def stale_extension_totals
+    totals = { 'removed' => 0, 'skipped' => 0, 'failed' => 0 }
+    all_linked_lmss.filter_map { |link| link.recent_assignment_sync&.dig('stale_extensions') }.each do |results|
+      results.each { |outcome, count| totals[outcome] += count if totals.key?(outcome) }
+    end
+    totals
+  end
+
   # Creates an enrollment for the user's highest-ranked role among the given
   # Canvas enrollment hashes (from the Canvas courses API). No-op when none of
   # the Canvas enrollments map to a role we know.

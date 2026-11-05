@@ -225,7 +225,7 @@ RSpec.describe RequestsController, type: :controller do
         request: {
           assignment_id: assignment.id,
           reason: 'Sick',
-          requested_due_date: Date.tomorrow.to_s,
+          requested_due_date: (assignment.due_date + 1.day).to_date.to_s,
           due_time: '10:00'
         }
       }
@@ -416,7 +416,7 @@ RSpec.describe RequestsController, type: :controller do
         id: request.id,
         request: {
           reason: 'Updated reason',
-          requested_due_date: Date.tomorrow.to_s,
+          requested_due_date: (assignment.due_date + 1.day).to_date.to_s,
           due_time: '12:00'
         }
       }
@@ -439,7 +439,7 @@ RSpec.describe RequestsController, type: :controller do
         request: {
           assignment_id: other_assignment.id,
           reason: 'Updated reason',
-          requested_due_date: Date.tomorrow.to_s,
+          requested_due_date: (assignment.due_date + 1.day).to_date.to_s,
           due_time: '12:00'
         }
       }
@@ -932,7 +932,7 @@ RSpec.describe RequestsController, type: :controller do
           request: {
             assignment_id: assignment.id,
             reason: 'Sick',
-            requested_due_date: Date.tomorrow.to_s,
+            requested_due_date: (assignment.due_date + 1.day).to_date.to_s,
             due_time: '10:00',
             user_id: other_user.id
           }
@@ -948,7 +948,7 @@ RSpec.describe RequestsController, type: :controller do
           request: {
             assignment_id: foreign_assignment.id,
             reason: 'Sick',
-            requested_due_date: Date.tomorrow.to_s,
+            requested_due_date: (assignment.due_date + 1.day).to_date.to_s,
             due_time: '10:00'
           }
         }
@@ -969,7 +969,7 @@ RSpec.describe RequestsController, type: :controller do
           request: {
             assignment_id: foreign_assignment.id,
             reason: 'Updated reason',
-            requested_due_date: Date.tomorrow.to_s,
+            requested_due_date: (assignment.due_date + 1.day).to_date.to_s,
             due_time: '12:00'
           }
         }
@@ -999,7 +999,7 @@ RSpec.describe RequestsController, type: :controller do
         patch :update, params: {
           course_id: course.id,
           id: others_request.id,
-          request: { reason: 'Hijacked', requested_due_date: Date.tomorrow.to_s, due_time: '12:00' }
+          request: { reason: 'Hijacked', requested_due_date: (assignment.due_date + 1.day).to_date.to_s, due_time: '12:00' }
         }
 
         expect(response).to redirect_to(course_path(course))
@@ -1032,7 +1032,7 @@ RSpec.describe RequestsController, type: :controller do
             user_id: unenrolled_student.id,
             assignment_id: assignment.id,
             reason: 'Sick',
-            requested_due_date: Date.tomorrow.to_s,
+            requested_due_date: (assignment.due_date + 1.day).to_date.to_s,
             due_time: '10:00'
           }
         }
@@ -1049,7 +1049,7 @@ RSpec.describe RequestsController, type: :controller do
             user_id: 0,
             assignment_id: assignment.id,
             reason: 'Sick',
-            requested_due_date: Date.tomorrow.to_s,
+            requested_due_date: (assignment.due_date + 1.day).to_date.to_s,
             due_time: '10:00'
           }
         }
@@ -1067,7 +1067,7 @@ RSpec.describe RequestsController, type: :controller do
             user_id: enrolled_student.id,
             assignment_id: assignment.id,
             reason: 'Sick',
-            requested_due_date: Date.tomorrow.to_s,
+            requested_due_date: (assignment.due_date + 1.day).to_date.to_s,
             due_time: '10:00'
           }
         }
@@ -1084,7 +1084,7 @@ RSpec.describe RequestsController, type: :controller do
             user_id: enrolled_student.id,
             assignment_id: foreign_assignment.id,
             reason: 'Sick',
-            requested_due_date: Date.tomorrow.to_s,
+            requested_due_date: (assignment.due_date + 1.day).to_date.to_s,
             due_time: '10:00'
           }
         }
@@ -1127,7 +1127,7 @@ RSpec.describe RequestsController, type: :controller do
     it 'forbids a student from filing a request on behalf of another student' do
       post :create_for_student, params: {
         course_id: course.id,
-        request: { user_id: user.id, assignment_id: assignment.id, reason: 'x', requested_due_date: Date.tomorrow.to_s, due_time: '10:00' }
+        request: { user_id: user.id, assignment_id: assignment.id, reason: 'x', requested_due_date: (assignment.due_date + 1.day).to_date.to_s, due_time: '10:00' }
       }
 
       expect(response).to redirect_to(courses_path)
@@ -1160,6 +1160,138 @@ RSpec.describe RequestsController, type: :controller do
       get :index, params: { course_id: course.id }
 
       expect(response).to have_http_status(:ok)
+    end
+  end
+
+  describe 'when the class deadline moved past a request' do
+    render_views
+
+    before do
+      request
+      assignment.update!(due_date: 20.days.from_now)
+    end
+
+    context 'as a student' do
+      it 'shows 0 days on the request page and explains why' do
+        request.update!(status: 'approved')
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(assigns(:number_of_days)).to eq(0)
+        expect(response.body).to include('this extension no longer applies')
+      end
+
+      it 'shows 0 days in the request list' do
+        get :index, params: { course_id: course.id }
+
+        expect(response.body).not_to match(/>\s*-\d+\s*</)
+      end
+
+      it 'asks them to choose a later date on a pending request' do
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(response.body).to include('Edit it to choose a later date')
+      end
+
+      it 'says nothing on a denied request' do
+        request.update!(status: 'denied')
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(response.body).not_to include('has moved to this date')
+      end
+
+      it 'keeps the edit form and explains the error when the new date is still too early' do
+        patch :update, params: {
+          course_id: course.id,
+          id: request.id,
+          request: { reason: 'Sick', requested_due_date: 5.days.from_now.to_date.to_s, due_time: '10:00' }
+        }
+
+        expect(response).to render_template(:edit)
+        expect(flash[:alert]).to include('must be later than the assignment')
+        expect(request.reload.requested_due_date).not_to eq(5.days.from_now.to_date)
+      end
+
+      it 'accepts a new date that is later than the moved deadline' do
+        patch :update, params: {
+          course_id: course.id,
+          id: request.id,
+          request: { reason: 'Sick', requested_due_date: 21.days.from_now.to_date.to_s, due_time: '10:00' }
+        }
+
+        expect(response).to redirect_to(course_request_path(course, request))
+      end
+
+      it 'refuses a new request that is not later than the deadline' do
+        request.update!(status: 'approved')
+
+        expect {
+          post :create, params: {
+            course_id: course.id,
+            request: { assignment_id: assignment.id, reason: 'Sick', requested_due_date: 5.days.from_now.to_date.to_s, due_time: '10:00' }
+          }
+        }.not_to change(Request, :count)
+
+        expect(flash[:alert]).to include('must be later than the assignment')
+      end
+    end
+
+    context 'as staff' do
+      let(:lms_facade) { instance_double(CanvasFacade, provision_extension: nil) }
+
+      before do
+        session[:user_id] = instructor.canvas_uid
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+        allow(CanvasFacade).to receive(:from_user).and_return(lms_facade)
+        allow(lms_facade).to receive(:is_a?).and_return(false)
+      end
+
+      it 'disables approval and explains why on the request page' do
+        get :show, params: { course_id: course.id, id: request.id }
+
+        page = Capybara.string(response.body)
+        expect(page).to have_button('Approve', disabled: true)
+        expect(page).to have_button('Reject', disabled: false)
+        expect(response.body).to include("this request can't be approved")
+      end
+
+      it 'does not show a negative count in the request list' do
+        get :index, params: { course_id: course.id }
+
+        expect(response.body).not_to match(/>\s*-\d+\s*</)
+      end
+
+      it 'refuses to approve it and leaves the LMS alone' do
+        post :approve, params: { course_id: course.id, id: request.id }
+
+        expect(request.reload.status).to eq('pending')
+        expect(lms_facade).not_to have_received(:provision_extension)
+        expect(flash[:alert]).to include('not later than')
+      end
+
+      it 'counts it as failed in a mass approval' do
+        post :mass_approve, params: { course_id: course.id, request_ids: [ request.id ] }, format: :json
+
+        expect(response.parsed_body['failed_ids']).to contain_exactly(request.id)
+        expect(response.parsed_body['message']).to include('1 of these asks for a date that is not later')
+        expect(request.reload.status).to eq('pending')
+        expect(lms_facade).not_to have_received(:provision_extension)
+      end
+
+      it "keeps the student's other requests when a new one for them is refused" do
+        request.update!(status: 'approved')
+        Enrollment.create!(user: user, course: course, role: 'student') unless course.enrolled?(user)
+
+        post :create_for_student, params: {
+          course_id: course.id,
+          request: { user_id: user.id, assignment_id: assignment.id, reason: 'Sick',
+                     requested_due_date: 5.days.from_now.to_date.to_s, due_time: '10:00' }
+        }
+
+        expect(request.reload.status).to eq('approved')
+        expect(flash[:alert]).to include('must be later than the assignment')
+      end
     end
   end
 end

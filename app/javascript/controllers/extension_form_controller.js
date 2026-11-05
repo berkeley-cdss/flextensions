@@ -94,7 +94,8 @@ export default class extends Controller {
         this.originalDueDateStr.split(" at ")[0]
       );
     } else {
-      this.originalDueDateStr = this.dueDateInputTarget.value;
+      // The field's value is the suggested date, a day after the due date.
+      this.originalDueDateStr = this.originalDueDateStr || this.dueDateInputTarget.value;
       this.originalDueDate = new Date(this.originalDueDateStr);
     }
     if (this.originalDueDateStr) {

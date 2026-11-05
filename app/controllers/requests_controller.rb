@@ -26,7 +26,7 @@ class RequestsController < ApplicationController
 
   def show
     @assignment = @request.assignment
-    @number_of_days = @request.calculate_days_difference if @request.requested_due_date.present? && @assignment&.due_date.present?
+    @number_of_days = @request.extension_days
     if @course.staff_user?(current_user)
       @review = RequestReviewPresenter.new(@request)
       @student_enrollment = @review.enrollment
@@ -73,8 +73,9 @@ class RequestsController < ApplicationController
 
     Request.merge_date_and_time!(params[:request])
     @request = @course.requests.new(request_params.merge(user: student))
-    return render_new_for_student_error unless assignment_in_course?(@request.assignment_id)
+    return render_new_for_student_error unless assignment_in_course?(@request.assignment_id) && @request.valid?
 
+    # Only after validating, so a rejected date doesn't cost the student their other requests.
     reject_other_student_requests(student, @request.assignment_id)
 
     if @request.save
@@ -93,7 +94,9 @@ class RequestsController < ApplicationController
       result = @request.process_update(current_user)
       redirect_to result[:redirect_to], notice: result[:notice]
     else
-      flash.now[:alert] = 'There was a problem updating the request.'
+      flash.now[:alert] = request_error_message('There was a problem updating the request.')
+      @selected_assignment = @request.assignment
+      @assignments = [ @selected_assignment ]
       render :edit
     end
   end
@@ -166,10 +169,16 @@ class RequestsController < ApplicationController
   end
 
   def handle_request_error
-    flash.now[:alert] = 'There was a problem submitting your request.'
+    flash.now[:alert] = request_error_message('There was a problem submitting your request.')
     @assignments = @course.enabled_assignments.order(:name)
     @selected_assignment = Assignment.find_by(id: params[:assignment_id]) if params[:assignment_id]
     render :new
+  end
+
+  # Adds the reason a requested date was refused, which people can act on.
+  def request_error_message(message)
+    date_errors = @request.errors.full_messages_for(:requested_due_date)
+    date_errors.empty? ? message : "#{message} #{date_errors.to_sentence}."
   end
 
   def set_form_settings
@@ -285,8 +294,10 @@ class RequestsController < ApplicationController
   end
 
   def render_new_for_student_error
+    # Before the form setup below, which replaces @request and its errors.
+    alert = request_error_message('There was a problem submitting the request.')
     prepare_instructor_new_request
-    flash.now[:alert] = 'There was a problem submitting the request.'
+    flash.now[:alert] = alert
     render :new_for_student
   end
 
@@ -332,7 +343,7 @@ class RequestsController < ApplicationController
         "#{processed_count} request#{'s' unless processed_count == 1} #{action_label} successfully."
       else
         "#{processed_count} request#{'s' unless processed_count == 1} #{action_label}. "\
-          "#{failed_count} failed."
+          "#{failed_count} failed.#{stale_requests_note(requests, failed_ids)}"
       end
 
     render_mass_action_response(
@@ -343,6 +354,14 @@ class RequestsController < ApplicationController
       new_status: action_label,
       status: processed_count.positive? ? :ok : :unprocessable_content
     )
+  end
+
+  # Tells staff why these requests failed, since nothing else on the page does.
+  def stale_requests_note(requests, failed_ids)
+    stale_count = requests.count { |request| failed_ids.include?(request.id) && !request.extends_current_deadline? }
+    return '' if stale_count.zero?
+
+    " #{stale_count} of these #{stale_count == 1 ? 'asks' : 'ask'} for a date that is not later than the current due date."
   end
 
   def render_mass_action_response(success:, message:, processed_ids:, failed_ids:, new_status:, status:)

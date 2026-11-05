@@ -579,4 +579,26 @@ end
       expect(course.requests_link).to eq("https://flextensions.example.com/courses/#{course.id}/requests")
     end
   end
+
+  describe '#stale_extension_totals' do
+    let(:course) { create(:course) }
+
+    it 'is all zeros before any sync has reported results' do
+      expect(course.stale_extension_totals).to eq('removed' => 0, 'skipped' => 0, 'failed' => 0)
+    end
+
+    it 'adds up the results from every linked LMS' do
+      gradescope_link = create(:course_to_lms, course: course, lms: Lms.find_by(id: 2) || create(:lms, :gradescope))
+      course.course_to_lms(1).update!(recent_assignment_sync: { stale_extensions: { removed: 2, skipped: 0, failed: 1 } })
+      gradescope_link.update!(recent_assignment_sync: { stale_extensions: { removed: 1, skipped: 3, failed: 0 } })
+
+      expect(course.reload.stale_extension_totals).to eq('removed' => 3, 'skipped' => 3, 'failed' => 1)
+    end
+
+    it 'ignores syncs from before these results were recorded' do
+      course.course_to_lms(1).update!(recent_assignment_sync: { synced_at: Time.current })
+
+      expect(course.reload.stale_extension_totals).to eq('removed' => 0, 'skipped' => 0, 'failed' => 0)
+    end
+  end
 end

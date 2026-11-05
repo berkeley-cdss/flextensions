@@ -90,6 +90,23 @@ RSpec.describe CoursesController, type: :controller do
         get :show, params: { id: course.id }
         expect(response).to render_template('courses/student_show')
       end
+
+      context 'when the deadline moved past an approved extension' do
+        render_views
+
+        it 'shows the current deadline as the extended due date' do
+          course_settings
+          assignment = course.assignments.first
+          Request.create!(user: user, course: course, assignment: assignment, status: 'approved', reason: 'Sick',
+                          requested_due_date: Time.zone.parse('2099-11-06 23:59'))
+          assignment.update!(due_date: Time.zone.parse('2099-11-20 23:59'))
+
+          get :show, params: { id: course.id }
+
+          dates = Capybara.string(response.body).find('#assignments-table tbody tr').all('td.text-center').map(&:text)
+          expect(dates.first(2)).to all(include('Nov 20'))
+        end
+      end
     end
 
     context 'when the user is an instructor' do
@@ -111,6 +128,48 @@ RSpec.describe CoursesController, type: :controller do
         get :show, params: { id: course.id }
 
         expect(assigns(:assignments_last_synced_at)).to be_within(1.second).of(synced_at)
+      end
+
+      context 'with results about outdated extensions from the latest sync' do
+        render_views
+
+        def sync_results(removed: 0, skipped: 0, failed: 0)
+          course_to_lms_record.update!(
+            recent_assignment_sync: { stale_extensions: { removed: removed, skipped: skipped, failed: failed } }
+          )
+        end
+
+        it 'says how many were removed' do
+          sync_results(removed: 2)
+
+          get :show, params: { id: course.id }
+
+          expect(response.body).to include('Removed 2 outdated extensions')
+        end
+
+        it 'warns about extensions that could not be removed' do
+          sync_results(failed: 1)
+
+          get :show, params: { id: course.id }
+
+          expect(response.body).to include('1 outdated extension', 'could not be removed')
+        end
+
+        it 'asks staff to check dates Flextensions did not set' do
+          sync_results(skipped: 1)
+
+          get :show, params: { id: course.id }
+
+          expect(response.body).to include('did not set')
+        end
+
+        it 'says nothing when there was nothing to do' do
+          sync_results
+
+          get :show, params: { id: course.id }
+
+          expect(response.body).not_to include('outdated extension')
+        end
       end
 
       it 'leaves @assignments_last_synced_at nil when assignments have never been synced' do
@@ -746,7 +805,7 @@ RSpec.describe CoursesController, type: :controller do
 
     before do
       Enrollment.create!(user: user, course: course, role: 'teacher')
-      Request.create!(course: course, assignment: assignment, user: user, requested_due_date: Time.current, reason: 'Reason')
+      Request.create!(course: course, assignment: assignment, user: user, requested_due_date: assignment.due_date + 1.day, reason: 'Reason')
       FormSetting.create!(
         course: course,
         documentation_disp: 'required',

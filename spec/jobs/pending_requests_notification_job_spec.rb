@@ -63,7 +63,7 @@ RSpec.describe PendingRequestsNotificationJob, type: :job do
       stale_user = create(:user, canvas_uid: 'stu_notif_auto2', email: 'auto2@example.com')
       travel_to(2.days.ago) do
         Request.create!(course: course, assignment: assignment, user: stale_user, status: 'approved',
-                        auto_approved: true, reason: 'Auto', requested_due_date: 4.days.from_now)
+                        auto_approved: true, reason: 'Auto', requested_due_date: 6.days.from_now)
       end
 
       described_class.perform_now('daily')

@@ -1,0 +1,19 @@
+<%# What the latest sync did about extensions that the class deadline moved past. %>
+<% if totals['removed'].positive? %>
+  <p class="text-muted mt-2 mb-0">
+    Removed <%= pluralize(totals['removed'], 'outdated extension') %> so those students follow the class deadline.
+  </p>
+<% end %>
+<% if totals['failed'].positive? %>
+  <p class="alert alert-warning small mt-2 mb-0" role="status">
+    <%= pluralize(totals['failed'], 'outdated extension') %> could not be removed, so those students may still have an
+    earlier deadline than the class. Flextensions will try again the next time assignments are synced.
+  </p>
+<% end %>
+<% if totals['skipped'].positive? %>
+  <p class="alert alert-warning small mt-2 mb-0" role="status">
+    <%= pluralize(totals['skipped'], 'student') %> with an outdated extension
+    <%= totals['skipped'] == 1 ? 'has' : 'have' %> an earlier date in the LMS that Flextensions did not set. Please check
+    the assignment's dates in the LMS.
+  </p>
+<% end %>

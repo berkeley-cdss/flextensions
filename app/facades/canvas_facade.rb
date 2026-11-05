@@ -444,6 +444,42 @@ class CanvasFacade < LmsFacade
     end
   end
 
+  # See LmsFacade#student_identifier.
+  def student_identifier(user)
+    user.canvas_uid.to_i
+  end
+
+  ##
+  # See LmsFacade#extension_due_dates. Section overrides have no student_ids, so
+  # only overrides that name individual students are included.
+  def extension_due_dates(course_id, assignment_id)
+    list_override_structs(course_id, assignment_id).each_with_object({}) do |override, due_dates|
+      next if override.due_at.blank?
+
+      override.student_ids&.each { |id| due_dates[id.to_i] = Time.zone.parse(override.due_at.to_s) }
+    end
+  end
+
+  ##
+  # See LmsFacade#remove_extension. An override shared with other students stays
+  # in place for them. The overrides are read fresh for each removal because a
+  # shared override's student list is rewritten in full: a stale list would put
+  # back a student who was removed a moment ago.
+  def remove_extension(course_id, student_id, assignment_id)
+    override = find_student_override(list_override_structs(course_id, assignment_id), student_id)
+    return false unless override
+
+    if override.student_ids.length == 1
+      response = delete_assignment_override(course_id, assignment_id, override.id)
+      unless (200..299).cover?(response.status)
+        raise CanvasAPIError, "Canvas could not delete the extension (HTTP #{response.status})"
+      end
+    else
+      remove_student_from_override(course_id, override, student_id)
+    end
+    true
+  end
+
   private
 
   ##
