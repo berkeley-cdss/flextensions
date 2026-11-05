@@ -1079,6 +1079,7 @@ RSpec.describe Request, type: :model do
           'original_due_date' => assignment.due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
           'new_due_date' => request.requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
           'requested_due_date' => request.requested_due_date.strftime('%a, %b %-d, %Y %-I:%M %p'),
+          'requested_days' => request.calculate_days_difference.to_s,
           'extension_days' => request.calculate_days_difference.to_s,
           'request_url' => request.request_link,
           'request_details_table' => a_string_including('<strong>Status:</strong>')
@@ -1156,6 +1157,16 @@ RSpec.describe Request, type: :model do
       rendered = EmailService.render_templates('s', "Details:\n{{request_details_table}}", request.email_template_mapping)
       expect(rendered[:body]).to include('<strong>Status:</strong>')
       expect(rendered[:body]).not_to include('&lt;strong')
+    end
+  end
+
+  describe '#email_template_mapping' do
+    it 'renders {{requested_days}} and its legacy alias {{extension_days}} to the same value' do
+      days = request.calculate_days_difference.to_s
+      rendered = EmailService.render_templates('{{requested_days}} days', 'Old: {{extension_days}}', request.email_template_mapping)
+
+      expect(rendered[:subject]).to eq("#{days} days")
+      expect(rendered[:body]).to eq("Old: #{days}")
     end
   end
 

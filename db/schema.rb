@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_11_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -98,7 +98,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_090000) do
     t.string "denial_email_subject"
     t.text "denial_email_template"
     t.string "email_subject"
-    t.text "email_template", default: ""
+    t.text "email_template"
     t.boolean "enable_emails", default: false
     t.boolean "enable_extensions", default: false
     t.boolean "enable_gradescope", default: false
