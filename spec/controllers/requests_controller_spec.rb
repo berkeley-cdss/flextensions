@@ -145,7 +145,7 @@ RSpec.describe RequestsController, type: :controller do
         get :show, params: { course_id: course.id, id: request.id }
 
         expect(response.body).to include(approve_course_request_path(course, request))
-        expect(response.body).to include('This request was denied. Approve it and create the extension?')
+        expect(response.body).to include('This request was denied. Approving it will re-open the assignment to the selected date, and override any other requests for this assignment.')
       end
 
       it 'does not offer an Approve button on an approved request' do
