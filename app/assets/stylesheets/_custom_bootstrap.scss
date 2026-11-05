@@ -45,16 +45,26 @@ table.flextensions-table.dataTable {
 }
 
 // DataTables column-visibility dropdown: show a checkmark next to visible
-// columns instead of DataTables' default highlighted-row active state. These
-// selectors are more specific than Bootstrap's .dropdown-item rules, so they
-// win without !important.
+// columns instead of DataTables' default highlighted-row active state.
+//
+// Buttons 4 renders each entry as
+//   <li class="dt-button buttons-columnVisibility dt-button-active-a">
+//     <a class="dropdown-item">Column name</a>
+//   </li>
+// so the `dt-button` hook and the active marker sit on the <li> while the
+// visible row is the inner .dropdown-item. (Buttons 3 put all of it on a
+// single <a class="dt-button dropdown-item"> and named the active state
+// `dt-button-active`.) These selectors are more specific than Bootstrap's
+// .dropdown-item rules, so they win without !important.
 .dt-button-collection .dt-button {
   position: relative;
-  text-align: left;
-  padding-left: 2.2em;
 
-  &.active,
-  &.dt-button-active {
+  > .dropdown-item {
+    text-align: left;
+    padding-left: 2.2em;
+  }
+
+  &.dt-button-active-a > .dropdown-item {
     background-color: transparent;
     color: var(--bs-dropdown-link-color, inherit);
 
