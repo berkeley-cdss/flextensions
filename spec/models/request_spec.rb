@@ -864,6 +864,22 @@ RSpec.describe Request, type: :model do
     end
   end
 
+  describe '#approvable?' do
+    it 'is true for a pending request' do
+      expect(request.approvable?).to be(true)
+    end
+
+    it 'is true for a denied request, so staff can reverse a denial' do
+      request.update!(status: 'denied')
+      expect(request.approvable?).to be(true)
+    end
+
+    it 'is false for an approved request' do
+      request.update!(status: 'approved')
+      expect(request.approvable?).to be(false)
+    end
+  end
+
   describe '.pending' do
     it 'returns only requests in the pending status' do
       pending = request

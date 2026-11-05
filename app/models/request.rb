@@ -58,6 +58,16 @@ class Request < ApplicationRecord
     status == 'pending'
   end
 
+  def denied?
+    status == 'denied'
+  end
+
+  # Staff can approve a request that is still pending, or reverse an earlier
+  # denial (e.g. one denied by mistake). Approved requests stay as they are.
+  def approvable?
+    pending? || denied?
+  end
+
   # Provisions the extension for this request through the assignment's LMS,
   # acting on behalf of acting_user. Returns false when the assignment has no
   # LMS facade. Shared by the single approve action and mass-approval so the
