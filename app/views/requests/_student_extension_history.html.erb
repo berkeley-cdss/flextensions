@@ -34,13 +34,7 @@
 						<tr>
 							<td><%= link_to prior.assignment&.name || 'N/A', course_request_path(course, prior) %></td>
 							<td><%= prior.requested_due_date&.strftime('%b %-d, %Y %-I:%M%P') || 'N/A' %></td>
-							<td>
-								<% if prior.assignment&.due_date && prior.requested_due_date.present? %>
-									<%= (prior.requested_due_date.to_date - prior.assignment.due_date.to_date).to_i %>
-								<% else %>
-									N/A
-								<% end %>
-							</td>
+							<td><%= prior.extension_days || 'N/A' %></td>
 							<td><%= prior.created_at&.strftime('%b %-d, %Y') || 'N/A' %></td>
 							<td>
 								<% case prior.status %>

@@ -1,0 +1,18 @@
+<%# Explains a request whose date is no longer later than the assignment's due date. %>
+<% unless request.extends_current_deadline? || request.status == 'denied' %>
+	<div class="alert alert-warning small" role="status">
+		This date is no longer later than the assignment's current due date, so
+		<% if request.status == 'approved' %>
+			this extension no longer adds any time.
+			<% if staff %>
+				The LMS may still be using this earlier date for this student. Please check the student's date in the LMS and remove the extension there if it isn't needed.
+			<% else %>
+				Canvas or Gradescope may still be using this earlier date for you. Please contact your course staff if it hasn't been updated.
+			<% end %>
+		<% elsif staff %>
+			this request can't be approved. Edit it to choose a later date, or reject it.
+		<% else %>
+			this request can't be approved. Edit it to choose a later date.
+		<% end %>
+	</div>
+<% end %>

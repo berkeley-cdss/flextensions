@@ -76,6 +76,13 @@ RSpec.describe RequestReviewPresenter do
   end
 
   describe '#new_late_due_date' do
+    it "is nil once the deadline has moved past the request, as it can't be approved" do
+      request
+      assignment.update!(due_date: 10.days.from_now, late_due_date: 12.days.from_now)
+
+      expect(described_class.new(request.reload).new_late_due_date).to be_nil
+    end
+
     it 'returns the late due date that would be applied on approval' do
       expect(presenter.new_late_due_date).to eq(request.calculate_new_late_due_date)
     end

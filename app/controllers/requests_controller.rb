@@ -26,7 +26,7 @@ class RequestsController < ApplicationController
 
   def show
     @assignment = @request.assignment
-    @number_of_days = @request.calculate_days_difference if @request.requested_due_date.present? && @assignment&.due_date.present?
+    @number_of_days = @request.extension_days
     if @course.staff_user?(current_user)
       @review = RequestReviewPresenter.new(@request)
       @student_enrollment = @review.enrollment
@@ -332,7 +332,7 @@ class RequestsController < ApplicationController
         "#{processed_count} request#{'s' unless processed_count == 1} #{action_label} successfully."
       else
         "#{processed_count} request#{'s' unless processed_count == 1} #{action_label}. "\
-          "#{failed_count} failed."
+          "#{failed_count} failed.#{stale_requests_note(requests, failed_ids)}"
       end
 
     render_mass_action_response(
@@ -343,6 +343,14 @@ class RequestsController < ApplicationController
       new_status: action_label,
       status: processed_count.positive? ? :ok : :unprocessable_content
     )
+  end
+
+  # Tells staff why these requests failed, since nothing else on the page does.
+  def stale_requests_note(requests, failed_ids)
+    stale_count = requests.count { |request| failed_ids.include?(request.id) && !request.extends_current_deadline? }
+    return '' if stale_count.zero?
+
+    " #{stale_count} of these #{stale_count == 1 ? 'asks' : 'ask'} for a date that is not later than the current due date."
   end
 
   def render_mass_action_response(success:, message:, processed_ids:, failed_ids:, new_status:, status:)

@@ -88,6 +88,8 @@
 						<% end %>
 					</div>
 
+					<%= render "deadline_moved_notice", request: @request, staff: true %>
+
 					<!-- Display Reason for Extension -->
 					<div class="mb-4">
 						<h3 class="mb-2 h6"><%= @form_settings.reason_title_or_default %></h3>
@@ -190,7 +192,7 @@
 			<!-- Display Buttons -->
 			<div class="d-flex justify-content-start mt-4">
 			  <% if @request.status == 'pending' %>
-			    <%= button_to 'Approve', approve_course_request_path(@course, @request), method: :post, class: 'btn btn-success me-3' %>
+			    <%= button_to 'Approve', approve_course_request_path(@course, @request), method: :post, class: 'btn btn-success me-3', disabled: !@request.extends_current_deadline? %>
 			    <%= button_to 'Reject', reject_course_request_path(@course, @request), method: :post, class: 'btn btn-danger me-3' %>
 				<%= link_to 'Edit Request', edit_course_request_path(@course, @request), class: "btn btn-secondary me-3" %>
 				<%= link_to 'Back', course_requests_path(@course), class: "btn btn-dark" %>
