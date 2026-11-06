@@ -135,6 +135,23 @@ class Request < ApplicationRecord
     (requested_due_date.to_date - assignment.due_date.to_date).to_i
   end
 
+  # The number of days to show people. The class deadline can move past the
+  # requested date, which should read as no extension rather than a negative
+  # count. Returns nil when either date is missing.
+  def extension_days
+    return unless requested_due_date && assignment&.due_date
+
+    [ calculate_days_difference, 0 ].max
+  end
+
+  # False once the class deadline has reached the requested date, at which point
+  # this request no longer gives the student any extra time.
+  def extends_current_deadline?
+    return true unless requested_due_date && assignment&.due_date
+
+    requested_due_date > assignment.due_date
+  end
+
   # Set when a request met the auto-approval rules but could not be approved
   # because no staff member's Canvas access worked; used to warn course staff.
   attr_reader :auto_approval_breakdown
@@ -228,6 +245,13 @@ class Request < ApplicationRecord
 
   # TODO: All of these code should really be moved to each LMS' facade class
   def approve(lms_facade, processed_user_id)
+    # The class deadline may have moved since this was requested. An override
+    # for the old date would give the student an earlier deadline than the class.
+    unless extends_current_deadline?
+      errors.add(:base, stale_approval_message)
+      return false
+    end
+
     begin
       case lms_facade
       when CanvasFacade
@@ -335,7 +359,7 @@ class Request < ApplicationRecord
   # Keep the list on the Email Templates settings page in sync with this.
   def email_template_mapping
     requested = requested_due_date.strftime(EMAIL_DATE_FORMAT)
-    days = calculate_days_difference.to_s
+    days = extension_days.to_s
     {
       'student_name' => user.name,
       'student_email' => user.email,
@@ -366,7 +390,7 @@ class Request < ApplicationRecord
       [ 'Status', approved || status == 'denied' ? status.capitalize : 'Pending review' ],
       [ 'Original Due Date', assignment.due_date&.strftime(EMAIL_DATE_FORMAT) ],
       [ approved ? 'New Due Date' : 'Requested Due Date', requested_due_date.strftime(EMAIL_DATE_FORMAT) ],
-      [ approved ? 'Extension Days' : 'Days Requested', calculate_days_difference ],
+      [ approved ? 'Extension Days' : 'Days Requested', extension_days ],
       [ 'Reason', reason ]
     ]
   end
@@ -403,6 +427,12 @@ class Request < ApplicationRecord
   end
 
   private
+
+  def stale_approval_message
+    "This request can't be approved: the requested date (#{requested_due_date.strftime(EMAIL_DATE_FORMAT)}) is not " \
+      "later than the assignment's current due date (#{assignment.due_date.strftime(EMAIL_DATE_FORMAT)}). " \
+      'Edit it to choose a later date, or reject it.'
+  end
 
   def flag_auto_approval_breakdown(reason)
     @auto_approval_breakdown = reason

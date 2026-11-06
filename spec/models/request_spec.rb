@@ -154,6 +154,50 @@ RSpec.describe Request, type: :model do
     end
   end
 
+  describe '#extension_days' do
+    before { request }
+
+    it 'counts the days past the current due date' do
+      expect(request.extension_days).to eq(2)
+    end
+
+    it 'is 0 once the class deadline moves past the request, never negative' do
+      assignment.update!(due_date: 20.days.from_now)
+
+      expect(request.reload.extension_days).to eq(0)
+    end
+
+    it 'is nil when the assignment has no due date' do
+      assignment.update!(due_date: nil, enabled: false)
+
+      expect(request.reload.extension_days).to be_nil
+    end
+
+    it 'is nil without a requested date' do
+      expect(described_class.new(assignment: assignment).extension_days).to be_nil
+    end
+  end
+
+  describe '#extends_current_deadline?' do
+    before { request }
+
+    it 'is true while the requested date is later' do
+      expect(request.extends_current_deadline?).to be(true)
+    end
+
+    it 'is false once the due date reaches the requested date' do
+      assignment.update!(due_date: request.requested_due_date)
+
+      expect(request.reload.extends_current_deadline?).to be(false)
+    end
+
+    it 'is true when the assignment has no due date to compare with' do
+      assignment.update!(due_date: nil, enabled: false)
+
+      expect(request.reload.extends_current_deadline?).to be(true)
+    end
+  end
+
   describe '#auto_approval_eligible_for_course?' do
     context 'when course settings allow auto approval' do
       before { course_settings }
@@ -694,6 +738,31 @@ RSpec.describe Request, type: :model do
       allow(lms_facade).to receive(:provision_extension).and_return(provisioned_override)
     end
 
+    context 'when the class deadline has moved past the requested date' do
+      before do
+        request
+        assignment.update!(due_date: 10.days.from_now, late_due_date: 12.days.from_now)
+        request.reload
+      end
+
+      it 'does not approve the request' do
+        expect(request.approve(lms_facade, instructor)).to be(false)
+        expect(request.reload.status).to eq('pending')
+      end
+
+      it 'does not write anything to the LMS' do
+        request.approve(lms_facade, instructor)
+
+        expect(lms_facade).not_to have_received(:provision_extension)
+      end
+
+      it 'tells staff why' do
+        request.approve(lms_facade, instructor)
+
+        expect(request.errors.full_messages.to_sentence).to include("can't be approved", 'not later than', 'choose a later date')
+      end
+    end
+
     it 'provisions an extension through the LMS facade using AssignmentDateCalculator' do
       allow(mock_date_calculator).to receive(:calculate).and_return({
         release_date: nil,
@@ -1155,6 +1224,19 @@ RSpec.describe Request, type: :model do
       expect(rows['Requested Due Date']).to be_present
       expect(rows['Days Requested']).to eq(request.calculate_days_difference)
       expect(rows['Reason']).to eq(request.reason)
+    end
+  end
+
+  describe 'days in emails after the class deadline moves past the request' do
+    before do
+      request
+      assignment.update!(due_date: 20.days.from_now)
+      request.reload
+    end
+
+    it 'shows 0 days rather than a negative number' do
+      expect(request.email_details_rows.to_h['Days Requested']).to eq(0)
+      expect(request.email_template_mapping).to include('requested_days' => '0', 'extension_days' => '0')
     end
   end
 

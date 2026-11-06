@@ -48,9 +48,10 @@ class RequestReviewPresenter
   end
 
   # The late due date that would be set on the assignment if this request is
-  # approved, or nil when it cannot be calculated.
+  # approved, or nil when it cannot be calculated or the request can't be approved.
   def new_late_due_date
     return nil unless @request.requested_due_date.present? && @request.assignment&.due_date.present?
+    return nil unless @request.extends_current_deadline?
 
     @request.calculate_new_late_due_date
   end
