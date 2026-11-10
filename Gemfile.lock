@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/dlt/faultline.git
-  revision: 711362c44b14483c1748b4acff8cd9aa773e3e59
+  revision: 961580edd94e88890442050a58aba8101438caf3
   specs:
     faultline (0.1.0)
       mcp (~> 0.15)
