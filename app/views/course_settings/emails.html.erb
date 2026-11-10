@@ -121,7 +121,7 @@
                         <% {
                              student: %w[student_name student_email student_id],
                                  course: %w[course_name course_code assignment_name request_url],
-                                 request: %w[request_details_table original_due_date new_due_date requested_due_date extension_days status]
+                                 request: %w[request_details_table original_due_date new_due_date requested_due_date requested_days status]
                            }.each do |group, variables| %>
                             <p class="mb-1 fw-bold" id="email-variables-<%= group %>"><%= t(".variables.groups.#{group}") %></p>
                             <table class="table table-sm table-borderless w-auto mb-3 email-variables-table" style="--bs-table-bg: transparent;"

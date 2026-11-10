@@ -10,6 +10,10 @@ For a complete list of releases, see the [GitHub Releases page](https://github.c
 
 ---
 
+## September 15, 2026 — Email Template Variable Rename
+
+The `{{extension_days}}` email variable is now `{{requested_days}}`. Existing templates that use the old name keep working. Courses that never edited their approval email now automatically receive future improvements to the default text, just like the denial email.
+
 ## September 9, 2026 — Denial Email Templates & Submission Receipts
 
 Approval and denial notifications now use separate, individually editable email templates, delivered in a cleaner Flextensions-branded layout. Every student also receives a confirmation email as soon as an extension request is submitted.

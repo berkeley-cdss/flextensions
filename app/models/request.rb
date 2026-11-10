@@ -58,6 +58,16 @@ class Request < ApplicationRecord
     status == 'pending'
   end
 
+  def denied?
+    status == 'denied'
+  end
+
+  # Staff can approve a request that is still pending, or reverse an earlier
+  # denial (e.g. one denied by mistake). Approved requests stay as they are.
+  def approvable?
+    pending? || denied?
+  end
+
   # Provisions the extension for this request through the assignment's LMS,
   # acting on behalf of acting_user. Returns false when the assignment has no
   # LMS facade. Shared by the single approve action and mass-approval so the
@@ -325,6 +335,7 @@ class Request < ApplicationRecord
   # Keep the list on the Email Templates settings page in sync with this.
   def email_template_mapping
     requested = requested_due_date.strftime(EMAIL_DATE_FORMAT)
+    days = calculate_days_difference.to_s
     {
       'student_name' => user.name,
       'student_email' => user.email,
@@ -336,7 +347,10 @@ class Request < ApplicationRecord
       'original_due_date' => assignment.due_date.strftime(EMAIL_DATE_FORMAT),
       'new_due_date' => requested,
       'requested_due_date' => requested,
-      'extension_days' => calculate_days_difference.to_s,
+      'requested_days' => days,
+      # Deprecated alias for {{requested_days}}, kept so templates written
+      # before the rename keep rendering the number of days.
+      'extension_days' => days,
       'request_url' => request_link,
       'request_details_table' => email_details_html
     }
