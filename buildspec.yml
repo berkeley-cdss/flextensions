@@ -15,6 +15,10 @@ phases:
     # platform upgrade (e.g. to 4.0 when EB moves to the Ruby 4.0 branch).
     runtime-versions:
       ruby: 3.3
+      # Only needed at build time, to fetch the DataTables stylesheets that
+      # application.scss imports from node_modules (see
+      # config/initializers/dartsass.rb). Nothing runs Node on the EB host.
+      nodejs: 22
 
     commands:
       - echo "Installing system dependencies for build..."
@@ -25,6 +29,10 @@ phases:
       - bundle config set deployment true
       - bundle config set without 'development test'
       - bundle install
+      # The DataTables Bootstrap 5 CSS lives in package.json "dependencies";
+      # everything else there is a devDependency used only for vendoring JS
+      # and building API docs, so leave it out.
+      - npm ci --omit=dev
 
   pre_build:
     commands:
