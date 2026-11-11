@@ -82,4 +82,37 @@ class LmsFacade
   def provision_extension(course_id, student_id, assignment_id, new_due_date)
     raise NotImplementedError
   end
+
+  ##
+  # The value this LMS uses to identify a student in the extension methods.
+  #
+  # @param  [User] user the student.
+  # @return [Object] the identifier passed as student_id to the extension methods.
+  def student_identifier(user)
+    raise NotImplementedError
+  end
+
+  ##
+  # Reads the due date of every student-specific extension on an assignment.
+  #
+  # @param  [String] course_id the course the assignment belongs to.
+  # @param  [String] assignment_id the assignment to read extensions from.
+  # @return [Hash{Object => Time}] due dates, keyed by student_identifier.
+  # @raises [StandardError] if the extensions could not be read, so that a
+  #         failure is never mistaken for an assignment with no extensions.
+  def extension_due_dates(course_id, assignment_id)
+    raise NotImplementedError
+  end
+
+  ##
+  # Removes a student's extension, so the assignment's own dates apply to them.
+  #
+  # @param  [String] course_id the course the assignment belongs to.
+  # @param  [Object] student_id the student, as given by student_identifier.
+  # @param  [String] assignment_id the assignment to remove the extension from.
+  # @return [Boolean] true if an extension was removed, false if there was none.
+  # @raises [StandardError] if the extension could not be removed.
+  def remove_extension(course_id, student_id, assignment_id)
+    raise NotImplementedError
+  end
 end

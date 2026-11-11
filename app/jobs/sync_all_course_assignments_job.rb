@@ -40,6 +40,10 @@ class SyncAllCourseAssignmentsJob < ApplicationJob
       # rubocop:enable Rails/SkipsModelValidations
     end
 
+    # Runs on every sync rather than only when a date changes, so existing bad
+    # overrides get repaired and failed removals get retried.
+    results[:stale_extensions] = StaleExtensionRemover.new(course_to_lms, facade).call(external_assignment_ids)
+
     results[:synced_at] = Time.current
 
     course_to_lms.recent_assignment_sync = results

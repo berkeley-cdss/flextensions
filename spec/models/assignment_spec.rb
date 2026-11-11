@@ -75,4 +75,52 @@ RSpec.describe Assignment, type: :model do
         .to eq('https://canvas.example.edu/courses/4567/assignments/89')
     end
   end
+
+  describe '#current_due_date_for' do
+    let(:assignment) { create(:assignment, due_date: Time.zone.parse('2026-11-05 23:59')) }
+    let(:student) { create(:user) }
+
+    def approve_until(due_date, user: student)
+      create(:request, :approved, course: assignment.course, assignment: assignment, user: user, requested_due_date: due_date)
+    end
+
+    it 'is the class deadline when the student has no approved extension' do
+      create(:request, course: assignment.course, assignment: assignment, user: student,
+                       requested_due_date: Time.zone.parse('2026-11-09 23:59'))
+
+      expect(assignment.current_due_date_for(student)).to eq(assignment.due_date)
+    end
+
+    it 'is the extension while it is later than the class deadline' do
+      approve_until(Time.zone.parse('2026-11-06 23:59'))
+
+      expect(assignment.current_due_date_for(student)).to eq(Time.zone.parse('2026-11-06 23:59'))
+    end
+
+    it 'is the class deadline once it moves past the extension' do
+      approve_until(Time.zone.parse('2026-11-06 23:59'))
+      assignment.update!(due_date: Time.zone.parse('2026-11-20 23:59'))
+
+      expect(assignment.current_due_date_for(student)).to eq(Time.zone.parse('2026-11-20 23:59'))
+    end
+
+    it 'uses the most recent approval, which replaces earlier ones in the LMS' do
+      approve_until(Time.zone.parse('2026-11-10 23:59'))
+      travel(1.minute) { approve_until(Time.zone.parse('2026-11-07 23:59')) }
+
+      expect(assignment.current_due_date_for(student)).to eq(Time.zone.parse('2026-11-07 23:59'))
+    end
+
+    it "ignores other students' extensions" do
+      approve_until(Time.zone.parse('2026-11-06 23:59'), user: create(:user))
+
+      expect(assignment.current_due_date_for(student)).to eq(assignment.due_date)
+    end
+
+    it 'is nil when there is no date at all' do
+      assignment.update!(due_date: nil)
+
+      expect(assignment.current_due_date_for(student)).to be_nil
+    end
+  end
 end

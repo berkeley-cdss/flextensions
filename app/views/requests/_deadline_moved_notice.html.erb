@@ -1,0 +1,16 @@
+<%# Explains a request whose date the assignment's deadline has since reached. %>
+<% unless request.extends_current_deadline? || request.status == 'denied' %>
+	<div class="alert alert-warning small" role="status">
+		The assignment's due date has moved to this date or later, so
+		<% if request.status == 'approved' %>
+			this extension no longer applies.
+			<% if staff %>
+				Syncing assignments removes it from the LMS if it is still there, so this student's deadline matches the class.
+			<% end %>
+		<% elsif staff %>
+			this request can't be approved. Edit it to choose a later date, or reject it.
+		<% else %>
+			this request can't be approved. Edit it to choose a later date.
+		<% end %>
+	</div>
+<% end %>

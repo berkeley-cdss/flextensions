@@ -10,6 +10,10 @@ For a complete list of releases, see the [GitHub Releases page](https://github.c
 
 ---
 
+## November 5, 2026 — Moving Deadlines
+
+When staff move a deadline past a student's extension and then sync assignments, Flextensions now removes the outdated extension from Canvas or Gradescope, so that student isn't left with an earlier deadline than the class. See [Moving a deadline](/instructors/#moving-a-deadline).
+
 ## September 15, 2026 — Email Template Variable Rename
 
 The `{{extension_days}}` email variable is now `{{requested_days}}`. Existing templates that use the old name keep working. Courses that never edited their approval email now automatically receive future improvements to the default text, just like the denial email.

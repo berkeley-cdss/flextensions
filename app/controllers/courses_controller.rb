@@ -25,6 +25,7 @@ class CoursesController < ApplicationController
     if @course.staff_user?(current_user)
       @assignments = @course.assignments
       @assignments_last_synced_at = assignments_last_synced_at
+      @stale_extension_totals = @course.stale_extension_totals
       render :instructor_show
     elsif @course.student_user?(current_user)
       return redirect_to courses_path, alert: 'Extensions are not enabled for this course.' unless @course.requests_enabled?

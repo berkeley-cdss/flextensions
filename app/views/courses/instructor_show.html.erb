@@ -67,6 +67,7 @@
         Assignments last synced at
         <%= @assignments_last_synced_at ? @assignments_last_synced_at.strftime('%a, %b %-d at %-I:%M%P') : 'never' %>
       </p>
+      <%= render "stale_extension_summary", totals: @stale_extension_totals %>
     </div>
 
     <div class="mt-4 col text-end"

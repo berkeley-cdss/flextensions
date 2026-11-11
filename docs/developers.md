@@ -312,6 +312,18 @@ assignment overrides (and the gotchas around `override_assignment_dates`, the
 25-date `all_dates` limit, and `/date_details`), see
 [Canvas Dates API notes](/canvas-dates-api/) (`docs/Canvas_Dates_API.md`).
 
+An LMS keeps using a student's override even when the assignment's own deadline
+moves past it, so each assignment sync removes extensions that Flextensions
+approved and that now end before the class deadline (see
+`StaleExtensionRemover`). Courses that moved a deadline before this existed are
+repaired by their next sync. To repair them all at once, review the affected
+courses and then queue their syncs:
+
+```bash
+bin/rails extensions:report_stale
+bin/rails "extensions:repair_stale[all]" # or a list of course IDs: "extensions:repair_stale[12,34]"
+```
+
 There are now two separate instances of Canvas, each with it's own triad of prod/test/beta environments:
 1. [bcourses.berkeley.edu](https://bcourses.berkeley.edu)
 2. [ucberkeleysandbox.instructure.com](https://ucberkeleysandbox.instructure.com)

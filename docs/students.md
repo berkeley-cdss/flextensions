@@ -25,7 +25,7 @@ Each row shows:
 
 - Assignment name
 - Original due date
-- Your extended due date if a request has been approved
+- Your extended due date if a request has been approved. If the class deadline later moves past your extension, this shows the class deadline instead.
 - A button to submit or edit a request
 
 ## Extension Request Buttons

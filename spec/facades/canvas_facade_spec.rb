@@ -762,6 +762,99 @@ describe CanvasFacade do
     end
   end
 
+  describe '#student_identifier' do
+    it 'uses the Canvas user id' do
+      expect(facade.student_identifier(instance_double(User, canvas_uid: '22'))).to eq(22)
+    end
+  end
+
+  describe '#extension_due_dates' do
+    def stub_overrides(*overrides)
+      allow(facade).to receive(:list_override_structs).with(course_id, assignment_id)
+                                                      .and_return(overrides.map { |override| OpenStruct.new(override) })
+    end
+
+    it 'lists the due date of every student on an override' do
+      stub_overrides({ due_at: '2026-11-06T23:59:00Z', student_ids: [ 22, '23' ] }, { due_at: '2026-11-08T23:59:00Z', student_ids: [ 24 ] })
+
+      expect(facade.extension_due_dates(course_id, assignment_id)).to eq(
+        22 => Time.zone.parse('2026-11-06T23:59:00Z'),
+        23 => Time.zone.parse('2026-11-06T23:59:00Z'),
+        24 => Time.zone.parse('2026-11-08T23:59:00Z')
+      )
+    end
+
+    it 'ignores section overrides, which have no students' do
+      stub_overrides({ due_at: '2026-11-06T23:59:00Z', course_section_id: 5 })
+
+      expect(facade.extension_due_dates(course_id, assignment_id)).to eq({})
+    end
+
+    it 'ignores overrides that do not set a due date' do
+      stub_overrides({ due_at: nil, student_ids: [ 22 ] })
+
+      expect(facade.extension_due_dates(course_id, assignment_id)).to eq({})
+    end
+
+    it 'raises when the overrides cannot be read, rather than reporting none' do
+      allow(facade).to receive(:list_override_structs).and_raise(FailedPipelineError.new('Sync', 'Read'))
+
+      expect { facade.extension_due_dates(course_id, assignment_id) }.to raise_error(FailedPipelineError)
+    end
+  end
+
+  describe '#remove_extension' do
+    let(:success) { instance_double(Faraday::Response, status: 200, body: '{}') }
+
+    def stub_overrides(*overrides)
+      allow(facade).to receive(:list_override_structs).and_return(overrides.map { |override| OpenStruct.new(override) })
+    end
+
+    before do
+      allow(facade).to receive_messages(delete_assignment_override: success, remove_student_from_override: success)
+    end
+
+    it 'deletes an override that only this student is on' do
+      stub_overrides(mock_override)
+
+      expect(facade.remove_extension(course_id, student_id, assignment_id)).to be(true)
+      expect(facade).to have_received(:delete_assignment_override).with(course_id, assignment_id, override_id)
+      expect(facade).not_to have_received(:remove_student_from_override)
+    end
+
+    it 'removes only this student from a shared override' do
+      stub_overrides(mock_override.merge(student_ids: [ student_id, student_id + 1 ]))
+
+      expect(facade.remove_extension(course_id, student_id, assignment_id)).to be(true)
+      expect(facade).to have_received(:remove_student_from_override)
+        .with(course_id, have_attributes(id: override_id), student_id)
+      expect(facade).not_to have_received(:delete_assignment_override)
+    end
+
+    it 'returns false when the student has no override' do
+      stub_overrides(mock_override.merge(student_ids: [ student_id + 1 ]))
+
+      expect(facade.remove_extension(course_id, student_id, assignment_id)).to be(false)
+      expect(facade).not_to have_received(:delete_assignment_override)
+    end
+
+    it 'raises when Canvas refuses to delete the override' do
+      stub_overrides(mock_override)
+      allow(facade).to receive(:delete_assignment_override).and_return(instance_double(Faraday::Response, status: 403, body: '{}'))
+
+      expect { facade.remove_extension(course_id, student_id, assignment_id) }
+        .to raise_error(CanvasFacade::CanvasAPIError, /HTTP 403/)
+    end
+
+    it 'reads the overrides again for each removal, as a shared override changes between them' do
+      stub_overrides(mock_override)
+
+      2.times { facade.remove_extension(course_id, student_id, assignment_id) }
+
+      expect(facade).to have_received(:list_override_structs).twice
+    end
+  end
+
   describe 'extension_override_title' do
     it 'titles overrides by extension length so similar extensions share a group' do
       allow(facade).to receive(:get_base_dates).and_return({ 'due_at' => '2025-01-15T23:59:00Z' })

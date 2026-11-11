@@ -127,7 +127,9 @@ export default class extends Controller {
 
       if (!response.ok) throw new Error(`Failed to sync assignments. ${response.status}`);
 
-      await pollUntilDone(courseId, "assignments", statusBefore);
+      // Allow extra time: the first sync after a deadline moves may need to remove
+      // many outdated extensions from the LMS, one student at a time.
+      await pollUntilDone(courseId, "assignments", statusBefore, 1000, 300000);
 
       flash("notice", "Assignments synced successfully.");
       location.reload();

@@ -112,6 +112,10 @@ When(/^I fill in (.+) with date formatted as (\d+) days from now$/i) do |field_l
   fill_in(field_label, with: date)
 end
 
+Then(/^the "([^"]*)" field should contain the date (\d+) days from now$/) do |field, days|
+  expect(find_field(field).value).to eq((Time.zone.now + days.to_i.days).strftime('%Y-%m-%d'))
+end
+
 ###################
 #      STUBS      #
 ###################

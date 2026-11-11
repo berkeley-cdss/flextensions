@@ -65,6 +65,17 @@ module Lmss
         handle_response(response)
       end
 
+      def delete(path)
+        response = @conn.delete(path) do |req|
+          req.headers['X-CSRF-Token'] = @csrf_token if @csrf_token
+        end
+        # Rails apps often redirect after a successful delete. A redirect is not
+        # proof of success, so callers should confirm the record is gone.
+        return response.body if (300..399).cover?(response.status)
+
+        handle_response(response)
+      end
+
       def extract_all_react_props(html, data_react_class)
         doc = Nokogiri::HTML(html)
         elements = doc.css("[data-react-class='#{data_react_class}']")
