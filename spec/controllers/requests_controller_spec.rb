@@ -1162,4 +1162,95 @@ RSpec.describe RequestsController, type: :controller do
       expect(response).to have_http_status(:ok)
     end
   end
+
+  describe 'when the class deadline moved past a request' do
+    render_views
+
+    before do
+      request
+      assignment.update!(due_date: 20.days.from_now)
+    end
+
+    context 'as a student' do
+      it 'shows 0 days on the request page and says the LMS may still use the earlier date' do
+        request.update!(status: 'approved')
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(assigns(:number_of_days)).to eq(0)
+        expect(response.body).to include('this extension no longer adds any time', 'Canvas or Gradescope may still be using')
+      end
+
+      it 'shows 0 days in the request list' do
+        get :index, params: { course_id: course.id }
+
+        expect(response.body).not_to match(/>\s*-\d+\s*</)
+      end
+
+      it 'asks them to choose a later date on a pending request' do
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(response.body).to include('Edit it to choose a later date')
+      end
+
+      it 'says nothing on a denied request' do
+        request.update!(status: 'denied')
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(response.body).not_to include('no longer later than')
+      end
+    end
+
+    context 'as staff' do
+      let(:lms_facade) { instance_double(CanvasFacade, provision_extension: nil) }
+
+      before do
+        session[:user_id] = instructor.canvas_uid
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+        allow(CanvasFacade).to receive(:from_user).and_return(lms_facade)
+        allow(lms_facade).to receive(:is_a?).and_return(false)
+      end
+
+      it 'disables approval and explains why on the request page' do
+        get :show, params: { course_id: course.id, id: request.id }
+
+        page = Capybara.string(response.body)
+        expect(page).to have_button('Approve', disabled: true)
+        expect(page).to have_button('Reject', disabled: false)
+        expect(response.body).to include("this request can't be approved")
+      end
+
+      it 'asks staff to check the LMS for an approved extension' do
+        request.update!(status: 'approved')
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(response.body).to include('The LMS may still be using this earlier date', "check the student's date in the LMS")
+      end
+
+      it 'does not show a negative count in the request list' do
+        get :index, params: { course_id: course.id }
+
+        expect(response.body).not_to match(/>\s*-\d+\s*</)
+      end
+
+      it 'refuses to approve it and leaves the LMS alone' do
+        post :approve, params: { course_id: course.id, id: request.id }
+
+        expect(request.reload.status).to eq('pending')
+        expect(lms_facade).not_to have_received(:provision_extension)
+        expect(flash[:alert]).to include('not later than')
+      end
+
+      it 'counts it as failed in a mass approval' do
+        post :mass_approve, params: { course_id: course.id, request_ids: [ request.id ] }, format: :json
+
+        expect(response.parsed_body['failed_ids']).to contain_exactly(request.id)
+        expect(response.parsed_body['message']).to include('1 of these asks for a date that is not later')
+        expect(request.reload.status).to eq('pending')
+        expect(lms_facade).not_to have_received(:provision_extension)
+      end
+    end
+  end
 end

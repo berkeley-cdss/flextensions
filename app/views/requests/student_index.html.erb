@@ -38,11 +38,7 @@
                     <%= request.requested_due_date.present? ? request.requested_due_date.strftime('%a, %b %-d at %-I:%M%P') : 'N/A' %>
                     </td>
                     <td class="text-center align-content-center">
-                    <% if request.assignment&.due_date && request.requested_due_date.present? %>
-                        <%= (request.requested_due_date.to_date - request.assignment.due_date.to_date).to_i %>
-                    <% else %>
-                        N/A
-                    <% end %>
+                    <%= request.extension_days || 'N/A' %>
                     </td>
                     <td class="text-center align-content-center">
                       <% case request.status %>

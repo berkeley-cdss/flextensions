@@ -52,6 +52,16 @@ RSpec.describe PendingRequestsMailer do
         .to include("https://flextensions.example.com/courses/#{course.id}/requests/#{request.id}")
     end
 
+    it 'shows 0 days for a request the class deadline has moved past' do
+      request = create_pending_request(name: 'Alice', uid: 'mailer_stu_1')
+      assignment.update!(due_date: 20.days.from_now)
+
+      mail = build_mail([ request.reload ])
+
+      expect(mail.html_part.body.decoded).to include('Alice, HW1, 0 days')
+      expect(mail.text_part.body.decoded).to include('Alice, HW1, 0 days')
+    end
+
     it 'words the auto-approval window per frequency and singular count' do
       request = create_pending_request(name: 'Alice', uid: 'mailer_stu_1')
 

@@ -10,6 +10,10 @@ For a complete list of releases, see the [GitHub Releases page](https://github.c
 
 ---
 
+## November 5, 2026 — Moving Deadlines
+
+Flextensions no longer approves a request for a date that isn't later than the assignment's current due date, which would have given that student an earlier deadline than the class. Pages and emails no longer show negative days, and affected requests now explain what happened. Canvas and Gradescope can still hold an older extension after a deadline moves, so see [Moving a deadline](/instructors/#moving-a-deadline).
+
 ## September 15, 2026 — Email Template Variable Rename
 
 The `{{extension_days}}` email variable is now `{{requested_days}}`. Existing templates that use the old name keep working. Courses that never edited their approval email now automatically receive future improvements to the default text, just like the denial email.
