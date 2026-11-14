@@ -128,6 +128,57 @@ RSpec.describe RequestsController, type: :controller do
       expect(assigns(:review)).to be_nil
     end
 
+    context 'when staff review a request from a student who already has an extension' do
+      render_views
+
+      before do
+        session[:user_id] = instructor.canvas_uid
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+        instructor.lms_credentials.create!(
+          lms_id: 1, token: 'fake_token', refresh_token: 'fake_refresh_token', expire_time: 1.hour.from_now
+        )
+        Request.create!(user:, course:, assignment:, reason: 'Earlier',
+                        requested_due_date: assignment.due_date + 1.day, status: 'approved')
+      end
+
+      it 'shows the current due date and that the request came before the extended deadline' do
+        request.update!(created_at: assignment.due_date + 1.hour)
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(response.body).to include('Current Due Date (approved extension)')
+        expect(response.body).to include('after original deadline')
+        expect(response.body).to include('before extended deadline')
+      end
+
+      it 'flags a request submitted after the extended deadline' do
+        request.update!(created_at: assignment.due_date + 2.days)
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(response.body).to include('after extended deadline')
+      end
+    end
+
+    context 'when staff review a request from a student with no extension' do
+      render_views
+
+      before do
+        session[:user_id] = instructor.canvas_uid
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+        instructor.lms_credentials.create!(
+          lms_id: 1, token: 'fake_token', refresh_token: 'fake_refresh_token', expire_time: 1.hour.from_now
+        )
+      end
+
+      it 'does not show a current due date or an extended-deadline badge' do
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(response.body).not_to include('Current Due Date (approved extension)')
+        expect(response.body).not_to include('extended deadline')
+      end
+    end
+
     context 'when staff view a decided request' do
       render_views
 
