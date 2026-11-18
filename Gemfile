@@ -77,7 +77,7 @@ gem 'dotenv-rails', require: 'dotenv/load'
 #
 gem 'blazer'
 gem 'hypershield'
-gem 'good_job', '~> 4.19'
+gem 'good_job', '~> 4.24'
 
 #### Frontend related tools
 # Rails 8's default asset pipeline: digests and serves what's on disk, and does
