@@ -61,6 +61,33 @@ class RequestReviewPresenter
     due_date.present? && @request.created_at > due_date
   end
 
+  # The student's latest-ending approved extension for this same assignment,
+  # not counting this request, or nil if they have none. Matches the "widest
+  # approved extension" rule used by Request.total_approved_late_days_by_user.
+  def current_extension
+    return @current_extension if defined?(@current_extension)
+
+    @current_extension = student_requests
+                         .select { |r| r.status == 'approved' && r.assignment_id == @request.assignment_id }
+                         .max_by(&:requested_due_date)
+  end
+
+  def extended?
+    current_extension.present?
+  end
+
+  # The student's due date for this assignment, counting approved extensions.
+  def current_due_date
+    current_extension&.requested_due_date || @request.assignment&.due_date
+  end
+
+  # Whether the request was submitted after the student's current due date,
+  # i.e. after their extended deadline when they already had an extension.
+  def submitted_after_current_deadline?
+    due_date = current_due_date
+    due_date.present? && @request.created_at > due_date
+  end
+
   # Whether the extension was actually provisioned in the LMS. Set when an
   # approval successfully creates the override, so staff can confirm the LMS
   # side succeeded rather than only trusting the "approved" status.

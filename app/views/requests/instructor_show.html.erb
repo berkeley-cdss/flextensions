@@ -48,6 +48,13 @@
 									<% else %>
 										<span class="badge text-bg-secondary ms-1">before original deadline</span>
 									<% end %>
+									<% if @review.extended? %>
+										<% if @review.submitted_after_current_deadline? %>
+											<span class="badge text-bg-danger ms-1">after extended deadline</span>
+										<% else %>
+											<span class="badge text-bg-secondary ms-1">before extended deadline</span>
+										<% end %>
+									<% end %>
 								<% end %>
 							</p>
 							<div class="row">
@@ -58,6 +65,9 @@
 									<p><strong>Original Late Due Date: </strong><%= @request.assignment.late_due_date&.strftime('%a, %b %-d, %Y %-I:%M%P') || 'N/A' %></p>
 								</div>
 							</div>
+							<% if @review.extended? %>
+								<p><strong>Current Due Date (approved extension): </strong><%= @review.current_due_date.strftime('%a, %b %-d, %Y %-I:%M%P') %></p>
+							<% end %>
 						<% else %>
 							<p>N/A</p>
 						<% end %>

@@ -92,6 +92,60 @@ RSpec.describe RequestReviewPresenter do
     end
   end
 
+  describe 'current deadline' do
+    let(:extended_to) { assignment.due_date + 1.day }
+
+    it 'uses the original due date when the student has no approved extension' do
+      expect(presenter.extended?).to be(false)
+      expect(presenter.current_due_date).to be_within(1.second).of(assignment.due_date)
+    end
+
+    it 'ignores denied requests and extensions on other assignments' do
+      other_assignment = Assignment.create!(
+        name: 'A2', course_to_lms_id: course_to_lms.id,
+        due_date: 3.days.from_now, external_assignment_id: 'x2', enabled: true
+      )
+      Request.create!(user: student, course:, assignment:, reason: 'Denied',
+                      requested_due_date: extended_to, status: 'denied')
+      Request.create!(user: student, course:, assignment: other_assignment, reason: 'Other',
+                      requested_due_date: 6.days.from_now, status: 'approved')
+
+      expect(presenter.extended?).to be(false)
+    end
+
+    context 'when the student already has an approved extension' do
+      before do
+        Request.create!(user: student, course:, assignment:, reason: 'Earlier',
+                        requested_due_date: extended_to, status: 'approved')
+      end
+
+      it 'uses the extended due date' do
+        expect(presenter.extended?).to be(true)
+        expect(presenter.current_due_date).to be_within(1.second).of(extended_to)
+      end
+
+      it 'is before the extended deadline when submitted after the original one but before the extension ends' do
+        request.update!(created_at: assignment.due_date + 12.hours)
+
+        expect(presenter.submitted_after_deadline?).to be(true)
+        expect(presenter.submitted_after_current_deadline?).to be(false)
+      end
+
+      it 'is after the extended deadline when submitted after the extension ends' do
+        request.update!(created_at: extended_to + 1.hour)
+        expect(presenter.submitted_after_current_deadline?).to be(true)
+      end
+
+      it 'uses the latest-ending extension when there are several' do
+        later = assignment.due_date + 3.days
+        Request.create!(user: student, course:, assignment:, reason: 'Second',
+                        requested_due_date: later, status: 'approved')
+
+        expect(presenter.current_due_date).to be_within(1.second).of(later)
+      end
+    end
+  end
+
   describe '#provisioned?' do
     it 'is false when no LMS extension id is recorded' do
       expect(presenter.provisioned?).to be(false)
