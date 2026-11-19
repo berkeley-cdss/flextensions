@@ -3,10 +3,12 @@
 # Table name: requests
 #
 #  id                        :bigint           not null, primary key
+#  action_log                :jsonb            not null
 #  auto_approved             :boolean          default(FALSE), not null
 #  custom_q1                 :text
 #  custom_q2                 :text
 #  documentation             :text
+#  last_action_at            :datetime
 #  reason                    :text
 #  requested_due_date        :datetime
 #  status                    :enum             default("pending"), not null
@@ -34,6 +36,8 @@
 #  fk_rails_...  (user_id => users.id)
 #
 class Request < ApplicationRecord
+  include ActionLog
+
   # How due dates are written in emails to students.
   EMAIL_DATE_FORMAT = '%a, %b %-d, %Y %-I:%M %p'.freeze
 
@@ -44,6 +48,10 @@ class Request < ApplicationRecord
 
   delegate :form_setting, to: :course, allow_nil: true
   validates :requested_due_date, :reason, presence: true
+
+  # last_action_at follows the status: whatever approves or denies a request,
+  # the time it happened is recorded with it.
+  before_save :stamp_last_action_at, if: :will_save_change_to_status?
 
   scope :pending, -> { where(status: 'pending') }
   scope :for_user, ->(user) { where(user: user).includes(:assignment) }
@@ -68,6 +76,13 @@ class Request < ApplicationRecord
     pending? || denied?
   end
 
+  # When the request was approved or denied. last_action_at is set on every
+  # status change; updated_at only covers a record whose status was written
+  # around the model (e.g. update_column).
+  def decided_at
+    last_action_at || updated_at
+  end
+
   # Provisions the extension for this request through the assignment's LMS,
   # acting on behalf of acting_user. Returns false when the assignment has no
   # LMS facade. Shared by the single approve action and mass-approval so the
@@ -76,7 +91,16 @@ class Request < ApplicationRecord
     facade = assignment&.lms_facade
     return false unless facade
 
-    approve(facade.from_user(acting_user), acting_user)
+    begin
+      lms_facade = facade.from_user(acting_user)
+    rescue LmsFacade::LmsAPIError => e
+      # e.g. the staff member has never connected their Canvas account.
+      errors.add(:base, e.message)
+      log_action(:approval_failed, "#{lms_name} could not be used on #{acting_user.name}'s behalf: #{e.message}", actor: acting_user)
+      return false
+    end
+
+    approve(lms_facade, acting_user)
   end
 
   # Class methods
@@ -144,8 +168,18 @@ class Request < ApplicationRecord
   # staff member may have left the Canvas course, so when one staff user's
   # token cannot be refreshed or the LMS rejects the approval, fall back to
   # the next staff user rather than giving up.
+  #
+  # Whenever the course auto-approves requests and this one stays pending, the
+  # reason is added to the action log.
   def try_auto_approval(_current_user)
-    return false unless eligible_for_auto_approval?
+    # A course that does not auto-approve has nothing to explain.
+    return false unless auto_approval_eligible_for_course?
+
+    ineligibility = auto_approval_ineligibility
+    if ineligibility
+      log_action(:auto_approval_skipped, ineligibility)
+      return false
+    end
 
     candidates = course.staff_users_for_auto_approval
     if candidates.empty?
@@ -153,18 +187,21 @@ class Request < ApplicationRecord
       return false
     end
 
+    unrefreshable = []
     candidates.each do |approval_user|
       if approval_user.ensure_fresh_canvas_token!.blank?
         Rails.logger.warn "Auto-approval for request #{id}: could not refresh the Canvas token for staff user #{approval_user.id}; trying the next staff user."
+        unrefreshable << approval_user.name
         next
       end
 
-      return true if auto_approve(assignment.lms_facade.from_user(approval_user))
+      return true if auto_approve(assignment.lms_facade.from_user(approval_user), via: approval_user)
 
       Rails.logger.warn "Auto-approval for request #{id}: the LMS rejected the approval as staff user #{approval_user.id}; trying the next staff user."
     end
 
-    flag_auto_approval_breakdown("no staff member's Canvas access is currently working")
+    detail = "Canvas access could not be refreshed for #{unrefreshable.to_sentence}." if unrefreshable.any?
+    flag_auto_approval_breakdown("no staff member's Canvas access is currently working", detail)
     false
   end
 
@@ -173,29 +210,48 @@ class Request < ApplicationRecord
   end
 
   def eligible_for_auto_approval?
-    return false unless auto_approval_eligible_for_course?
-    return false unless meets_min_hours_before_deadline?
+    auto_approval_eligible_for_course? && auto_approval_ineligibility.nil?
+  end
+
+  # Why this request falls outside the course's auto-approval rules, as a
+  # sentence for the action log, or nil when it meets all of them. Only
+  # meaningful for a course that auto-approves at all (see
+  # auto_approval_eligible_for_course?).
+  def auto_approval_ineligibility
+    settings = course.course_settings
+    unless meets_min_hours_before_deadline?
+      min_hours = settings.min_hours_before_deadline.to_i
+      return 'The assignment deadline has already passed.' if min_hours.zero?
+
+      return "The course only auto-approves requests made at least #{min_hours} #{'hour'.pluralize(min_hours)} before the assignment deadline."
+    end
 
     enrollment = Enrollment.find_by(user: user, course: course)
-    return false if enrollment.nil?
+    return 'The student is not enrolled in this course.' if enrollment.nil?
+
     if enrollment.allow_extended_requests
       # Extended-request students get at least the standard window; a course
       # that leaves auto_approve_extended_request_days at 0 must not exclude
       # them from the auto-approval every other student gets.
-      max_days = [ course.course_settings.auto_approve_extended_request_days,
-                   course.course_settings.auto_approve_days ].max
+      max_days = [ settings.auto_approve_extended_request_days, settings.auto_approve_days ].max
     else
-      max_days = course.course_settings.auto_approve_days
+      max_days = settings.auto_approve_days
     end
 
     days_difference = calculate_days_difference
-    return false if days_difference <= 0 || (days_difference > max_days)
+    return "The requested due date is not after the assignment's due date." if days_difference <= 0
+    if days_difference > max_days
+      return "The request is for #{days_difference} #{'day'.pluralize(days_difference)}, " \
+             "more than the #{max_days} #{'day'.pluralize(max_days)} this course auto-approves for this student."
+    end
 
-    max_approvals = course.course_settings.max_auto_approve
-    return true if max_approvals.zero? # If max is 0, there's no limit
+    max_approvals = settings.max_auto_approve
+    return nil if max_approvals.zero? # If max is 0, there's no limit
 
     auto_approved_count = Request.auto_approved_for_user_in_course(user, course).count
-    auto_approved_count < max_approvals
+    return nil if auto_approved_count < max_approvals
+
+    "The student has already used all #{max_approvals} of the auto-approved extensions this course allows."
   end
 
   # When enabled, a request is only eligible for auto-approval if it is made at
@@ -217,17 +273,25 @@ class Request < ApplicationRecord
 
   # Approves the request as the system user and marks it auto-approved.
   # Eligibility is the caller's responsibility (see try_auto_approval).
-  def auto_approve(lms_facade_from_user)
+  # via is the staff member whose LMS access the facade is using.
+  def auto_approve(lms_facade_from_user, via: nil)
     system_user = SystemUserService.ensure_auto_approval_user_exists
 
-    # Reuse the regular approve method but mark as auto-approved afterward
-    result = approve(lms_facade_from_user, system_user)
-    update(auto_approved: true) if result
-    result
+    approve(lms_facade_from_user, system_user, auto_approved: true, via: via)
   end
 
+  # Creates the extension in the LMS and, only once the LMS has confirmed it,
+  # marks the request approved. When the LMS fails or refuses, the request is
+  # left exactly as it was and the failure is added to the action log.
+  #
+  # via names the staff member whose LMS access is being used when that is not
+  # processed_user (auto-approval acts as the system user), so a failure in the
+  # log points at the access that needs fixing.
+  #
   # TODO: All of these code should really be moved to each LMS' facade class
-  def approve(lms_facade, processed_user_id)
+  def approve(lms_facade, processed_user, auto_approved: false, via: nil)
+    using = " using #{via.name}'s access" if via
+
     begin
       case lms_facade
       when CanvasFacade
@@ -248,21 +312,40 @@ class Request < ApplicationRecord
         dates[:due_date].iso8601,
         dates[:late_due_date]&.iso8601
       )
+      # A facade that returns nothing has not confirmed the extension exists.
+      raise LmsFacade::LmsAPIError, "#{lms_name} did not confirm that the extension was created" if override.nil?
     rescue => e
       Rails.logger.error "Error during LMS extension provisioning for request #{id}: #{e.message}"
       Rails.error.report(e, handled: true,
                          context: { component: 'lms_provisioning', request_id: id, course_id: course_id, lms: lms_facade.class.name })
       self.errors.add(:base, 'Failed to provision extension in LMS.')
       self.errors.add(:base, e.message)
+      log_action(:approval_failed, "The extension could not be created in #{lms_name}#{using}: #{e.message}", actor: processed_user)
       return false
     end
 
-    update(
-      status: 'approved',
-      last_processed_by_user_id: processed_user_id.id,
-      external_extension_id: override&.id)
+    recorded = record_decision(
+      'approved', processed_user,
+      action: auto_approved ? :auto_approved : :approved,
+      message: "Extension created in #{lms_name}#{using}, due #{dates[:due_date].strftime(EMAIL_DATE_FORMAT)}.",
+      external_extension_id: override.id,
+      auto_approved: auto_approved
+    )
+    unless recorded
+      log_action(:approval_failed,
+                 "The extension was created in #{lms_name}#{using}, but the request could not be saved as approved: " \
+                 "#{errors.full_messages.to_sentence}",
+                 actor: processed_user)
+      return false
+    end
+
     send_email_response if course.course_settings.enable_emails
     true
+  end
+
+  # Name of the LMS this request's assignment lives in, for messages to staff.
+  def lms_name
+    assignment.course_to_lms&.lms&.lms_name.presence || 'the LMS'
   end
 
   # Returns the AssignmentDateCalculator for this request
@@ -281,11 +364,24 @@ class Request < ApplicationRecord
     date_calculator.late_due_date
   end
 
-  def reject(processed_user_id)
-    update(status: 'denied', last_processed_by_user_id: processed_user_id.id)
-    # Only send email if the person processing is the same as the request's user
-    send_email_response if course.course_settings.enable_emails && processed_user_id.id != user_id
+  # Denies the request. Nothing has been created in the LMS for a request that
+  # is still pending, so there is no external system to wait on here. A student
+  # withdrawing their own request is logged as a cancellation.
+  def reject(processed_user)
+    own_request = processed_user.id == user_id
+    return false unless record_decision('denied', processed_user, action: own_request ? :canceled : :denied)
+
+    # Students are not emailed about a request they canceled themselves.
+    send_email_response if course.course_settings.enable_emails && !own_request
     true
+  end
+
+  # Denies the request because staff filed a new one for the same assignment
+  # on the student's behalf. Unlike reject, the student is not emailed: the new
+  # request sends its own notifications.
+  def supersede(processed_user)
+    record_decision('denied', processed_user, action: :denied,
+                                              message: 'Replaced by a new request that course staff filed for the student.')
   end
 
   # Based on this request, set the right 3 assignment dates
@@ -404,10 +500,33 @@ class Request < ApplicationRecord
 
   private
 
-  def flag_auto_approval_breakdown(reason)
+  def stamp_last_action_at
+    self.last_action_at = Time.current unless will_save_change_to_last_action_at?
+  end
+
+  # Moves the request to a new status and logs who did it, as one unit: the
+  # status never changes without its log entry. Returns false, leaving the
+  # request as it was, when it cannot be saved.
+  def record_decision(new_status, processed_user, action:, message: nil, **attributes)
+    attributes = attributes.merge(status: new_status, last_processed_by_user_id: processed_user.id)
+    transaction do
+      unless update(attributes)
+        restore_attributes(attributes.keys.map(&:to_s))
+        next false
+      end
+
+      log_action(action, message, actor: processed_user)
+      true
+    end
+  end
+
+  def flag_auto_approval_breakdown(reason, detail = nil)
     @auto_approval_breakdown = reason
     Rails.logger.warn "Auto-approval broken for request #{id} in course #{course.id}: #{reason}. " \
                       'A staff member must log in to Flextensions to reconnect Canvas.'
+    log_action(:auto_approval_failed,
+               [ "The request met the auto-approval rules, but #{reason}.", detail,
+                 'A staff member should log in to Flextensions to reconnect Canvas, then approve the request.' ].compact.join(' '))
   end
 
   def auto_approval_breakdown_slack_note

@@ -17,11 +17,9 @@ class PendingRequestsNotificationJob < ApplicationJob
       pending_requests = course.requests.pending.includes(:user, :assignment).order(:created_at).to_a
       next if pending_requests.empty?
 
-      # Requests carry no approved-at timestamp, so updated_at is the closest
-      # proxy for when an auto-approval happened.
       auto_approved_count = course.requests
                                   .where(status: 'approved', auto_approved: true)
-                                  .where(updated_at: window_start..)
+                                  .where(last_action_at: window_start..)
                                   .count
 
       PendingRequestsMailer.pending_requests_email(

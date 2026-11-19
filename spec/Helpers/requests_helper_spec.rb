@@ -40,4 +40,38 @@ RSpec.describe RequestsHelper, type: :helper do
       expect(html).to include('Homework 1 [Gradescope]')
     end
   end
+
+  describe 'flagging failed approvals' do
+    let(:assignment) { create(:assignment, course_to_lms: canvas_link, enabled: true) }
+    let(:request) { create(:request, course: course, assignment: assignment) }
+
+    it 'renders no badge for a request without an unresolved failure' do
+      expect(helper.failure_badge(request.unresolved_failure)).to be_nil
+    end
+
+    it 'renders a badge that names the failure and carries its detail' do
+      request.log_action(:auto_approval_failed, 'No staff Canvas access is working.')
+
+      badge = Nokogiri::HTML.fragment(helper.failure_badge(request.unresolved_failure)).at_css('span.badge')
+
+      expect(badge.text.squish).to eq('Auto-approval failed')
+      expect(badge['title']).to eq('No staff Canvas access is working.')
+    end
+
+    it 'includes the failure in the exported status of a pending request' do
+      expect(helper.status_export_string(request)).to eq('Pending')
+
+      request.log_action(:approval_failed, 'HTTP 500')
+
+      expect(helper.status_export_string(request)).to eq('Pending (Approval failed: HTTP 500)')
+    end
+
+    it 'dates a decided request by when it was decided, not when it was last touched' do
+      staff = create(:user, name: 'Grace Hopper')
+      travel_to(Time.zone.local(2026, 3, 2, 9, 30)) { request.reject(staff) }
+      request.update!(reason: 'Edited later')
+
+      expect(helper.status_export_string(request)).to eq('Denied on Mon, Mar 2 at 9:30am by Grace Hopper')
+    end
+  end
 end

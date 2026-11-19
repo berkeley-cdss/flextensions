@@ -71,6 +71,22 @@ RSpec.describe PendingRequestsNotificationJob, type: :job do
       expect(mail_bodies).to all include('In the past day 1 request has been auto approved.')
     end
 
+    it 'counts an auto-approval by when it was approved, not when the request was last touched' do
+      course.course_settings.update!(pending_notification_frequency: 'daily', pending_notification_email: 'prof@example.com')
+      Request.create!(course: course, assignment: assignment, user: student, status: 'pending',
+                      reason: 'Need more time', requested_due_date: 5.days.from_now)
+      old_user = create(:user, canvas_uid: 'stu_notif_auto3', email: 'auto3@example.com')
+      old_approval = travel_to(2.days.ago) do
+        Request.create!(course: course, assignment: assignment, user: old_user, status: 'approved',
+                        auto_approved: true, reason: 'Auto', requested_due_date: 4.days.from_now)
+      end
+      old_approval.update!(documentation: 'Added today')
+
+      described_class.perform_now('daily')
+
+      expect(mail_bodies).to all include('In the past day 0 requests have been auto approved.')
+    end
+
     it 'sends email to courses set to hourly and words the window accordingly' do
       course.course_settings.update!(pending_notification_frequency: 'hourly', pending_notification_email: 'prof@example.com')
       Request.create!(course: course, assignment: assignment, user: student, status: 'pending',

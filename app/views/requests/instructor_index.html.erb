@@ -117,17 +117,19 @@
                       <% case request.status %>
                         <% when 'pending' %>
                           <span class="badge text-bg-info">Pending</span>
+                          <%= failure_badge(request.unresolved_failure) %>
                         <% when 'approved' %>
                           <% if request.auto_approved %>
                             <span class="badge text-bg-success">Auto Approved</span>
                           <% else %>
                             <span class="badge text-bg-success">Approved</span>
                           <% end %>
-                          on <%= request.updated_at.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %>
+                          on <%= request.decided_at.strftime('%a, %b %-d at %-I:%M%P') %>
                           by <%= request.auto_approved ? 'Auto Approval System' : request.last_processed_by_user&.name || 'Unknown' %>
                         <% when 'denied' %>
                           <span class="badge text-bg-danger me-3">Denied</span>
-                          on <%= request.updated_at.strftime('%a, %b %-d at %-I:%M%P') || 'N/A' %>
+                          <%= failure_badge(request.unresolved_failure) %>
+                          on <%= request.decided_at.strftime('%a, %b %-d at %-I:%M%P') %>
                           by <%= request.last_processed_by_user&.name || 'Unknown' %>
                         <% else %>
                           <span class="badge text-bg-secondary">Unknown</span>

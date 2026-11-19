@@ -424,10 +424,10 @@ describe GradescopeFacade do
         allow(mock_client).to receive(:get).and_return(nil)
       end
 
-      it 'logs error and returns nil' do
-        expect(Rails.logger).to receive(:error).with(/Failed to fetch assignment extensions: No response/)
-        result = facade.provision_extension(course_id, student_email, assignment_id, new_due_date)
-        expect(result).to be_nil
+      it 'raises rather than reporting an extension that was never created' do
+        expect do
+          facade.provision_extension(course_id, student_email, assignment_id, new_due_date)
+        end.to raise_error(GradescopeFacade::GradescopeAPIError, /no response/)
       end
     end
 
@@ -436,9 +436,10 @@ describe GradescopeFacade do
         allow(mock_client).to receive_messages(get: html_response, extract_react_props: nil)
       end
 
-      it 'returns nil' do
-        result = facade.provision_extension(course_id, student_email, assignment_id, new_due_date)
-        expect(result).to be_nil
+      it 'raises' do
+        expect do
+          facade.provision_extension(course_id, student_email, assignment_id, new_due_date)
+        end.to raise_error(GradescopeFacade::GradescopeAPIError, /Could not read the student list/)
       end
     end
 
@@ -447,10 +448,10 @@ describe GradescopeFacade do
         allow(mock_client).to receive_messages(get: html_with_students, extract_react_props: students_data)
       end
 
-      it 'logs error and returns nil' do
-        expect(Rails.logger).to receive(:error).with(/Failed to fetch assignment extensions: Student nonexistent@example.com not found/)
-        result = facade.provision_extension(course_id, 'nonexistent@example.com', assignment_id, new_due_date)
-        expect(result).to be_nil
+      it 'raises, naming the student' do
+        expect do
+          facade.provision_extension(course_id, 'nonexistent@example.com', assignment_id, new_due_date)
+        end.to raise_error(GradescopeFacade::GradescopeAPIError, /Student nonexistent@example.com was not found/)
       end
     end
 
@@ -460,10 +461,10 @@ describe GradescopeFacade do
         allow(facade).to receive(:get_existing_student_override).and_return(nil)
       end
 
-      it 'logs error and returns nil' do
-        expect(Rails.logger).to receive(:error).with(/Failed to verify extension creation for student #{student_email}/)
-        result = facade.provision_extension(course_id, student_email, assignment_id, new_due_date)
-        expect(result).to be_nil
+      it 'raises' do
+        expect do
+          facade.provision_extension(course_id, student_email, assignment_id, new_due_date)
+        end.to raise_error(GradescopeFacade::GradescopeAPIError, /did not show an extension for #{student_email}/)
       end
     end
 
