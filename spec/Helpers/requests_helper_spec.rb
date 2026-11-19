@@ -19,6 +19,19 @@ RSpec.describe RequestsHelper, type: :helper do
     end
   end
 
+  describe '#status_export_string' do
+    let(:assignment) { create(:assignment, course_to_lms: canvas_link, enabled: true) }
+    let(:request) { create(:request, course: course, assignment: assignment) }
+
+    it 'dates a decided request by when it was decided, not when it was last touched' do
+      staff = create(:user, name: 'Grace Hopper')
+      travel_to(Time.zone.local(2026, 3, 2, 9, 30)) { request.reject(staff) }
+      request.update!(reason: 'Edited later')
+
+      expect(helper.status_export_string(request)).to eq('Denied on Mon, Mar 2 at 9:30am by Grace Hopper')
+    end
+  end
+
   describe '#assignment_select_options' do
     let!(:canvas_hw) { create(:assignment, name: 'Homework 1', course_to_lms: canvas_link, enabled: true) }
     let!(:gradescope_hw) { create(:assignment, name: 'Homework 1', course_to_lms: gradescope_link, enabled: true) }

@@ -7,6 +7,7 @@
 #  custom_q1                 :text
 #  custom_q2                 :text
 #  documentation             :text
+#  last_action_at            :datetime
 #  reason                    :text
 #  requested_due_date        :datetime
 #  status                    :enum             default("pending"), not null
@@ -877,6 +878,75 @@ RSpec.describe Request, type: :model do
     it 'is false for an approved request' do
       request.update!(status: 'approved')
       expect(request.approvable?).to be(false)
+    end
+  end
+
+  describe 'last_action_at' do
+    let(:lms_facade) { CanvasFacade.new('fake_token') }
+
+    it 'is blank until the request is decided' do
+      expect(request.last_action_at).to be_nil
+    end
+
+    it 'is set when the request is approved' do
+      allow(lms_facade).to receive(:provision_extension).and_return(instance_double(Lmss::Canvas::Override, id: 'override-1'))
+
+      freeze_time do
+        request.approve(lms_facade, instructor)
+
+        expect(request.reload.last_action_at).to eq(Time.current)
+      end
+    end
+
+    it 'is set when the request is denied' do
+      freeze_time do
+        request.reject(instructor)
+
+        expect(request.reload.last_action_at).to eq(Time.current)
+      end
+    end
+
+    it 'is not moved by changes that leave the status alone' do
+      request.reject(instructor)
+      decided_at = request.reload.last_action_at
+
+      travel_to(1.day.from_now) { request.update!(reason: 'Edited afterwards') }
+
+      expect(request.reload.last_action_at).to eq(decided_at)
+    end
+
+    it 'moves again when the decision is changed' do
+      request.reject(instructor)
+
+      travel_to(1.day.from_now) do
+        request.update!(status: 'approved')
+        expect(request.reload.last_action_at).to eq(Time.current.change(usec: 0))
+      end
+    end
+
+    it 'is not moved by a failed attempt to approve' do
+      allow(lms_facade).to receive(:provision_extension).and_raise(StandardError, 'boom')
+      request.reject(instructor)
+      decided_at = request.reload.last_action_at
+
+      travel_to(1.day.from_now) { request.approve(lms_facade, instructor) }
+
+      expect(request.reload.last_action_at).to eq(decided_at)
+    end
+  end
+
+  describe '#decided_at' do
+    it 'is when the request was last approved or denied' do
+      request.reject(instructor)
+
+      expect(request.decided_at).to eq(request.last_action_at)
+    end
+
+    it 'falls back to updated_at when the status was written around the model' do
+      request.update_columns(status: 'denied') # rubocop:disable Rails/SkipsModelValidations
+
+      expect(request.last_action_at).to be_nil
+      expect(request.decided_at).to eq(request.updated_at)
     end
   end
 
