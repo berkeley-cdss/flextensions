@@ -248,6 +248,8 @@ class Request < ApplicationRecord
         dates[:due_date].iso8601,
         dates[:late_due_date]&.iso8601
       )
+      # A facade that returns nothing has not confirmed the extension exists.
+      raise LmsFacade::LmsAPIError, 'The LMS did not confirm that the extension was created' if override.nil?
     rescue => e
       Rails.logger.error "Error during LMS extension provisioning for request #{id}: #{e.message}"
       Rails.error.report(e, handled: true,

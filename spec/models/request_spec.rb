@@ -739,12 +739,12 @@ RSpec.describe Request, type: :model do
       expect(request.external_extension_id).to eq('override-1')
     end
 
-    it 'allows nil overrides but still approves the request' do
+    it 'does not approve the request when the LMS returns no extension' do
       allow(lms_facade).to receive(:provision_extension).and_return(nil)
 
-      expect(request.approve(lms_facade, instructor)).to be(true)
-      expect(request.external_extension_id).to be_nil
-      expect(request.status).to eq('approved')
+      expect(request.approve(lms_facade, instructor)).to be(false)
+      expect(request.errors[:base]).to include('The LMS did not confirm that the extension was created')
+      expect(request.reload.status).to eq('pending')
     end
 
     it 'adds an error and returns false when provisioning fails' do
@@ -825,7 +825,7 @@ RSpec.describe Request, type: :model do
         expect(request.external_extension_id).to eq('gs-override-1')
       end
 
-      it 'allows nil override but still approves for Gradescope' do
+      it 'does not approve the request when Gradescope returns no extension' do
         allow(gradescope_facade).to receive(:provision_extension).and_return(nil)
         allow(mock_date_calculator).to receive(:calculate).and_return({
           release_date: nil,
@@ -834,9 +834,8 @@ RSpec.describe Request, type: :model do
         })
         allow(request).to receive(:date_calculator).and_return(mock_date_calculator)
 
-        expect(request.approve(gradescope_facade, instructor)).to be(true)
-        expect(request.external_extension_id).to be_nil
-        expect(request.status).to eq('approved')
+        expect(request.approve(gradescope_facade, instructor)).to be(false)
+        expect(request.reload.status).to eq('pending')
       end
     end
   end

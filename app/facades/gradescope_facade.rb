@@ -97,25 +97,22 @@ class GradescopeFacade < LmsFacade
   # @param   [String] newDueDate the date the assignment should be due.
   # @param   [String] newLateDueDate the late due date (optional, nil means no late due date set).
   # @return  [Lmss::Gradescope::BaseExtension] the extension that was provisioned.
+  # @raises  [GradescopeAPIError] if the extension could not be created or confirmed.
+  #   Callers rely on this: a return value means Gradescope has the extension.
   def provision_extension(course_id, student_email, assignment_id, new_due_date, new_late_due_date = nil)
     ensure_authenticated!
     begin
       # get extension page
       html = @gradescope_conn.get("/courses/#{course_id}/assignments/#{assignment_id}/extensions")
-      if html.blank?
-        Rails.logger.error 'Failed to fetch assignment extensions: No response'
-        return nil
-      end
+      raise GradescopeAPIError, "Gradescope returned no response for the assignment's extensions page" if html.blank?
 
       # Extract React props containing students data from HTML
       students_data = @gradescope_conn.extract_react_props(html, 'AddExtension')
-      return nil unless students_data
+      raise GradescopeAPIError, "Could not read the student list from the assignment's extensions page on Gradescope" unless students_data
 
       student_data = students_data['students'].find { |s| s['email'] == student_email }
-      unless student_data
-        Rails.logger.error "Failed to fetch assignment extensions: Student #{student_email} not found"
-        return nil
-      end
+      raise GradescopeAPIError, "Student #{student_email} was not found in the Gradescope course" unless student_data
+
       student_id = student_data['id']
 
       # Build request payload
@@ -146,10 +143,8 @@ class GradescopeFacade < LmsFacade
 
       # get id of created extension
       override = get_existing_student_override(course_id, assignment_id, student_id)
-      unless override
-        Rails.logger.error "Failed to verify extension creation for student #{student_email}"
-        return nil
-      end
+      raise GradescopeAPIError, "Gradescope did not show an extension for #{student_email} after it was submitted" unless override
+
       override
     rescue => e
       Rails.logger.error "Failed to provision extension: #{e.message}"
