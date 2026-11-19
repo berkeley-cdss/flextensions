@@ -17,6 +17,9 @@
     <li>
       <%= link_to "#{request.user.name.presence || 'Unknown student'}, #{request.assignment.name}, #{pluralize(request.calculate_days_difference, 'day')}",
                   request.request_link %>
+      <% if (failure = request.unresolved_failure) %>
+        <br><strong><%= failure.label %>:</strong> <%= failure.message %>
+      <% end %>
     </li>
   <% end %>
   <% if @unlisted_count.positive? %>

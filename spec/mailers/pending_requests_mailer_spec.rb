@@ -69,6 +69,20 @@ RSpec.describe PendingRequestsMailer do
       expect(mail.html_part.body.decoded).to include('Unknown student, HW1, 2 days')
     end
 
+    it 'points out pending requests whose approval failed' do
+      failed = create_pending_request(name: 'Alice', uid: 'mailer_stu_1')
+      failed.log_action(:approval_failed, 'The extension could not be created in Canvas: HTTP 500')
+      untouched = create_pending_request(name: 'Bob', uid: 'mailer_stu_2')
+
+      mail = build_mail([ failed, untouched ])
+
+      [ mail.html_part, mail.text_part ].each do |part|
+        body = part.body.decoded
+        expect(body).to include('Approval failed:').once
+        expect(body).to include('The extension could not be created in Canvas: HTTP 500')
+      end
+    end
+
     it 'caps the per-request list and links to the requests page for the rest' do
       stub_const('PendingRequestsMailer::MAX_LISTED_REQUESTS', 2)
       requests = 3.times.map { |i| create_pending_request(name: "Student #{i}", uid: "mailer_stu_#{i}") }

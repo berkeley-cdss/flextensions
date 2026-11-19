@@ -3,6 +3,7 @@
 # Table name: requests
 #
 #  id                        :bigint           not null, primary key
+#  action_log                :jsonb            not null
 #  auto_approved             :boolean          default(FALSE), not null
 #  custom_q1                 :text
 #  custom_q2                 :text
@@ -448,6 +449,59 @@ RSpec.describe Request, type: :model do
     end
   end
 
+  describe '#auto_approval_ineligibility' do
+    before { course_settings }
+
+    def request_for(days:)
+      described_class.create!(user: user, course: course, assignment: assignment, reason: 'Need more time',
+                              requested_due_date: assignment.due_date + days.days)
+    end
+
+    it 'is nil when the request meets every rule' do
+      expect(request_for(days: 2).auto_approval_ineligibility).to be_nil
+    end
+
+    it 'explains a request for more days than the course auto-approves' do
+      expect(request_for(days: 5).auto_approval_ineligibility)
+        .to eq('The request is for 5 days, more than the 3 days this course auto-approves for this student.')
+    end
+
+    it 'explains a requested date that is not after the due date' do
+      expect(request_for(days: -1).auto_approval_ineligibility)
+        .to eq("The requested due date is not after the assignment's due date.")
+    end
+
+    it 'explains a student who has used up their auto-approved extensions' do
+      2.times do
+        described_class.create!(user: user, course: course, assignment: assignment, reason: 'Earlier',
+                                requested_due_date: assignment.due_date + 1.day, status: 'approved', auto_approved: true)
+      end
+
+      expect(request_for(days: 2).auto_approval_ineligibility)
+        .to eq('The student has already used all 2 of the auto-approved extensions this course allows.')
+    end
+
+    it 'explains a request made too close to the deadline' do
+      course_settings.update!(enable_min_hours_before_deadline: true, min_hours_before_deadline: 72)
+
+      expect(request_for(days: 2).auto_approval_ineligibility)
+        .to eq('The course only auto-approves requests made at least 72 hours before the assignment deadline.')
+    end
+
+    it 'explains a request made after the deadline' do
+      course_settings.update!(enable_min_hours_before_deadline: true, min_hours_before_deadline: 0)
+      assignment.update!(due_date: 1.hour.ago)
+
+      expect(request_for(days: 2).auto_approval_ineligibility).to eq('The assignment deadline has already passed.')
+    end
+
+    it 'explains a student who is not enrolled' do
+      Enrollment.where(user: user, course: course).destroy_all
+
+      expect(request_for(days: 2).auto_approval_ineligibility).to eq('The student is not enrolled in this course.')
+    end
+  end
+
   describe '#try_auto_approval' do
     let(:canvas_facade) { instance_double(CanvasFacade) }
 
@@ -455,9 +509,29 @@ RSpec.describe Request, type: :model do
       allow(CanvasFacade).to receive(:new).and_return(canvas_facade)
     end
 
+    it 'logs nothing for a course that does not auto-approve' do
+      course.course_settings.update!(enable_extensions: true, auto_approve_days: 0, auto_approve_extended_request_days: 0)
+
+      expect(request.try_auto_approval(user)).to be false
+      expect(request.reload.action_log).to be_empty
+    end
+
+    it 'logs the rule a real request fell outside of' do
+      course_settings
+      too_long = described_class.create!(user: user, course: course, assignment: assignment, reason: 'Need more time',
+                                         requested_due_date: assignment.due_date + 6.days)
+
+      expect(too_long.try_auto_approval(user)).to be false
+
+      entry = too_long.reload.action_log_entries.last
+      expect(entry.label).to eq('Not auto-approved')
+      expect(entry.message).to include('The request is for 6 days')
+      expect(too_long.unresolved_failure).to be_nil
+    end
+
     context 'when auto approval is eligible and successful' do
       before do
-        allow(request).to receive_messages(eligible_for_auto_approval?: true, auto_approve: true)
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, auto_approval_ineligibility: nil, auto_approve: true)
       end
 
       it 'returns true' do
@@ -465,18 +539,28 @@ RSpec.describe Request, type: :model do
       end
 
       it 'calls auto_approve with a canvas_facade' do
-        expect(request).to receive(:auto_approve).with(canvas_facade)
+        expect(request).to receive(:auto_approve).with(canvas_facade, via: an_instance_of(User))
         request.try_auto_approval(user)
       end
     end
 
     context 'when request is not eligible for auto approval' do
       before do
-        allow(request).to receive(:eligible_for_auto_approval?).and_return(false)
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true,
+                                           auto_approval_ineligibility: 'The request is for 9 days.')
       end
 
       it 'returns false' do
         expect(request.try_auto_approval(user)).to be false
+      end
+
+      it 'logs why the request was not auto-approved' do
+        request.try_auto_approval(user)
+
+        entry = request.reload.action_log_entries.last
+        expect(entry.label).to eq('Not auto-approved')
+        expect(entry.message).to eq('The request is for 9 days.')
+        expect(entry).not_to be_failure
       end
 
       it 'does not call auto_approve' do
@@ -489,7 +573,7 @@ RSpec.describe Request, type: :model do
     # stored credentials, so no staff token is available to post the approval.
     context 'when no staff user has Canvas credentials' do
       before do
-        allow(request).to receive(:eligible_for_auto_approval?).and_return(true)
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, auto_approval_ineligibility: nil)
         course.staff_users.each { |staff| staff.lms_credentials.destroy_all }
       end
 
@@ -509,6 +593,14 @@ RSpec.describe Request, type: :model do
         expect(request.auto_approval_breakdown).to include('no staff member has connected')
       end
 
+      it 'logs the breakdown as a failure staff need to resolve' do
+        request.try_auto_approval(nil)
+
+        failure = request.reload.unresolved_failure
+        expect(failure.label).to eq('Auto-approval failed')
+        expect(failure.message).to include('met the auto-approval rules, but no staff member has connected a Canvas account')
+      end
+
       it 'does not call auto_approve' do
         expect(request).not_to receive(:auto_approve)
         request.try_auto_approval(nil)
@@ -520,7 +612,7 @@ RSpec.describe Request, type: :model do
       let(:working_staff) { course.staff_users.second }
 
       before do
-        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true, auto_approve: true)
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, auto_approval_ineligibility: nil, auto_approve: true)
         allow(course).to receive(:staff_users_for_auto_approval).and_return([ stale_staff, working_staff ])
         allow(stale_staff).to receive(:ensure_fresh_canvas_token!).and_return(nil)
         allow(working_staff).to receive(:ensure_fresh_canvas_token!).and_return('fresh_token')
@@ -542,7 +634,7 @@ RSpec.describe Request, type: :model do
       let(:working_staff) { course.staff_users.second }
 
       before do
-        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, auto_approval_ineligibility: nil)
         allow(course).to receive(:staff_users_for_auto_approval).and_return([ removed_staff, working_staff ])
         allow(removed_staff).to receive(:ensure_fresh_canvas_token!).and_return('token_without_course_access')
         allow(working_staff).to receive(:ensure_fresh_canvas_token!).and_return('fresh_token')
@@ -553,11 +645,31 @@ RSpec.describe Request, type: :model do
         expect(request.try_auto_approval(user)).to be true
         expect(request.auto_approval_breakdown).to be_nil
       end
+
+      it 'logs the rejection and then the approval that went through' do
+        allow(CanvasFacade).to receive(:new).and_call_original
+        failing_facade = CanvasFacade.new('token_without_course_access')
+        working_facade = CanvasFacade.new('fresh_token')
+        allow(CanvasFacade).to receive(:from_user).with(removed_staff).and_return(failing_facade)
+        allow(CanvasFacade).to receive(:from_user).with(working_staff).and_return(working_facade)
+        allow(failing_facade).to receive(:provision_extension)
+          .and_raise(CanvasFacade::CanvasAPIError, 'Canvas could not save the extension (HTTP 401)')
+        allow(working_facade).to receive(:provision_extension).and_return(instance_double(Lmss::Canvas::Override, id: 'override-1'))
+
+        expect(request.try_auto_approval(user)).to be true
+
+        failed, approved = request.reload.action_log_entries.last(2)
+        expect(failed.label).to eq('Approval failed')
+        expect(failed.message).to eq("The extension could not be created in Canvas using #{removed_staff.name}'s access: " \
+                                     'Canvas could not save the extension (HTTP 401)')
+        expect(approved.label).to eq('Auto-approved')
+        expect(request.unresolved_failure).to be_nil
+      end
     end
 
     context 'when every staff Canvas token is unusable' do
       before do
-        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, auto_approval_ineligibility: nil)
         staff = course.staff_users
         staff.each do |staff_user|
           allow(staff_user).to receive(:ensure_fresh_canvas_token!).and_return(nil)
@@ -570,6 +682,15 @@ RSpec.describe Request, type: :model do
         expect(request.auto_approval_breakdown).to include('Canvas access is currently working')
       end
 
+      it 'logs the breakdown, naming the staff whose Canvas access could not be refreshed' do
+        request.try_auto_approval(user)
+
+        failure = request.reload.unresolved_failure
+        expect(failure.label).to eq('Auto-approval failed')
+        expect(failure.message).to include("no staff member's Canvas access is currently working")
+        expect(failure.message).to include("Canvas access could not be refreshed for #{course.staff_users.map(&:name).to_sentence}.")
+      end
+
       it 'does not call auto_approve' do
         expect(request).not_to receive(:auto_approve)
         request.try_auto_approval(user)
@@ -578,19 +699,19 @@ RSpec.describe Request, type: :model do
 
     context 'when the first staff enrollment has no credentials but another staff user does' do
       before do
-        allow(request).to receive_messages(eligible_for_auto_approval?: true, auto_approve: true)
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, auto_approval_ineligibility: nil, auto_approve: true)
         course.enrollments.where(role: Enrollment.staff_roles).order(:id).first.user.lms_credentials.destroy_all
       end
 
       it 'still auto-approves using the credentialed staff user' do
-        expect(request).to receive(:auto_approve).with(canvas_facade)
+        expect(request).to receive(:auto_approve).with(canvas_facade, via: an_instance_of(User))
         expect(request.try_auto_approval(nil)).to be true
       end
     end
 
     context 'when the staff token is expiring and cannot be refreshed' do
       before do
-        allow(request).to receive(:eligible_for_auto_approval?).and_return(true)
+        allow(request).to receive_messages(auto_approval_eligible_for_course?: true, auto_approval_ineligibility: nil)
         course.staff_users.each { |staff| staff.lms_credentials.each { |cred| cred.update!(expire_time: 1.minute.from_now) } }
         allow_any_instance_of(LmsCredential).to receive(:refresh!).and_return(nil)
       end
@@ -609,7 +730,7 @@ RSpec.describe Request, type: :model do
     end
 
     it 'warns course staff in Slack when auto-approval broke down' do
-      allow(request).to receive_messages(auto_approval_eligible_for_course?: true, eligible_for_auto_approval?: true)
+      allow(request).to receive_messages(auto_approval_eligible_for_course?: true, auto_approval_ineligibility: nil)
       allow(course).to receive(:staff_users_for_auto_approval).and_return([])
 
       request.process_created_request(user)
@@ -644,15 +765,10 @@ RSpec.describe Request, type: :model do
       allow(request).to receive(:approve).and_return(true)
     end
 
-    it 'calls approve with the system user' do
+    it 'calls approve with the system user, marking the approval automatic' do
       system_user = SystemUserService.ensure_auto_approval_user_exists
-      expect(request).to receive(:approve).with(canvas_facade, system_user)
-      request.auto_approve(canvas_facade)
-    end
-
-    it 'marks the request as auto-approved' do
-      request.auto_approve(canvas_facade)
-      expect(request.auto_approved).to be true
+      expect(request).to receive(:approve).with(canvas_facade, system_user, auto_approved: true, via: instructor)
+      request.auto_approve(canvas_facade, via: instructor)
     end
 
     # TODO: Consider whether this kind of a case is worth testing / can even happen.
@@ -676,11 +792,6 @@ RSpec.describe Request, type: :model do
 
       it 'returns false' do
         expect(request.auto_approve(canvas_facade)).to be false
-      end
-
-      it 'does not mark the request as auto-approved' do
-        request.auto_approve(canvas_facade)
-        expect(request.auto_approved).to be_falsey
       end
     end
   end
@@ -756,6 +867,68 @@ RSpec.describe Request, type: :model do
       expect(request.status).to eq('pending')
     end
 
+    it 'logs the approval once the LMS has confirmed it' do
+      freeze_time do
+        request.approve(lms_facade, instructor)
+
+        entry = request.reload.action_log_entries.last
+        expect(entry.label).to eq('Approved')
+        expect(entry.actor_name).to eq('Instructor')
+        expect(entry.at).to eq(Time.current)
+        expect(entry.message).to include('Extension created in Canvas')
+      end
+    end
+
+    it 'records an automatic approval as such, naming whose LMS access was used' do
+      system_user = SystemUserService.ensure_auto_approval_user_exists
+
+      expect(request.approve(lms_facade, system_user, auto_approved: true, via: instructor)).to be(true)
+
+      request.reload
+      expect(request.auto_approved).to be(true)
+      entry = request.action_log_entries.last
+      expect(entry.label).to eq('Auto-approved')
+      expect(entry.message).to include("using Instructor's access")
+    end
+
+    it 'leaves the saved request untouched and logs the failure when provisioning fails' do
+      allow(lms_facade).to receive(:provision_extension).and_raise(StandardError.new('boom'))
+
+      request.approve(lms_facade, instructor)
+
+      request.reload
+      expect(request.status).to eq('pending')
+      expect(request.last_processed_by_user_id).to be_nil
+      failure = request.unresolved_failure
+      expect(failure.label).to eq('Approval failed')
+      expect(failure.actor_name).to eq('Instructor')
+      expect(failure.message).to eq('The extension could not be created in Canvas: boom')
+    end
+
+    it 'does not update the request until the LMS has answered' do
+      status_during_provisioning = nil
+      allow(lms_facade).to receive(:provision_extension) do
+        status_during_provisioning = described_class.find(request.id).status
+        provisioned_override
+      end
+
+      request.approve(lms_facade, instructor)
+
+      expect(status_during_provisioning).to eq('pending')
+      expect(request.reload.status).to eq('approved')
+    end
+
+    it 'reports a failure when the LMS succeeded but the request could not be saved' do
+      # An old record that no longer passes validation.
+      request.update_column(:reason, nil) # rubocop:disable Rails/SkipsModelValidations
+
+      expect(request.approve(lms_facade, instructor)).to be(false)
+
+      request.reload
+      expect(request.status).to eq('pending')
+      expect(request.unresolved_failure.message).to include('but the request could not be saved as approved')
+    end
+
     it 'returns false and records an error when facade does not support provisioning' do
       unsupported_facade = Object.new
 
@@ -772,6 +945,17 @@ RSpec.describe Request, type: :model do
         # Link the course to Gradescope so course.gradescope_id is present
         CourseToLms.create!(course: course, lms_id: GRADESCOPE_LMS_ID, external_course_id: 'gs-course-123')
         allow(gradescope_facade).to receive(:provision_extension).and_return(gs_override)
+      end
+
+      it 'logs the reason Gradescope gave when it refuses the extension' do
+        allow(gradescope_facade).to receive(:provision_extension)
+          .and_raise(GradescopeFacade::GradescopeAPIError, 'Student student@example.com was not found in the Gradescope course')
+
+        expect(request.approve(gradescope_facade, instructor)).to be(false)
+
+        request.reload
+        expect(request.status).to eq('pending')
+        expect(request.unresolved_failure.message).to include('Student student@example.com was not found in the Gradescope course')
       end
 
       it 'provisions an extension through Gradescope with email identifier' do
@@ -851,6 +1035,51 @@ RSpec.describe Request, type: :model do
       request.reject(instructor)
       expect(request.last_processed_by_user_id).to eq(instructor.id)
     end
+
+    it 'logs who denied the request' do
+      request.reject(instructor)
+
+      entry = request.reload.action_log_entries.last
+      expect(entry.label).to eq('Denied')
+      expect(entry.actor_name).to eq('Instructor')
+    end
+
+    it 'logs a student withdrawing their own request as a cancellation' do
+      request.reject(user)
+
+      entry = request.reload.action_log_entries.last
+      expect(entry.label).to eq('Canceled')
+      expect(entry.actor_name).to eq('Student')
+    end
+
+    it 'returns false and logs nothing when the request cannot be saved' do
+      request.update_column(:reason, nil) # rubocop:disable Rails/SkipsModelValidations
+
+      expect(request.reject(instructor)).to be(false)
+
+      expect(request.status).to eq('pending')
+      request.reload
+      expect(request.status).to eq('pending')
+      expect(request.action_log).to be_empty
+    end
+  end
+
+  describe '#supersede' do
+    before { course.course_settings.update!(enable_emails: true) }
+
+    it 'denies the request, noting it was replaced, without emailing the student' do
+      approved = described_class.create!(user: user, course: course, assignment: assignment,
+                                         reason: 'Earlier', requested_due_date: 4.days.from_now, status: 'approved')
+      allow(EmailService).to receive(:send_email)
+
+      expect(approved.supersede(instructor)).to be(true)
+
+      approved.reload
+      expect(approved.status).to eq('denied')
+      expect(approved.last_processed_by_user_id).to eq(instructor.id)
+      expect(approved.action_log_entries.last.message).to include('Replaced by a new request')
+      expect(EmailService).not_to have_received(:send_email)
+    end
   end
 
   describe '#pending?' do
@@ -903,6 +1132,17 @@ RSpec.describe Request, type: :model do
 
       expect(request.approve_by(instructor)).to be(true)
       expect(lms_facade).to have_received(:from_user).with(instructor)
+    end
+
+    it 'logs the failure when the LMS cannot be used on the staff member\'s behalf' do
+      instructor.lms_credentials.destroy_all
+
+      expect(request.approve_by(instructor)).to be(false)
+
+      request.reload
+      expect(request.status).to eq('pending')
+      expect(request.errors[:base]).to include('Cannot find Canvas token for user')
+      expect(request.unresolved_failure.message).to include('Cannot find Canvas token for user')
     end
 
     it 'returns false without approving when the assignment has no LMS facade' do
