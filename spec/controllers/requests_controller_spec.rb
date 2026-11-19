@@ -52,6 +52,22 @@ RSpec.describe RequestsController, type: :controller do
       expect(response).to render_template('requests/instructor_index')
     end
 
+    context 'when a pending request has a failed approval attempt' do
+      render_views
+
+      it 'flags the request in the staff table' do
+        session[:user_id] = instructor.canvas_uid
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+        request.log_action(:approval_failed, 'The extension could not be created in Canvas: HTTP 500', actor: instructor)
+
+        get :index, params: { course_id: course.id }
+
+        badge = Nokogiri::HTML(response.body).at_css('[data-failure-badge]')
+        expect(badge.text.squish).to eq('Approval failed')
+        expect(badge['title']).to eq('The extension could not be created in Canvas: HTTP 500')
+      end
+    end
+
     it 'assigns @search_query from params[:search]' do
       session[:user_id] = instructor.canvas_uid
       Enrollment.create!(user: instructor, course: teacher_course, role: 'teacher')
@@ -205,6 +221,48 @@ RSpec.describe RequestsController, type: :controller do
         get :show, params: { course_id: course.id, id: request.id }
 
         expect(response.body).not_to include(approve_course_request_path(course, request))
+      end
+    end
+
+    context 'with entries in the action log' do
+      render_views
+
+      before do
+        request.log_action(:auto_approval_skipped, 'The request is for 9 days.')
+        request.log_action(:approval_failed, 'The extension could not be created in Canvas: HTTP 500', actor: instructor)
+      end
+
+      it 'shows staff the log and calls out the unresolved failure' do
+        session[:user_id] = instructor.canvas_uid
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        page = Nokogiri::HTML(response.body)
+        log = page.at_css('#action-log').text.squish
+        expect(log).to include('Not auto-approved', 'The request is for 9 days.')
+        expect(log).to include('Approval failed by Instructor', 'The extension could not be created in Canvas: HTTP 500')
+        expect(page.at_css('.alert-danger').text.squish)
+          .to include('Approval failed.', 'This request is still pending', 'HTTP 500')
+      end
+
+      it 'does not show a failure alert once the request has been settled' do
+        session[:user_id] = instructor.canvas_uid
+        Enrollment.create!(user: instructor, course: course, role: 'teacher')
+        request.reject(instructor)
+
+        get :show, params: { course_id: course.id, id: request.id }
+
+        page = Nokogiri::HTML(response.body)
+        expect(page.at_css('.alert-danger')).to be_nil
+        expect(page.at_css('#action-log').text).to include('Approval failed', 'Denied')
+      end
+
+      it 'does not show the log to the student' do
+        get :show, params: { course_id: course.id, id: request.id }
+
+        expect(response.body).not_to include('Action Log')
+        expect(response.body).not_to include('HTTP 500')
       end
     end
   end
@@ -603,6 +661,27 @@ RSpec.describe RequestsController, type: :controller do
       expect(payload['message']).to match(/failed/i)
     end
 
+    it 'leaves the request pending, logs the failure, and reports it when Canvas refuses' do
+      stub_request(:post, "#{ENV.fetch('CANVAS_URL', nil)}/api/v1/courses/456/assignments/x1/overrides")
+        .with(headers: { 'Authorization' => 'Bearer instructor_token' })
+        .to_return(status: 500, body: '{}', headers: { 'Content-Type' => 'application/json' })
+
+      post :approve, params: { course_id: course.id, id: request.id }, format: :json
+
+      payload = response.parsed_body
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(payload['failure']).to include('Canvas could not save the extension (HTTP 500)')
+      request.reload
+      expect(request.status).to eq('pending')
+      expect(request.unresolved_failure.message).to eq(payload['failure'])
+    end
+
+    it 'records the approval in the action log' do
+      post :approve, params: { course_id: course.id, id: request.id }, format: :json
+
+      expect(request.reload.action_log_entries.last).to have_attributes(label: 'Approved', actor_name: 'Instructor')
+    end
+
     it 'approves a previously denied request' do
       request.update!(status: 'denied')
       allow_any_instance_of(Request).to receive(:approve).and_return(true)
@@ -721,6 +800,29 @@ RSpec.describe RequestsController, type: :controller do
       expect(payload['processed_ids']).to contain_exactly(pending_request_one.id, pending_request_two.id)
       expect(pending_request_one.reload.status).to eq('approved')
       expect(pending_request_two.reload.status).to eq('approved')
+    end
+
+    it 'reports why each failed request failed' do
+      allow_any_instance_of(Request).to receive(:approve) do |request_record, _lms_user_facade, processed_user|
+        if request_record == pending_request_two
+          request_record.log_action(:approval_failed, 'The extension could not be created in Canvas: HTTP 500', actor: processed_user)
+          false
+        else
+          request_record.update!(status: 'approved', last_processed_by_user_id: processed_user.id)
+          true
+        end
+      end
+
+      post :mass_approve, params: {
+        course_id: course.id,
+        request_ids: [ pending_request_one.id, pending_request_two.id ]
+      }, format: :json
+
+      payload = response.parsed_body
+      expect(payload['processed_ids']).to eq([ pending_request_one.id ])
+      expect(payload['failed_ids']).to eq([ pending_request_two.id ])
+      expect(payload['failures']).to eq(pending_request_two.id.to_s => 'The extension could not be created in Canvas: HTTP 500')
+      expect(pending_request_two.reload.status).to eq('pending')
     end
 
     it 'returns an error when no request IDs are provided' do

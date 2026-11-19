@@ -29,10 +29,23 @@ module RequestsHelper
     options_for_select(options, selected)
   end
 
+  # Badge that flags a request's unresolved failure (see
+  # Request#unresolved_failure) in the requests table; hovering shows the
+  # detail. requests_controller.js builds the same badge when an approval
+  # fails without a page reload, so keep the two in step.
+  def failure_badge(failure)
+    return unless failure
+
+    content_tag(:span, class: 'badge text-bg-warning', title: failure.message, data: { failure_badge: true }) do
+      safe_join([ content_tag(:i, '', class: 'fas fa-triangle-exclamation', aria: { hidden: true }), ' ', failure.label ])
+    end
+  end
+
   def status_export_string(request)
     case request.status
     when 'pending'
-      'Pending'
+      failure = request.unresolved_failure
+      failure ? "Pending (#{failure.label}: #{failure.message})" : 'Pending'
     when 'approved'
       if request.auto_approved
         "Auto Approved on #{request.updated_at.strftime('%a, %b %-d at %-I:%M%P')} by Auto Approval System"

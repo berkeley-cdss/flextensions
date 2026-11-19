@@ -119,7 +119,7 @@ class RequestsController < ApplicationController
       alert = "Failed to approve the request. #{@request.errors.full_messages.join(', ')}"
       respond_to do |format|
         format.html { flash[:alert] = alert; redirect_to course_requests_path(@course) }
-        format.json { render json: { success: false, message: alert }, status: :unprocessable_content }
+        format.json { render json: { success: false, message: alert, failure: @request.unresolved_failure&.message }, status: :unprocessable_content }
       end
     end
   end
@@ -275,7 +275,7 @@ class RequestsController < ApplicationController
 
   def reject_other_student_requests(student, assignment_id)
     @course.requests.where(user_id: student.id, assignment_id: assignment_id).where.not(status: 'denied').find_each do |req|
-      req.update(status: 'denied', last_processed_by_user_id: current_user.id)
+      req.supersede(current_user)
     end
   end
 
@@ -318,10 +318,17 @@ class RequestsController < ApplicationController
 
     processed_ids = []
     failed_ids = request_ids - requests.map(&:id)
+    # Why each request that was attempted failed, so the page can flag the row.
+    failures = {}
 
     requests.each do |request|
       result = action == :approve ? approve_request_for_mass_action(request) : request.reject(current_user)
-      result ? processed_ids << request.id : failed_ids << request.id
+      if result
+        processed_ids << request.id
+      else
+        failed_ids << request.id
+        failures[request.id] = request.unresolved_failure&.message if action == :approve
+      end
     end
 
     processed_count = processed_ids.size
@@ -340,12 +347,13 @@ class RequestsController < ApplicationController
       message: message,
       processed_ids: processed_ids,
       failed_ids: failed_ids,
+      failures: failures,
       new_status: action_label,
       status: processed_count.positive? ? :ok : :unprocessable_content
     )
   end
 
-  def render_mass_action_response(success:, message:, processed_ids:, failed_ids:, new_status:, status:)
+  def render_mass_action_response(success:, message:, processed_ids:, failed_ids:, new_status:, status:, failures: {})
     pending_count = @course.requests.pending.count
     respond_to do |format|
       format.html do
@@ -361,6 +369,7 @@ class RequestsController < ApplicationController
           message: message,
           processed_ids: processed_ids,
           failed_ids: failed_ids,
+          failures: failures,
           new_status: new_status,
           pending_count: pending_count
         }, status: status
