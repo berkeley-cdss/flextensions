@@ -157,7 +157,7 @@
 						<div class="mb-4">
 							<p class="text-muted small mb-0">
 								<%= @request.status.capitalize %>
-								on <%= @request.updated_at.strftime('%a, %b %-d, %Y %-I:%M%P') %>
+								on <%= @request.decided_at.strftime('%a, %b %-d, %Y %-I:%M%P') %>
 								by <%= @request.auto_approved ? 'Auto Approval System' : (@request.last_processed_by_user&.name || 'Unknown') %>
 							</p>
 							<%# Disabled: an "Extension provisioned in the LMS" confirmation

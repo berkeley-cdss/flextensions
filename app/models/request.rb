@@ -7,6 +7,7 @@
 #  custom_q1                 :text
 #  custom_q2                 :text
 #  documentation             :text
+#  last_action_at            :datetime
 #  reason                    :text
 #  requested_due_date        :datetime
 #  status                    :enum             default("pending"), not null
@@ -45,6 +46,10 @@ class Request < ApplicationRecord
   delegate :form_setting, to: :course, allow_nil: true
   validates :requested_due_date, :reason, presence: true
 
+  # last_action_at follows the status: whatever approves or denies a request,
+  # the time it happened is recorded with it.
+  before_save :stamp_last_action_at, if: :will_save_change_to_status?
+
   scope :pending, -> { where(status: 'pending') }
   scope :for_user, ->(user) { where(user: user).includes(:assignment) }
   scope :approved_for_user_in_course, lambda { |user, course|
@@ -66,6 +71,13 @@ class Request < ApplicationRecord
   # denial (e.g. one denied by mistake). Approved requests stay as they are.
   def approvable?
     pending? || denied?
+  end
+
+  # When the request was approved or denied. last_action_at is set on every
+  # status change; updated_at only covers a record whose status was written
+  # around the model (e.g. update_column).
+  def decided_at
+    last_action_at || updated_at
   end
 
   # Provisions the extension for this request through the assignment's LMS,
@@ -457,5 +469,9 @@ class Request < ApplicationRecord
 
     success = SlackNotifier.notify(slack_message, course.course_settings.slack_webhook_url)
     Rails.logger.error "Failed to send Slack notification for request #{id} in course #{course.id}. Please check your webhook URL." unless success
+  end
+
+  def stamp_last_action_at
+    self.last_action_at = Time.current unless will_save_change_to_last_action_at?
   end
 end
