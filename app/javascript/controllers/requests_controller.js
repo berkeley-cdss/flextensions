@@ -126,6 +126,7 @@ export default class extends Controller {
                 this._dispatchFlash('notice', data.message);
             } else {
                 allBtns.forEach((btn) => { btn.disabled = false; });
+                if (data.failure) this._flagRowFailure(button.closest('tr'), data.failure);
                 this._dispatchFlash('alert', data.message || 'An error occurred.');
             }
         } catch {
@@ -158,6 +159,7 @@ export default class extends Controller {
             } else {
                 this._dispatchFlash('alert', data.message || 'An error occurred.');
             }
+            this._flagMassFailures(data.failures);
         } catch {
             this._dispatchFlash('alert', 'Network error. Please try again.');
         } finally {
@@ -191,6 +193,36 @@ export default class extends Controller {
         }
 
         this._updatePendingCount(data.pending_count);
+    }
+
+    // failures maps request id => why the attempt on that request failed.
+    _flagMassFailures(failures) {
+        Object.entries(failures || {}).forEach(([id, message]) => {
+            if (!message) return;
+            const checkbox = this.rowCheckboxTargets.find((cb) => Number(cb.dataset.requestId) === Number(id));
+            if (checkbox) this._flagRowFailure(checkbox.closest('tr'), message);
+        });
+    }
+
+    // Marks a row whose approval just failed, the same way the server renders
+    // it on the next page load (see failure_badge in RequestsHelper). The
+    // failure itself is already saved in the request's action log.
+    _flagRowFailure(tr, message) {
+        const statusTd = tr && tr.querySelector('td[data-export]');
+        if (!statusTd) return;
+
+        let badge = statusTd.querySelector('[data-failure-badge]');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'badge text-bg-warning';
+            badge.dataset.failureBadge = 'true';
+            const container = statusTd.querySelector('a') || statusTd;
+            container.append(' ', badge);
+        }
+        badge.innerHTML = '<i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Approval failed';
+        badge.title = message;
+        statusTd.setAttribute('data-export', `Pending (Approval failed: ${message})`);
+        if (this.table) this.table.row(tr).invalidate();
     }
 
     _applyRowOutcome(tr, newStatus) {

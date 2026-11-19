@@ -1,0 +1,31 @@
+<%# The request's action log, for course staff: every approval, denial, and
+    failed attempt, newest last. Never shown to students -- entries name staff
+    members and carry LMS error details. %>
+<div class="card mb-4" id="action-log">
+	<div class="card-header bg-light">
+		<h3 class="card-title mb-0 h6">Action Log</h3>
+	</div>
+	<% if entries.empty? %>
+		<div class="card-body">
+			<p class="text-muted mb-0">Nothing has been done with this request yet.</p>
+		</div>
+	<% else %>
+		<ul class="list-group list-group-flush">
+			<% entries.each do |entry| %>
+				<li class="list-group-item <%= 'list-group-item-danger' if entry.failure? %>">
+					<div class="d-flex flex-wrap justify-content-between gap-2">
+						<span>
+							<% if entry.failure? %><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><% end %>
+							<strong><%= entry.label %></strong>
+							<% if entry.actor_name.present? %>by <%= entry.actor_name %><% end %>
+						</span>
+						<span class="text-muted small"><%= entry.at.strftime('%a, %b %-d, %Y %-I:%M%P') %></span>
+					</div>
+					<% if entry.message.present? %>
+						<div class="small"><%= entry.message %></div>
+					<% end %>
+				</li>
+			<% end %>
+		</ul>
+	<% end %>
+</div>
